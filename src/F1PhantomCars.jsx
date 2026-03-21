@@ -126,6 +126,7 @@ const CAM_LABELS = { orbit: "Orbit", follow1: "Follow D1", follow2: "Follow D2",
 function useThreeScene(containerRef, trackPoints, loc1, loc2, progress, c1, c2, theme, camMode, d1Label, d2Label) {
   const refs = useRef({});
   const camState = useRef({ angle: 0, pitch: 0.6, dist: 55, dragging: false, lastX: 0, lastY: 0, cinT: 0 });
+  const camModeRef = useRef(camMode);
   const norm1 = useMemo(() => loc1 ? normalize(loc1) : null, [loc1]);
   const norm2 = useMemo(() => loc2 ? normalize(loc2) : null, [loc2]);
 
@@ -145,7 +146,8 @@ function useThreeScene(containerRef, trackPoints, loc1, loc2, progress, c1, c2, 
 
     scene.add(new THREE.AmbientLight(0x334466, theme === "dark" ? 0.5 : 0.8));
     const dir = new THREE.DirectionalLight(0xffffff, theme === "dark" ? 0.8 : 1.0); dir.position.set(20, 40, 20); scene.add(dir);
-    scene.add(Object.assign(new THREE.PointLight(theme === "dark" ? 0x4488ff : 0x8888cc, 0.6, 100), { position: new THREE.Vector3(0, 15, 0) }));
+    const ptLight = new THREE.PointLight(theme === "dark" ? 0x4488ff : 0x8888cc, 0.6, 100);
+    ptLight.position.set(0, 15, 0); scene.add(ptLight);
 
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: T.groundColor, roughness: 0.95 }));
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; scene.add(ground);
@@ -190,7 +192,8 @@ function useThreeScene(containerRef, trackPoints, loc1, loc2, progress, c1, c2, 
 
     // Start/finish
     const sf = curve.getPointAt(0);
-    scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.3), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 })), { position: new THREE.Vector3(sf.x, sf.y + 0.1, sf.z) }));
+    const sfMesh = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 0.3), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 }));
+    sfMesh.position.set(sf.x, sf.y + 0.1, sf.z); scene.add(sfMesh);
 
     // Cars
     function makeCar(color, label) {
@@ -233,7 +236,19 @@ function useThreeScene(containerRef, trackPoints, loc1, loc2, progress, c1, c2, 
     function animate() {
       refs.current.frame = requestAnimationFrame(animate);
       cs.cinT += 0.0003;
-      if (!cs.dragging && camMode === "orbit") cs.angle += 0.001;
+      const cm = camModeRef.current;
+      if (cm === "orbit") {
+        if (!cs.dragging) cs.angle += 0.001;
+        camera.position.set(
+          Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch),
+          cs.dist * Math.sin(cs.pitch),
+          Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)
+        );
+        camera.lookAt(0, 0, 0);
+      } else if (cm === "top") {
+        camera.position.set(0, 70, 0);
+        camera.lookAt(0, 0, 0);
+      }
       renderer.render(scene, camera);
     }
     animate();
@@ -252,6 +267,7 @@ function useThreeScene(containerRef, trackPoints, loc1, loc2, progress, c1, c2, 
 
   useEffect(() => { refs.current.norm1 = norm1; }, [norm1]);
   useEffect(() => { refs.current.norm2 = norm2; }, [norm2]);
+  useEffect(() => { camModeRef.current = camMode; }, [camMode]);
 
   // Update cars + camera per frame
   useEffect(() => {
@@ -276,24 +292,20 @@ function useThreeScene(containerRef, trackPoints, loc1, loc2, progress, c1, c2, 
     const p1 = updateCar(car1, tr1, refs.current.norm1, progress);
     const p2 = updateCar(car2, tr2, refs.current.norm2, progress);
 
-    // Camera modes
+    // Camera modes (follow + cinematic need car positions, so they run here)
     if (camera) {
-      if (camMode === "orbit") {
-        camera.position.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch));
-        camera.lookAt(0, 0, 0);
-      } else if (camMode === "follow1" || camMode === "follow2") {
-        const target = camMode === "follow1" ? p1 : p2;
-        const pts = camMode === "follow1" ? (refs.current.norm1 || trackPoints) : (refs.current.norm2 || trackPoints);
+      const cm = camModeRef.current;
+      if (cm === "follow1" || cm === "follow2") {
+        const target = cm === "follow1" ? p1 : p2;
+        const pts = cm === "follow1" ? (refs.current.norm1 || trackPoints) : (refs.current.norm2 || trackPoints);
         const ahead = interpolate(pts, Math.min(1, progress + 0.02));
         const dx = ahead.x - target.x, dz = ahead.z - target.z;
         const len = Math.sqrt(dx * dx + dz * dz) || 1;
         camera.position.set(target.x - (dx / len) * 8, target.y + 5, target.z - (dz / len) * 8);
         camera.lookAt(ahead.x, target.y + 0.5, ahead.z);
-      } else if (camMode === "top") {
-        camera.position.set(0, 70, 0); camera.lookAt(0, 0, 0);
-      } else if (camMode === "cinematic" && curve) {
+      } else if (cm === "cinematic" && refs.current.curve) {
         const ct = (cs.cinT + progress * 0.3) % 1;
-        const cp = curve.getPointAt(ct);
+        const cp = refs.current.curve.getPointAt(ct);
         camera.position.set(cp.x + 8, cp.y + 6, cp.z + 8);
         const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2, z: (p1.z + p2.z) / 2 };
         camera.lookAt(mid.x, mid.y, mid.z);
@@ -313,7 +325,7 @@ const MiniMap = memo(function MM({ trackPoints, loc1, loc2, progress, c1, c2, th
     const ctx = c.getContext("2d"), s = c.width, pad = 12;
     ctx.clearRect(0, 0, s, s);
     // BG
-    ctx.fillStyle = THEMES[theme].bgOverlay; ctx.beginPath(); ctx.roundRect(0, 0, s, s, 8); ctx.fill();
+    ctx.fillStyle = THEMES[theme].bgOverlay; ctx.beginPath(); ctx.moveTo(8,0); ctx.lineTo(s-8,0); ctx.quadraticCurveTo(s,0,s,8); ctx.lineTo(s,s-8); ctx.quadraticCurveTo(s,s,s-8,s); ctx.lineTo(8,s); ctx.quadraticCurveTo(0,s,0,s-8); ctx.lineTo(0,8); ctx.quadraticCurveTo(0,0,8,0); ctx.fill();
 
     // Project to 2D (use x,z)
     let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
