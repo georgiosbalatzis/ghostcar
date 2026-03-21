@@ -61,64 +61,336 @@ function fmt(s) { if (!s || s <= 0) return "0:00.000"; const m = Math.floor(s / 
 function encodeURL(s) { const p = new URLSearchParams(); if (s.year) p.set("y", s.year); if (s.mk) p.set("mk", s.mk); if (s.sk) p.set("sk", s.sk); if (s.d1) p.set("d1", s.d1); if (s.d2) p.set("d2", s.d2); if (s.l1) p.set("l1", s.l1); if (s.l2) p.set("l2", s.l2); return `${window.location.origin}${window.location.pathname}?${p.toString()}`; }
 function decodeURL() { const p = new URLSearchParams(window.location.search); return { year: p.get("y"), mk: p.get("mk"), sk: p.get("sk"), d1: p.get("d1"), d2: p.get("d2"), l1: p.get("l1"), l2: p.get("l2") }; }
 
+// ─── Build flat ribbon track geometry from curve ───
+function buildTrackRibbon(curve, seg, width, vertexColors, speedData) {
+  const pts = curve.getPoints(seg);
+  const positions = [], normals = [], uvs = [], colors = [], indices = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const t = i / (pts.length - 1);
+    // Get tangent and compute perpendicular
+    const tangent = curve.getTangentAt(Math.min(t, 0.9999));
+    const perp = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+    // Left and right edges
+    const l = p.clone().add(perp.clone().multiplyScalar(width / 2));
+    const r = p.clone().sub(perp.clone().multiplyScalar(width / 2));
+    positions.push(l.x, l.y, l.z, r.x, r.y, r.z);
+    normals.push(0, 1, 0, 0, 1, 0);
+    uvs.push(0, t * 20, 1, t * 20);
+    // Speed heatmap colors
+    if (speedData?.length) {
+      const si = Math.min(Math.floor(t * (speedData.length - 1)), speedData.length - 1);
+      const spd = speedData[si] || 0;
+      const maxSpd = 360, minSpd = 40;
+      const ratio = Math.max(0, Math.min(1, (spd - minSpd) / (maxSpd - minSpd)));
+      // Blue(slow) -> Green -> Yellow -> Red(fast)
+      let cr, cg, cb;
+      if (ratio < 0.33) { const f = ratio / 0.33; cr = 0; cg = f * 0.5; cb = 1 - f * 0.5; }
+      else if (ratio < 0.66) { const f = (ratio - 0.33) / 0.33; cr = f; cg = 0.5 + f * 0.5; cb = 0.5 - f * 0.5; }
+      else { const f = (ratio - 0.66) / 0.34; cr = 1; cg = 1 - f * 0.6; cb = 0; }
+      colors.push(cr, cg, cb, cr, cg, cb);
+    } else {
+      colors.push(0.16, 0.16, 0.22, 0.16, 0.16, 0.22);
+    }
+    if (i < pts.length - 1) {
+      const vi = i * 2;
+      indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  return geo;
+}
+
+// ─── Build kerbs at corners ───
+function buildKerbs(curve, corners, width, scene) {
+  const kerbW = 0.25, kerbH = 0.04;
+  corners.forEach((c) => {
+    const p = curve.getPointAt(c.t);
+    const tan = curve.getTangentAt(c.t);
+    const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+    [-1, 1].forEach((side) => {
+      const kerbGeo = new THREE.BoxGeometry(kerbW, kerbH, 1.5);
+      // Alternating red-white kerb
+      const kerbMat = new THREE.MeshStandardMaterial({ color: 0xe10600, emissive: 0xe10600, emissiveIntensity: 0.15 });
+      const kerb = new THREE.Mesh(kerbGeo, kerbMat);
+      const offset = perp.clone().multiplyScalar(side * (width / 2 + kerbW / 2));
+      kerb.position.set(p.x + offset.x, p.y + kerbH / 2, p.z + offset.z);
+      kerb.lookAt(p.x + offset.x + tan.x, p.y + kerbH / 2, p.z + offset.z + tan.z);
+      scene.add(kerb);
+      // White stripe
+      const wGeo = new THREE.BoxGeometry(kerbW, kerbH + 0.005, 0.7);
+      const wMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.1 });
+      const wStripe = new THREE.Mesh(wGeo, wMat);
+      wStripe.position.copy(kerb.position); wStripe.position.y += 0.005;
+      wStripe.quaternion.copy(kerb.quaternion);
+      scene.add(wStripe);
+    });
+  });
+}
+
 // ─── Three.js Scene ───
-function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2) {
+function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
+  // Speed data for heatmap
+  const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
 
   useEffect(() => {
     const el = ref.current; if (!el || !tp || tp.length < 10) return;
     if (R.current.ren) { R.current.ren.dispose(); if (el.contains(R.current.ren.domElement)) el.removeChild(R.current.ren.domElement); }
     if (R.current.fr) cancelAnimationFrame(R.current.fr);
     const w = el.clientWidth, h = el.clientHeight;
-    const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(F1.fogColor, 0.005);
+    const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(F1.fogColor, 0.004);
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-    const ren = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: true }); ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2)); ren.setClearColor(F1.fogColor, 1); ren.shadowMap.enabled = false;
+    const ren = new THREE.WebGLRenderer({ antialias: window.devicePixelRatio < 2, alpha: true }); ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2)); ren.setClearColor(F1.fogColor, 1);
     el.appendChild(ren.domElement);
 
-    // Dramatic F1 lighting
-    scene.add(new THREE.AmbientLight(0x223344, 0.4));
-    const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(30, 50, 20); scene.add(key);
-    const fill = new THREE.DirectionalLight(0x4466aa, 0.3); fill.position.set(-20, 30, -10); scene.add(fill);
-    const redAccent = new THREE.PointLight(0xe10600, 0.3, 80); redAccent.position.set(0, 20, 0); scene.add(redAccent);
+    // Dramatic lighting
+    scene.add(new THREE.AmbientLight(0x223344, 0.5));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(30, 60, 20); scene.add(key);
+    const fill = new THREE.DirectionalLight(0x4466aa, 0.25); fill.position.set(-20, 30, -10); scene.add(fill);
+    const accent = new THREE.PointLight(0xe10600, 0.25, 100); accent.position.set(0, 25, 0); scene.add(accent);
+    // Hemisphere light for natural sky/ground feel
+    scene.add(new THREE.HemisphereLight(0x8899bb, 0x223322, 0.3));
 
-    // Ground with carbon feel
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: F1.groundColor, roughness: 0.98, metalness: 0.02 }));
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; scene.add(ground);
-    const grid = new THREE.GridHelper(200, 80, F1.gridC1, F1.gridC2); grid.position.y = -0.45; scene.add(grid);
+    // ─── TERRAIN: green grass near track, grey far away ───
+    const terrainGeo = new THREE.PlaneGeometry(300, 300, 60, 60);
+    const terrainPos = terrainGeo.attributes.position;
+    const terrainColors = new Float32Array(terrainPos.count * 3);
+    for (let i = 0; i < terrainPos.count; i++) {
+      const x = terrainPos.getX(i), z = terrainPos.getY(i); // plane is XY before rotation
+      const dist = Math.sqrt(x * x + z * z);
+      // Near center = green grass, far = grey
+      const grassFade = Math.max(0, Math.min(1, (dist - 30) / 60));
+      const r = 0.08 + grassFade * 0.06, g = 0.18 - grassFade * 0.1, b = 0.05 + grassFade * 0.04;
+      terrainColors[i * 3] = r; terrainColors[i * 3 + 1] = g; terrainColors[i * 3 + 2] = b;
+      // Subtle terrain undulation
+      terrainPos.setZ(i, Math.sin(x * 0.05) * 0.3 + Math.cos(z * 0.07) * 0.2);
+    }
+    terrainGeo.setAttribute("color", new THREE.Float32BufferAttribute(terrainColors, 3));
+    terrainGeo.computeVertexNormals();
+    const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0.02 }));
+    terrain.rotation.x = -Math.PI / 2; terrain.position.y = -0.15; scene.add(terrain);
 
-    // Track — red-tinted racing surface
+    // Subtle grid overlay
+    const grid = new THREE.GridHelper(300, 100, 0x1a2a1a, 0x141e14); grid.position.y = -0.12; grid.material.transparent = true; grid.material.opacity = 0.15; scene.add(grid);
+
+    // ─── TRACK: flat ribbon with elevation ───
     const curve = new THREE.CatmullRomCurve3(tp.map((p) => new THREE.Vector3(p.x, p.y, p.z)), true);
-    const seg = Math.min(tp.length * 2, 600);
-    scene.add(new THREE.Mesh(new THREE.TubeGeometry(curve, seg, 0.9, 8, true), new THREE.MeshStandardMaterial({ color: 0x2a2a3a, roughness: 0.6, metalness: 0.4, transparent: true, opacity: 0.85 })));
-    // Red racing line
-    const rl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0xe10600, transparent: true, opacity: 0.25 }));
-    rl.position.y += 0.06; scene.add(rl);
-    // White edge lines
-    const wl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08 }));
-    wl.position.y += 0.07; scene.add(wl);
+    const seg = Math.min(tp.length * 3, 800);
+    const trackWidth = 1.8;
 
-    // Sector markers — F1 style pillars with glow
+    // Build track surface ribbon
+    const useHeatmap = vizMode === "heatmap";
+    const trackGeo = buildTrackRibbon(curve, seg, trackWidth, useHeatmap, useHeatmap ? speedArr : null);
+    const trackMat = new THREE.MeshStandardMaterial({
+      vertexColors: true, roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide
+    });
+    const trackMesh = new THREE.Mesh(trackGeo, trackMat);
+    trackMesh.position.y += 0.01;
+    scene.add(trackMesh);
+
+    // Track white edge lines
+    const edgePts = curve.getPoints(seg);
+    [-1, 1].forEach((side) => {
+      const edgePositions = [];
+      for (let i = 0; i < edgePts.length; i++) {
+        const t = i / (edgePts.length - 1);
+        const tan = curve.getTangentAt(Math.min(t, 0.9999));
+        const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+        const ep = edgePts[i].clone().add(perp.multiplyScalar(side * trackWidth / 2));
+        edgePositions.push(ep);
+      }
+      const edgeLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(edgePositions),
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })
+      );
+      edgeLine.position.y += 0.03; scene.add(edgeLine);
+    });
+
+    // Racing line (center) — red dashed
+    const rlLine = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)),
+      new THREE.LineBasicMaterial({ color: 0xe10600, transparent: true, opacity: 0.15 })
+    );
+    rlLine.position.y += 0.04; scene.add(rlLine);
+
+    // ─── CORNER DETECTION ───
+    const corners = []; const cSamp = 250;
+    for (let i = 0; i < cSamp - 2; i++) {
+      const t0 = i / cSamp, t1 = (i + 1) / cSamp, t2 = (i + 2) / cSamp;
+      const p0 = curve.getPointAt(t0), p1 = curve.getPointAt(t1), p2 = curve.getPointAt(t2);
+      const cross = Math.abs((p1.x - p0.x) * (p2.z - p1.z) - (p1.z - p0.z) * (p2.x - p1.x));
+      if (cross > 0.12 && (corners.length === 0 || Math.abs(t1 - corners[corners.length - 1].t) > 0.035))
+        corners.push({ t: t1, p: p1 });
+    }
+
+    // ─── KERBS at corners ───
+    buildKerbs(curve, corners, trackWidth, scene);
+
+    // ─── RUN-OFF / GRAVEL at corners ───
+    corners.slice(0, 20).forEach((c) => {
+      const tan = curve.getTangentAt(c.t);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      // Outer side gravel trap
+      const gravelGeo = new THREE.PlaneGeometry(3, 4);
+      const gravelMat = new THREE.MeshStandardMaterial({ color: 0xc4a55a, roughness: 1, metalness: 0, transparent: true, opacity: 0.5 });
+      const gravel = new THREE.Mesh(gravelGeo, gravelMat);
+      const outerOffset = perp.clone().multiplyScalar(trackWidth / 2 + 2);
+      gravel.rotation.x = -Math.PI / 2;
+      gravel.position.set(c.p.x + outerOffset.x, c.p.y + 0.005, c.p.z + outerOffset.z);
+      scene.add(gravel);
+    });
+
+    // ─── BARRIERS along straights (wall-like) ───
+    const barrierSamples = 80;
+    for (let i = 0; i < barrierSamples; i++) {
+      const t = i / barrierSamples;
+      // Only place barriers on straights (low curvature)
+      const t0 = t, t1 = Math.min(1, t + 0.01), t2 = Math.min(1, t + 0.02);
+      const pp0 = curve.getPointAt(t0), pp1 = curve.getPointAt(t1), pp2 = curve.getPointAt(t2);
+      const cross = Math.abs((pp1.x - pp0.x) * (pp2.z - pp1.z) - (pp1.z - pp0.z) * (pp2.x - pp1.x));
+      if (cross < 0.04) { // Straight section
+        const p = curve.getPointAt(t);
+        const tan = curve.getTangentAt(t);
+        const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+        [-1, 1].forEach((side) => {
+          const bGeo = new THREE.BoxGeometry(0.12, 0.6, 1.5);
+          const bMat = new THREE.MeshStandardMaterial({ color: 0x888899, roughness: 0.6, metalness: 0.5 });
+          const barrier = new THREE.Mesh(bGeo, bMat);
+          const off = perp.clone().multiplyScalar(side * (trackWidth / 2 + 0.5));
+          barrier.position.set(p.x + off.x, p.y + 0.3, p.z + off.z);
+          barrier.lookAt(p.x + off.x + tan.x, p.y + 0.3, p.z + off.z + tan.z);
+          scene.add(barrier);
+        });
+      }
+    }
+
+    // ─── GRANDSTANDS at key spots (3 locations) ───
+    [0.1, 0.45, 0.75].forEach((t) => {
+      const p = curve.getPointAt(t);
+      const tan = curve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const off = perp.clone().multiplyScalar(trackWidth / 2 + 8);
+      // Stepped grandstand shape
+      for (let row = 0; row < 4; row++) {
+        const rowOff = perp.clone().multiplyScalar(row * 1.2);
+        const standGeo = new THREE.BoxGeometry(0.8, 0.5 + row * 0.4, 6);
+        const standMat = new THREE.MeshStandardMaterial({ color: 0x3a3a4a, roughness: 0.8, metalness: 0.3 });
+        const stand = new THREE.Mesh(standGeo, standMat);
+        stand.position.set(p.x + off.x + rowOff.x, p.y + (0.5 + row * 0.4) / 2, p.z + off.z + rowOff.z);
+        stand.lookAt(p.x, p.y, p.z);
+        scene.add(stand);
+      }
+    });
+
+    // ─── SECTOR MARKERS with glow ───
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
-    [0, 0.33, 0.66].forEach((t, i) => { const sp = curve.getPointAt(t); const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 4, 8), new THREE.MeshStandardMaterial({ color: sColors[i], emissive: sColors[i], emissiveIntensity: 0.8 })); post.position.set(sp.x, sp.y + 2, sp.z); scene.add(post);
-      const glow = new THREE.PointLight(sColors[i], 0.4, 6); glow.position.set(sp.x, sp.y + 3, sp.z); scene.add(glow);
+    [0, 0.33, 0.66].forEach((t, i) => {
+      const sp = curve.getPointAt(t);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 5, 8), new THREE.MeshStandardMaterial({ color: sColors[i], emissive: sColors[i], emissiveIntensity: 0.9 }));
+      post.position.set(sp.x, sp.y + 2.5, sp.z); scene.add(post);
+      const gl = new THREE.PointLight(sColors[i], 0.5, 8); gl.position.set(sp.x, sp.y + 4, sp.z); scene.add(gl);
     });
 
-    // Corner markers
-    const corners = []; const cSamp = 200;
-    for (let i = 0; i < cSamp - 2; i++) { const t0 = i / cSamp, t1 = (i + 1) / cSamp, t2 = (i + 2) / cSamp; const p0 = curve.getPointAt(t0), p1 = curve.getPointAt(t1), p2 = curve.getPointAt(t2); const cross = Math.abs((p1.x - p0.x) * (p2.z - p1.z) - (p1.z - p0.z) * (p2.x - p1.x)); if (cross > 0.15 && (corners.length === 0 || Math.abs(t1 - corners[corners.length - 1].t) > 0.04)) corners.push({ t: t1, p: p1 }); }
+    // ─── DRS ZONES (green overlay on track) ───
+    // Approximate DRS zones on straights
+    const drsZones = [];
+    for (let i = 0; i < 100; i++) {
+      const t = i / 100, tN = Math.min(1, t + 0.01), tNN = Math.min(1, t + 0.02);
+      const pa = curve.getPointAt(t), pb = curve.getPointAt(tN), pc = curve.getPointAt(tNN);
+      const cx2 = Math.abs((pb.x - pa.x) * (pc.z - pb.z) - (pb.z - pa.z) * (pc.x - pb.x));
+      if (cx2 < 0.02) { // Very straight
+        if (drsZones.length === 0 || t - drsZones[drsZones.length - 1].end > 0.05) drsZones.push({ start: t, end: t + 0.01 });
+        else drsZones[drsZones.length - 1].end = t + 0.01;
+      }
+    }
+    // Keep only the longest 2-3 DRS zones
+    drsZones.sort((a, b) => (b.end - b.start) - (a.end - a.start));
+    drsZones.slice(0, 3).forEach((zone) => {
+      const zPts = []; const steps = Math.ceil((zone.end - zone.start) * seg);
+      for (let i = 0; i <= steps; i++) {
+        const zt = zone.start + (i / steps) * (zone.end - zone.start);
+        zPts.push(curve.getPointAt(Math.min(zt, 0.9999)));
+      }
+      if (zPts.length > 1) {
+        const drsCurve = new THREE.CatmullRomCurve3(zPts);
+        const drsGeo = buildTrackRibbon(drsCurve, zPts.length - 1, trackWidth * 0.9, false, null);
+        // Override colors to green
+        const drsColors = drsGeo.attributes.color;
+        for (let i = 0; i < drsColors.count; i++) { drsColors.setXYZ(i, 0, 0.5, 0.2); }
+        const drsMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
+        const drsMesh = new THREE.Mesh(drsGeo, drsMat);
+        drsMesh.position.y += 0.06; scene.add(drsMesh);
+      }
+    });
+
+    // ─── BRAKING ZONES (red gradient before corners) ───
+    corners.slice(0, 15).forEach((c) => {
+      const bStart = Math.max(0, c.t - 0.025), bEnd = c.t;
+      const bPts = [];
+      for (let i = 0; i <= 10; i++) { bPts.push(curve.getPointAt(bStart + (i / 10) * (bEnd - bStart))); }
+      if (bPts.length > 1) {
+        const bCurve = new THREE.CatmullRomCurve3(bPts);
+        const bGeo = buildTrackRibbon(bCurve, 10, trackWidth * 0.85, false, null);
+        const bColors = bGeo.attributes.color;
+        for (let i = 0; i < bColors.count; i++) {
+          const f = i / bColors.count;
+          bColors.setXYZ(i, 0.8 * f, 0.05, 0.05);
+        }
+        const bMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
+        const bMesh = new THREE.Mesh(bGeo, bMat);
+        bMesh.position.y += 0.05; scene.add(bMesh);
+      }
+    });
+
+    // ─── CORNER NUMBERS + APEX MARKERS ───
     corners.slice(0, 20).forEach((c, i) => {
-      const cv = document.createElement("canvas"); cv.width = 56; cv.height = 56; const cx2 = cv.getContext("2d");
-      cx2.fillStyle = "rgba(225,6,0,0.7)"; cx2.beginPath(); cx2.arc(28, 28, 24, 0, Math.PI * 2); cx2.fill();
-      cx2.fillStyle = "#fff"; cx2.font = "bold 24px sans-serif"; cx2.textAlign = "center"; cx2.textBaseline = "middle"; cx2.fillText(`${i + 1}`, 28, 29);
+      // Apex dot on track
+      const apexGeo = new THREE.SphereGeometry(0.12, 8, 8);
+      const apexMat = new THREE.MeshStandardMaterial({ color: 0xe10600, emissive: 0xe10600, emissiveIntensity: 0.5 });
+      const apex = new THREE.Mesh(apexGeo, apexMat);
+      apex.position.set(c.p.x, c.p.y + 0.15, c.p.z); scene.add(apex);
+      // Number sprite
+      const cv = document.createElement("canvas"); cv.width = 56; cv.height = 56; const cx3 = cv.getContext("2d");
+      cx3.fillStyle = "rgba(225,6,0,0.8)"; cx3.beginPath(); cx3.arc(28, 28, 24, 0, Math.PI * 2); cx3.fill();
+      cx3.fillStyle = "#fff"; cx3.font = "bold 24px sans-serif"; cx3.textAlign = "center"; cx3.textBaseline = "middle"; cx3.fillText(`${i + 1}`, 28, 29);
       const tex = new THREE.CanvasTexture(cv); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-      sp.position.set(c.p.x, c.p.y + 2.8, c.p.z); sp.scale.set(1.4, 1.4, 1); scene.add(sp);
+      sp.position.set(c.p.x, c.p.y + 3.5, c.p.z); sp.scale.set(1.4, 1.4, 1); scene.add(sp);
     });
 
-    // Start/finish — checkered pattern feel
+    // ─── START/FINISH ───
     const sf = curve.getPointAt(0);
-    const sfMesh = new THREE.Mesh(new THREE.BoxGeometry(4, 0.12, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.6 }));
-    sfMesh.position.set(sf.x, sf.y + 0.12, sf.z); scene.add(sfMesh);
+    const sfTan = curve.getTangentAt(0);
+    const sfPerp = new THREE.Vector3(-sfTan.z, 0, sfTan.x).normalize();
+    // Checkered-style start line
+    for (let j = 0; j < 6; j++) {
+      const isWhite = j % 2 === 0;
+      const sfBlock = new THREE.Mesh(new THREE.BoxGeometry(trackWidth / 6, 0.05, 0.3),
+        new THREE.MeshStandardMaterial({ color: isWhite ? 0xffffff : 0x111111, emissive: isWhite ? 0xffffff : 0x000000, emissiveIntensity: isWhite ? 0.4 : 0 }));
+      const xOff = sfPerp.clone().multiplyScalar((j - 2.5) * (trackWidth / 6));
+      sfBlock.position.set(sf.x + xOff.x, sf.y + 0.03, sf.z + xOff.z);
+      scene.add(sfBlock);
+    }
+
+    // ─── AMBIENT PARTICLES (dust/atmosphere) ───
+    const particleCount = 300;
+    const pGeo = new THREE.BufferGeometry();
+    const pPositions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      pPositions[i * 3] = (Math.random() - 0.5) * 120;
+      pPositions[i * 3 + 1] = Math.random() * 15 + 1;
+      pPositions[i * 3 + 2] = (Math.random() - 0.5) * 120;
+    }
+    pGeo.setAttribute("position", new THREE.Float32BufferAttribute(pPositions, 3));
+    const pMat = new THREE.PointsMaterial({ color: 0xaabbcc, size: 0.08, transparent: true, opacity: 0.3, depthWrite: false });
+    const particles = new THREE.Points(pGeo, pMat);
+    scene.add(particles);
 
     // F1 Car factory — sleeker, with translucent ghost effect
     function makeCar(color, label, isGhost) {
@@ -179,6 +451,14 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2) {
       const cm = cmRef.current;
       if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camera.position.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camera.lookAt(0, 0, 0); }
       else if (cm === "top") { camera.position.set(0, 65, 0.01); camera.lookAt(0, 0, 0); }
+      // Animate particles
+      const pp = particles.geometry.attributes.position;
+      for (let i = 0; i < particleCount; i++) {
+        pp.setY(i, pp.getY(i) + 0.003);
+        if (pp.getY(i) > 16) pp.setY(i, 1);
+        pp.setX(i, pp.getX(i) + Math.sin(i * 0.1 + cs.cinT * 100) * 0.002);
+      }
+      pp.needsUpdate = true;
       ren.render(scene, camera);
     }
     animate();
@@ -186,7 +466,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2) {
     let rt; const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el) return; camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix(); ren.setSize(el.clientWidth, el.clientHeight); }, 100); };
     window.addEventListener("resize", onR);
     return () => { window.removeEventListener("resize", onR); de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp); cancelAnimationFrame(R.current.fr); ren.dispose(); if (el.contains(ren.domElement)) el.removeChild(ren.domElement); };
-  }, [tp, c1, c2, lab1, lab2]);
+  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]); useEffect(() => { cmRef.current = cam; }, [cam]);
 
@@ -255,6 +535,7 @@ export default function App() {
   const [st1, setSt1] = useState([]); const [st2, setSt2] = useState([]);
   const [prog, setProg] = useState(0); const [play, setPlay] = useState(false); const [spd, setSpd] = useState(1); const [loop, setLoop] = useState(false);
   const [cam, setCam] = useState("orbit");
+  const [vizMode, setVizMode] = useState("normal"); // "normal" | "heatmap"
   const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
   const [showTel, setShowTel] = useState(true); const [mobTab, setMobTab] = useState("3d");
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
@@ -320,7 +601,7 @@ export default function App() {
 
   const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
 
-  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "");
+  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode);
 
   // Playback
   useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
@@ -445,6 +726,8 @@ export default function App() {
             {/* Camera mode */}
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
+              <div style={{ width: 1, height: 16, background: F1.borderLight }} />
+              <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : "normal")} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: vizMode === "heatmap" ? "#0088ff" : F1.overlay, color: vizMode === "heatmap" ? "#fff" : F1.textDim, borderColor: vizMode === "heatmap" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>🌡 Speed</button>
             </div>}
 
             {/* Mini-map */}
