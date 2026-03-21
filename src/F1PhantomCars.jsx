@@ -449,6 +449,7 @@ export default function App() {
   const [shareMsg, setShareMsg] = useState("");
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
   const autoLoadRef = useRef(false);
+  const presetActiveRef = useRef(false);
 
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
   const co1 = di1 ? getTeamColor(di1.team_name) : "#4488ff", co2 = di2 ? getTeamColor(di2.team_name) : "#ff4488";
@@ -467,12 +468,12 @@ export default function App() {
   const avgS1 = useMemo(() => tel1?.length ? tel1.reduce((a, t) => a + (t.speed || 0), 0) / tel1.length : 0, [tel1]);
   const avgS2 = useMemo(() => tel2?.length ? tel2.reduce((a, t) => a + (t.speed || 0), 0) / tel2.length : 0, [tel2]);
 
-  // Data loading
-  useEffect(() => { setLoading("Loading..."); setErr(""); fetchMeetings(year).then((d) => { setMts(d.filter((m) => m.meeting_name)); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [year]);
-  useEffect(() => { if (!selMt) return; setLoading("Loading sessions..."); fetchSessions(selMt.meeting_key).then((d) => { setSess(d.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name))); setSelSe(null); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selMt]);
-  useEffect(() => { if (!selSe) return; setLoading("Loading drivers..."); fetchDrivers(selSe.session_key).then((d) => { const seen = new Set(); setDrvs(d.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selSe]);
-  useEffect(() => { if (selSe && d1) { fetchLaps(selSe.session_key, d1).then((l) => { setLaps1(l); setSl1(null); }).catch(() => setLaps1([])); fetchStints(selSe.session_key, d1).then(setSt1).catch(() => setSt1([])); } }, [selSe, d1]);
-  useEffect(() => { if (selSe && d2) { fetchLaps(selSe.session_key, d2).then((l) => { setLaps2(l); setSl2(null); }).catch(() => setLaps2([])); fetchStints(selSe.session_key, d2).then(setSt2).catch(() => setSt2([])); } }, [selSe, d2]);
+  // Data loading — guarded to not fire during preset load
+  useEffect(() => { if (presetActiveRef.current) return; setLoading("Loading..."); setErr(""); fetchMeetings(year).then((d) => { setMts(d.filter((m) => m.meeting_name)); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [year]);
+  useEffect(() => { if (!selMt || presetActiveRef.current) return; setLoading("Loading sessions..."); fetchSessions(selMt.meeting_key).then((d) => { setSess(d.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name))); setSelSe(null); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selMt]);
+  useEffect(() => { if (!selSe || presetActiveRef.current) return; setLoading("Loading drivers..."); fetchDrivers(selSe.session_key).then((d) => { const seen = new Set(); setDrvs(d.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selSe]);
+  useEffect(() => { if (presetActiveRef.current) return; if (selSe && d1) { fetchLaps(selSe.session_key, d1).then((l) => { setLaps1(l); setSl1(null); }).catch(() => setLaps1([])); fetchStints(selSe.session_key, d1).then(setSt1).catch(() => setSt1([])); } }, [selSe, d1]);
+  useEffect(() => { if (presetActiveRef.current) return; if (selSe && d2) { fetchLaps(selSe.session_key, d2).then((l) => { setLaps2(l); setSl2(null); }).catch(() => setLaps2([])); fetchStints(selSe.session_key, d2).then(setSt2).catch(() => setSt2([])); } }, [selSe, d2]);
   useEffect(() => { if (laps1.length && !sl1) { const f = bestLap(laps1); if (f) setSl1(f.lap_number); } }, [laps1]);
   useEffect(() => { if (laps2.length && !sl2) { const f = bestLap(laps2); if (f) setSl2(f.lap_number); } }, [laps2]);
 
@@ -500,41 +501,76 @@ export default function App() {
   }, [selSe, d1, d2, sl1, sl2, laps1, laps2]);
 
   const loadPreset = useCallback(async (pr) => {
-    setShowPresets(false); setLoading("Loading preset..."); setErr("");
+    setShowPresets(false); setLoading("Loading preset..."); setErr(""); setLdPct(0);
+    presetActiveRef.current = true;
     try {
-      setYear(pr.year);
-      const m = await fetchMeetings(pr.year);
-      setMts(m.filter((x) => x.meeting_name));
-      // Fuzzy match meeting name
-      const mt = m.find((x) => x.meeting_name && x.meeting_name.toLowerCase().includes(pr.meeting.toLowerCase().replace(" grand prix", "").trim()));
+      // 1. Fetch meetings
+      const allMts = await fetchMeetings(pr.year);
+      const filteredMts = allMts.filter((x) => x.meeting_name);
+      const mt = filteredMts.find((x) => x.meeting_name && x.meeting_name.toLowerCase().includes(pr.meeting.toLowerCase().replace(" grand prix", "").trim()));
       if (!mt) throw new Error(`Meeting "${pr.meeting}" not found for ${pr.year}`);
-      setSelMt(mt);
-      const ss = await fetchSessions(mt.meeting_key);
-      const fi = ss.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
-      setSess(fi);
-      const se = fi.find((s) => s.session_name === pr.session);
+      setLdPct(10);
+
+      // 2. Fetch sessions
+      const allSess = await fetchSessions(mt.meeting_key);
+      const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
+      const se = filteredSess.find((s) => s.session_name === pr.session);
       if (!se) throw new Error(`Session "${pr.session}" not found`);
-      setSelSe(se);
-      const dr = await fetchDrivers(se.session_key);
+      setLdPct(20);
+
+      // 3. Fetch drivers
+      const allDrvs = await fetchDrivers(se.session_key);
       const seen = new Set();
-      setDrvs(dr.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; }));
-      setD1(pr.d1); setD2(pr.d2);
-      autoLoadRef.current = true;
-      setLoading("");
-    } catch (e) { setErr(e.message); setLoading(""); }
+      const uniqueDrvs = allDrvs.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; });
+      setLdPct(30);
+
+      // 4. Fetch laps for both drivers
+      const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1), fetchLaps(se.session_key, pr.d2)]);
+      const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data);
+      if (!fast1 || !fast2) throw new Error("No valid laps found for these drivers");
+      setLdPct(45);
+
+      // 5. Fetch stints
+      const [st1Data, st2Data] = await Promise.all([
+        fetchStints(se.session_key, pr.d1).catch(() => []),
+        fetchStints(se.session_key, pr.d2).catch(() => [])
+      ]);
+
+      // 6. Set ALL state at once
+      setYear(pr.year); setMts(filteredMts); setSelMt(mt);
+      setSess(filteredSess); setSelSe(se);
+      setDrvs(uniqueDrvs); setD1(pr.d1); setD2(pr.d2);
+      setLaps1(l1Data); setLaps2(l2Data);
+      setSl1(fast1.lap_number); setSl2(fast2.lap_number);
+      setSt1(st1Data); setSt2(st2Data);
+      setLdPct(50);
+
+      // 7. Fetch location + telemetry directly
+      setLoading("Fetching telemetry...");
+      const sk = se.session_key;
+      const end1 = new Date(new Date(fast1.date_start).getTime() + (fast1.lap_duration || 120) * 1000).toISOString();
+      const end2 = new Date(new Date(fast2.date_start).getTime() + (fast2.lap_duration || 120) * 1000).toISOString();
+
+      setLdPct(60);
+      const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1), fetchLocation(sk, pr.d2, fast2.date_start, end2)]);
+      setLdPct(80);
+      const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1), fetchCarData(sk, pr.d2, fast2.date_start, end2)]);
+
+      if (lo1.length < 5 || lo2.length < 5) throw new Error("Insufficient location data for these laps");
+
+      setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2);
+      setTp(norm(lo1)); setProg(0); setPlay(false);
+      setLdPct(100);
+      setTimeout(() => { setLoading(""); setLdPct(undefined); presetActiveRef.current = false; }, 300);
+    } catch (e) {
+      setErr(e.message); setLoading(""); setLdPct(undefined);
+      presetActiveRef.current = false;
+    }
   }, []);
 
   const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
 
   useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode);
-
-  // Auto-load after preset selects everything
-  useEffect(() => {
-    if (autoLoadRef.current && selSe && d1 && d2 && sl1 && sl2 && !loading && !tp) {
-      autoLoadRef.current = false;
-      loadData();
-    }
-  }, [selSe, d1, d2, sl1, sl2, loading, tp, loadData]);
 
   // Playback
   useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
