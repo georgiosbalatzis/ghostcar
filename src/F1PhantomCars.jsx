@@ -3,8 +3,8 @@ import * as THREE from "three";
 
 const API = "https://api.openf1.org/v1";
 
-// ─── F1 Broadcast Design System ───
-const F1 = {
+// ─── F1 Broadcast Design System — Dark + Light ───
+const F1_DARK = {
   red: "#E10600", redDark: "#B30500", carbon: "#15151e", carbonLight: "#1c1c28",
   carbonMid: "#222230", panelBg: "rgba(18,18,28,0.96)", overlay: "rgba(12,12,20,0.92)",
   cardBg: "rgba(25,25,38,0.85)", inputBg: "rgba(28,28,42,0.95)",
@@ -12,11 +12,26 @@ const F1 = {
   border: "rgba(80,80,120,0.25)", borderLight: "rgba(60,60,90,0.18)",
   green: "#00d26a", greenDim: "#00a854", yellow: "#ffd700",
   purple: "#9b59b6", white: "#ffffff",
-  fogColor: 0x0e0e16, groundColor: 0x111119, gridC1: 0x1a1a2a, gridC2: 0x141420,
-  trackColor: 0x2a2a3e, lineColor: 0xe10600,
+  fogColor: 0x121218, groundColor: 0x18181f,
+  trackColor: 0x3a3a48, lineColor: 0xe10600, sceneBg: 0x121218,
   mono: "'Titillium Web', 'Barlow Condensed', sans-serif",
   sans: "'Titillium Web', sans-serif",
 };
+const F1_LIGHT = {
+  red: "#E10600", redDark: "#B30500", carbon: "#f4f5f7", carbonLight: "#eaebef",
+  carbonMid: "#dddee4", panelBg: "rgba(255,255,255,0.97)", overlay: "rgba(245,246,250,0.95)",
+  cardBg: "rgba(235,236,244,0.85)", inputBg: "rgba(255,255,255,0.95)",
+  text: "#1a1a2e", textDim: "#5a5a7a", textMuted: "#8888a0",
+  border: "rgba(80,85,120,0.2)", borderLight: "rgba(80,85,120,0.1)",
+  green: "#00a854", greenDim: "#008844", yellow: "#cc9900",
+  purple: "#8844aa", white: "#ffffff",
+  fogColor: 0xe8eaf0, groundColor: 0xd8dae0,
+  trackColor: 0x888898, lineColor: 0xe10600, sceneBg: 0xe8eaf0,
+  mono: "'Titillium Web', 'Barlow Condensed', sans-serif",
+  sans: "'Titillium Web', sans-serif",
+};
+// F1 will be set dynamically based on theme state — use a ref pattern
+let F1 = F1_DARK;
 
 const TIRE_COLORS = { SOFT: "#ff3333", MEDIUM: "#ffcc00", HARD: "#cccccc", INTERMEDIATE: "#44cc44", WET: "#4488ff" };
 const TEAM_COLORS = { "Red Bull Racing": "#3671C6", "Red Bull": "#3671C6", "McLaren": "#FF8000", "Ferrari": "#E8002D", "Mercedes": "#27F4D2", "Aston Martin": "#229971", "Alpine": "#0093CC", "Williams": "#64C4FF", "RB": "#6692FF", "Racing Bulls": "#6692FF", "Kick Sauber": "#52E252", "Sauber": "#52E252", "Haas F1 Team": "#B6BABD", "Haas": "#B6BABD", "Cadillac": "#FFD700" };
@@ -79,8 +94,8 @@ function encodeURL(s) { const p = new URLSearchParams(); if (s.year) p.set("y", 
 function decodeURL() { const p = new URLSearchParams(window.location.search); return { year: p.get("y"), mk: p.get("mk"), sk: p.get("sk"), d1: p.get("d1"), d2: p.get("d2"), l1: p.get("l1"), l2: p.get("l2") }; }
 
 // ─── Three.js Scene ───
-function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode) {
-  const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 85, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
+function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark) {
+  const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
   const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
@@ -92,22 +107,23 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     if (R.current.fr) cancelAnimationFrame(R.current.fr);
     const w = el.clientWidth, h = el.clientHeight;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x121218);
-    scene.fog = new THREE.Fog(0x121218, 120, 350);
+    const T = isDark ? F1_DARK : F1_LIGHT;
+    scene.background = new THREE.Color(T.sceneBg);
+    scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
     const ren = new THREE.WebGLRenderer({ antialias: true });
     ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(ren.domElement);
 
-    // ─── Clean bright lighting ───
-    scene.add(new THREE.AmbientLight(0xdddde8, 0.7));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(40, 80, 30); scene.add(sun);
-    scene.add(new THREE.HemisphereLight(0xbbc4dd, 0x333340, 0.4));
+    // Lighting — brighter for light mode
+    scene.add(new THREE.AmbientLight(0xdddde8, isDark ? 0.7 : 1.2));
+    const sun = new THREE.DirectionalLight(0xffffff, isDark ? 1.0 : 1.4); sun.position.set(40, 80, 30); scene.add(sun);
+    scene.add(new THREE.HemisphereLight(isDark ? 0xbbc4dd : 0xeeeeff, isDark ? 0x333340 : 0x889988, isDark ? 0.4 : 0.6));
 
-    // ─── Ground: clean dark plane ───
+    // Ground
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(400, 400),
-      new THREE.MeshLambertMaterial({ color: 0x18181f })
+      new THREE.MeshLambertMaterial({ color: T.groundColor })
     );
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(ground);
 
@@ -162,7 +178,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
 
     // Track surface
     const trackMesh = new THREE.Mesh(ribbonGeo, new THREE.MeshStandardMaterial({
-      color: 0x3a3a48, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide
+      color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide
     }));
     scene.add(trackMesh);
 
@@ -250,42 +266,151 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       new THREE.LineBasicMaterial({ color: 0xffffff })
     ));
 
-    // F1 Car factory — sleeker, with translucent ghost effect
+    // ─── F1 Car factory — smooth sculpted model ───
     function makeCar(color, label, isGhost) {
       const g = new THREE.Group();
       const col = new THREE.Color(color);
-      const mat = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: isGhost ? 0.6 : 0.35, metalness: 0.7, roughness: 0.25, transparent: isGhost, opacity: isGhost ? 0.55 : 1 });
-      // Monocoque body
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 1.6), mat); body.position.y = 0.2; g.add(body);
-      // Front wing
-      const fw = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.25), mat); fw.position.set(0, 0.12, 0.85); g.add(fw);
-      // Rear wing
-      const rw = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.08), mat); rw.position.set(0, 0.45, -0.75); g.add(rw);
-      // Rear wing endplates
-      [-0.35, 0.35].forEach((x) => { const ep = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.22, 0.15), mat); ep.position.set(x, 0.42, -0.75); g.add(ep); });
-      // Nose cone
-      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 4), mat); nose.geometry.rotateX(-Math.PI / 2); nose.position.set(0, 0.18, 1.05); g.add(nose);
-      // Halo
-      const haloMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.1 });
-      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 6, 12, Math.PI), haloMat); halo.rotation.z = Math.PI; halo.position.set(0, 0.35, 0.15); g.add(halo);
-      // Shadow disc under car
-      const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false });
-      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.0, 16), shadowMat); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
-      // Team color glow (subtle)
-      const glowMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.08 : 0.04, side: THREE.DoubleSide, depthWrite: false });
-      const glow2 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 16), glowMat); glow2.rotation.x = -Math.PI / 2; glow2.position.y = 0.005; g.add(glow2);
-      // Car light
-      const carLight = new THREE.PointLight(col, isGhost ? 0.7 : 0.4, 10); carLight.position.set(0, 0.5, 0); g.add(carLight);
-      // Label
+      const alpha = isGhost ? 0.5 : 1;
+      const emI = isGhost ? 0.45 : 0.2;
+      const bodyMat = new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: emI, specular: 0x444444, shininess: 80, transparent: isGhost, opacity: alpha });
+      const darkMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 30, transparent: isGhost, opacity: alpha });
+      const carbonMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a, shininess: 50, transparent: isGhost, opacity: alpha });
+      const tireMat = new THREE.MeshPhongMaterial({ color: 0x151515, shininess: 10, transparent: isGhost, opacity: alpha });
+      const hubMat = new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.15, specular: 0xffffff, shininess: 120, transparent: isGhost, opacity: alpha });
+      const s = 0.55; // scale
+
+      // ─── Body: smooth extruded profile using CatmullRom tube ───
+      const bodyCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.12 * s, 2.0 * s),   // nose tip
+        new THREE.Vector3(0, 0.13 * s, 1.5 * s),   // nose mid
+        new THREE.Vector3(0, 0.15 * s, 1.0 * s),   // front
+        new THREE.Vector3(0, 0.18 * s, 0.5 * s),   // cockpit front
+        new THREE.Vector3(0, 0.22 * s, 0.1 * s),   // cockpit
+        new THREE.Vector3(0, 0.28 * s, -0.1 * s),  // airbox
+        new THREE.Vector3(0, 0.24 * s, -0.5 * s),  // engine
+        new THREE.Vector3(0, 0.2 * s, -0.9 * s),   // rear
+        new THREE.Vector3(0, 0.18 * s, -1.1 * s),  // tail
+      ]);
+      const bodyTube = new THREE.TubeGeometry(bodyCurve, 32, 0.12 * s, 8, false);
+      const bodyMesh = new THREE.Mesh(bodyTube, bodyMat);
+      g.add(bodyMesh);
+
+      // ─── Nose tip (smooth tapered cone) ───
+      const noseGeo = new THREE.ConeGeometry(0.08 * s, 0.6 * s, 12);
+      noseGeo.rotateX(-Math.PI / 2);
+      const nose = new THREE.Mesh(noseGeo, bodyMat);
+      nose.position.set(0, 0.12 * s, 2.3 * s); g.add(nose);
+
+      // ─── Airbox (smooth rounded box) ───
+      const airGeo = new THREE.CylinderGeometry(0.08 * s, 0.1 * s, 0.22 * s, 8);
+      const air = new THREE.Mesh(airGeo, bodyMat);
+      air.position.set(0, 0.38 * s, 0); g.add(air);
+
+      // ─── Cockpit opening ───
+      const cpGeo = new THREE.SphereGeometry(0.1 * s, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5);
+      const cp = new THREE.Mesh(cpGeo, darkMat);
+      cp.position.set(0, 0.22 * s, 0.2 * s); cp.scale.set(1.2, 0.6, 2.0); g.add(cp);
+
+      // ─── Halo (smooth titanium) ───
+      const haloMat2 = new THREE.MeshPhongMaterial({ color: 0x555555, specular: 0xffffff, shininess: 200, transparent: isGhost, opacity: alpha });
+      const haloRing = new THREE.Mesh(new THREE.TorusGeometry(0.16 * s, 0.016 * s, 8, 24, Math.PI), haloMat2);
+      haloRing.rotation.z = Math.PI; haloRing.position.set(0, 0.32 * s, 0.22 * s); g.add(haloRing);
+      const haloPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.012 * s, 0.015 * s, 0.32 * s, 8), haloMat2);
+      haloPillar.rotation.x = -0.18; haloPillar.position.set(0, 0.3 * s, 0.42 * s); g.add(haloPillar);
+
+      // ─── Sidepods (smooth capsules) ───
+      [-1, 1].forEach((side) => {
+        const spCurve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(side * 0.28 * s, 0.14 * s, 0.4 * s),
+          new THREE.Vector3(side * 0.34 * s, 0.16 * s, 0.1 * s),
+          new THREE.Vector3(side * 0.33 * s, 0.14 * s, -0.3 * s),
+          new THREE.Vector3(side * 0.25 * s, 0.12 * s, -0.6 * s),
+        ]);
+        const spTube = new THREE.TubeGeometry(spCurve, 16, 0.07 * s, 8, false);
+        g.add(new THREE.Mesh(spTube, bodyMat));
+      });
+
+      // ─── Floor (thin smooth slab) ───
+      const flGeo = new THREE.BoxGeometry(0.85 * s, 0.015 * s, 2.8 * s);
+      flGeo.translate(0, 0.04 * s, 0.3 * s);
+      g.add(new THREE.Mesh(flGeo, carbonMat));
+
+      // ─── Front wing (smooth curved elements) ───
+      const fwShape = new THREE.Shape();
+      fwShape.moveTo(-0.48 * s, 0); fwShape.quadraticCurveTo(0, -0.015 * s, 0.48 * s, 0);
+      fwShape.lineTo(0.48 * s, 0.008 * s); fwShape.quadraticCurveTo(0, 0.02 * s, -0.48 * s, 0.008 * s);
+      fwShape.closePath();
+      const fwGeo = new THREE.ExtrudeGeometry(fwShape, { depth: 0.16 * s, bevelEnabled: true, bevelThickness: 0.005 * s, bevelSize: 0.005 * s, bevelSegments: 3 });
+      const fw = new THREE.Mesh(fwGeo, bodyMat);
+      fw.position.set(0, 0.06 * s, 2.0 * s); g.add(fw);
+      // Front wing endplates (smooth)
+      [-1, 1].forEach((side) => {
+        const epGeo = new THREE.BoxGeometry(0.008 * s, 0.07 * s, 0.2 * s);
+        const ep = new THREE.Mesh(epGeo, bodyMat);
+        ep.position.set(side * 0.48 * s, 0.065 * s, 2.08 * s); g.add(ep);
+      });
+
+      // ─── Rear wing (smooth with DRS flap) ───
+      const rwGeo = new THREE.BoxGeometry(0.5 * s, 0.012 * s, 0.1 * s);
+      const rw = new THREE.Mesh(rwGeo, bodyMat);
+      rw.position.set(0, 0.47 * s, -1.0 * s); g.add(rw);
+      // DRS flap
+      const drsGeo = new THREE.BoxGeometry(0.44 * s, 0.01 * s, 0.05 * s);
+      const drs = new THREE.Mesh(drsGeo, bodyMat);
+      drs.position.set(0, 0.51 * s, -1.02 * s); drs.rotation.x = -0.2; g.add(drs);
+      // Endplates (smooth rounded)
+      [-1, 1].forEach((side) => {
+        const repGeo = new THREE.BoxGeometry(0.008 * s, 0.16 * s, 0.14 * s);
+        const rep = new THREE.Mesh(repGeo, bodyMat);
+        rep.position.set(side * 0.25 * s, 0.43 * s, -1.0 * s); g.add(rep);
+      });
+      // Pylons
+      [-1, 1].forEach((side) => {
+        const pylGeo = new THREE.CylinderGeometry(0.006 * s, 0.008 * s, 0.16 * s, 6);
+        const pyl = new THREE.Mesh(pylGeo, carbonMat);
+        pyl.position.set(side * 0.1 * s, 0.34 * s, -0.96 * s); g.add(pyl);
+      });
+
+      // ─── Rear light ───
+      const rlMat = new THREE.MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0.8 });
+      const rl = new THREE.Mesh(new THREE.BoxGeometry(0.2 * s, 0.025 * s, 0.01 * s), rlMat);
+      rl.position.set(0, 0.19 * s, -1.12 * s); g.add(rl);
+
+      // ─── Wheels (smooth, high-segment) ───
+      const wR = 0.16 * s, wW = 0.08 * s;
+      [{ x: 0.38, z: 1.5 }, { x: -0.38, z: 1.5 }, { x: 0.42, z: -0.65 }, { x: -0.42, z: -0.65 }].forEach((wPos) => {
+        const tGeo = new THREE.CylinderGeometry(wR, wR, wW, 24);
+        tGeo.rotateZ(Math.PI / 2);
+        const tire = new THREE.Mesh(tGeo, tireMat);
+        tire.position.set(wPos.x * s, wR, wPos.z * s); g.add(tire);
+        // Smooth hub
+        const hGeo = new THREE.CylinderGeometry(wR * 0.5, wR * 0.5, wW + 0.008 * s, 16);
+        hGeo.rotateZ(Math.PI / 2);
+        const hub = new THREE.Mesh(hGeo, hubMat);
+        hub.position.set(wPos.x * s, wR, wPos.z * s); g.add(hub);
+      });
+
+      // ─── Shadow + glow ───
+      const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
+      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.2 * s, 24), shadowMat);
+      shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
+      const glowMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false });
+      const glowMesh = new THREE.Mesh(new THREE.CircleGeometry(1.4 * s, 16), glowMat);
+      glowMesh.rotation.x = -Math.PI / 2; glowMesh.position.set(0, 0.005, 0); g.add(glowMesh);
+      // Light
+      const carLight = new THREE.PointLight(col, isGhost ? 0.5 : 0.25, 8);
+      carLight.position.set(0, 0.35 * s, 0); g.add(carLight);
+
+      // ─── Label ───
       if (label) {
         const cv = document.createElement("canvas"); cv.width = 160; cv.height = 56; const ctx = cv.getContext("2d");
         ctx.fillStyle = color; ctx.globalAlpha = 0.9;
         ctx.beginPath(); const r2 = 6; ctx.moveTo(r2, 0); ctx.lineTo(160 - r2, 0); ctx.quadraticCurveTo(160, 0, 160, r2); ctx.lineTo(160, 56 - r2); ctx.quadraticCurveTo(160, 56, 160 - r2, 56); ctx.lineTo(r2, 56); ctx.quadraticCurveTo(0, 56, 0, 56 - r2); ctx.lineTo(0, r2); ctx.quadraticCurveTo(0, 0, r2, 0); ctx.fill();
-        // Team color stripe on left
         ctx.fillStyle = "#fff"; ctx.globalAlpha = 0.15; ctx.fillRect(0, 0, 6, 56);
         ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 80, 30);
-        const tex2 = new THREE.CanvasTexture(cv); const sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex2, transparent: true, depthWrite: false }));
-        sp2.position.set(0, 1.6, 0); sp2.scale.set(2.8, 1, 1); g.add(sp2);
+        const tex2 = new THREE.CanvasTexture(cv);
+        const sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex2, transparent: true, depthWrite: false }));
+        sp2.position.set(0, 0.85 * s, 0); sp2.scale.set(2.2, 0.8, 1); g.add(sp2);
       }
       return g;
     }
@@ -365,7 +490,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     let rt; const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el) return; camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix(); ren.setSize(el.clientWidth, el.clientHeight); }, 100); };
     window.addEventListener("resize", onR);
     return () => { window.removeEventListener("resize", onR); de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp); cancelAnimationFrame(R.current.fr); ren.dispose(); if (el.contains(ren.domElement)) el.removeChild(ren.domElement); };
-  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr]);
+  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, isDark]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]); useEffect(() => { cmRef.current = cam; }, [cam]);
 
@@ -472,6 +597,9 @@ const SD = memo(function SD({ s, t1, t2, c1, c2 }) {
 // ═══════════════════════════════════════════
 export default function App() {
   const mob = useIsMobile();
+  const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; } });
+  F1 = isDark ? F1_DARK : F1_LIGHT;
+  const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
   const [year, setYear] = useState(2026);
   const [mts, setMts] = useState([]); const [selMt, setSelMt] = useState(null);
   const [sess, setSess] = useState([]); const [selSe, setSelSe] = useState(null);
@@ -612,7 +740,7 @@ export default function App() {
 
   const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
 
-  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode);
+  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark);
 
   // Playback
   useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
@@ -770,6 +898,7 @@ export default function App() {
             {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
             {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
             {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
+            <button onClick={toggleTheme} style={{ fontSize: 10, padding: "4px 10px", letterSpacing: "0.05em" }}>{isDark ? "☀️" : "🌙"}</button>
           </div>
         </div>
       </div>
