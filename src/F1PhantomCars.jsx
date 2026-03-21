@@ -92,6 +92,21 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     );
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(ground);
 
+    // ─── Skybox: gradient dome ───
+    const skyGeo = new THREE.SphereGeometry(180, 32, 16);
+    const skyColors = new Float32Array(skyGeo.attributes.position.count * 3);
+    for (let i = 0; i < skyGeo.attributes.position.count; i++) {
+      const y = skyGeo.attributes.position.getY(i);
+      const t = Math.max(0, Math.min(1, (y + 10) / 190));
+      // Dark bottom → deep blue middle → navy top
+      skyColors[i * 3] = 0.06 + t * 0.04;
+      skyColors[i * 3 + 1] = 0.06 + t * 0.07;
+      skyColors[i * 3 + 2] = 0.1 + t * 0.12;
+    }
+    skyGeo.setAttribute("color", new THREE.Float32BufferAttribute(skyColors, 3));
+    const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }));
+    scene.add(sky);
+
     // ─── Track curve ───
     const curve = new THREE.CatmullRomCurve3(tp.map((p) => new THREE.Vector3(p.x, p.y, p.z)), true);
     const seg = Math.min(tp.length * 3, 800);
@@ -226,11 +241,32 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     const car1 = makeCar(c1, lab1, false); const car2 = makeCar(c2, lab2, true);
     scene.add(car1); scene.add(car2);
 
+    // ─── Spotlight cone following each car ───
+    const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1);
+    spot1.position.set(0, 12, 0); scene.add(spot1);
+    const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1);
+    spot2.position.set(0, 12, 0); scene.add(spot2);
+
+    // ─── Delta bar: line connecting two cars ───
+    const deltaGeo = new THREE.BufferGeometry();
+    const deltaPos = new Float32Array(6); // 2 points x 3 components
+    deltaGeo.setAttribute("position", new THREE.Float32BufferAttribute(deltaPos, 3));
+    const deltaMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+    const deltaLine = new THREE.Line(deltaGeo, deltaMat);
+    deltaLine.frustumCulled = false;
+    scene.add(deltaLine);
+
+    // ─── Racing line (smooth center path, slightly offset) ───
+    const racingLinePts = curve.getPoints(seg);
+    const rlGeo = new THREE.BufferGeometry().setFromPoints(racingLinePts);
+    const rlLine = new THREE.Line(rlGeo, new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
+    rlLine.position.y += 0.015; scene.add(rlLine);
+
     // Trails — wider, more visible
     function makeTrail(color, ghost) { const max = 80, pos = new Float32Array(max * 3), geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setDrawRange(0, 0); const ln2 = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: ghost ? 0.35 : 0.6, linewidth: 2 })); scene.add(ln2); return { line: ln2, positions: pos, max, count: 0 }; }
     const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
 
-    R.current = { scene, camera, ren, car1, car2, tr1, tr2, n1, n2, curve, fr: null };
+    R.current = { scene, camera, ren, car1, car2, tr1, tr2, n1, n2, curve, spot1, spot2, deltaLine, deltaPos, fr: null };
 
     const cs = CS.current;
     const onDown = (e) => { cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0; };
@@ -258,9 +294,21 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]); useEffect(() => { cmRef.current = cam; }, [cam]);
 
   useEffect(() => {
-    const { car1, car2, tr1, tr2, camera: cam2 } = R.current; if (!car1 || !car2 || !tp || tp.length < 2) return; const cs = CS.current;
+    const { car1, car2, tr1, tr2, camera: cam2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP } = R.current; if (!car1 || !car2 || !tp || tp.length < 2) return; const cs = CS.current;
     function upd(car, trail, data, t) { const pts = data?.length >= 2 ? data : tp; const p = lerp(pts, t); if (isNaN(p.x) || isNaN(p.y) || isNaN(p.z)) return { x: 0, y: 0, z: 0 }; car.position.set(p.x, p.y + 0.2, p.z); const p2 = lerp(pts, Math.min(1, t + 0.005)); if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.001 && !isNaN(p2.x)) car.lookAt(p2.x, p.y + 0.2, p2.z); if (trail) { const c = Math.min(trail.count + 1, trail.max); for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; } trail.positions[0] = p.x; trail.positions[1] = p.y + 0.2; trail.positions[2] = p.z; trail.count = c; trail.line.geometry.attributes.position.needsUpdate = true; trail.line.geometry.setDrawRange(0, c); } return p; }
     const p1 = upd(car1, tr1, R.current.n1, prog); const p2 = upd(car2, tr2, R.current.n2, prog);
+    // Spotlights follow cars
+    if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
+    if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
+    // Delta bar between cars
+    if (dL && dP) {
+      dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z;
+      dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z;
+      dL.geometry.attributes.position.needsUpdate = true;
+      // Color: green if car1 ahead, red if behind (based on distance along track)
+      const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2);
+      dL.material.opacity = Math.min(0.6, gap * 0.08);
+    }
     if (cam2) { const cm = cmRef.current; if (cm === "follow1" || cm === "follow2") { const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp); const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1; cam2.position.set(tgt.x - (dx / len) * 8, tgt.y + 4.5, tgt.z - (dz / len) * 8); cam2.lookAt(ah.x, tgt.y + 0.3, ah.z); } else if (cm === "cinematic" && R.current.curve) { const ct = (cs.cinT + prog * 0.3) % 1; const cp = R.current.curve.getPointAt(ct); cam2.position.set(cp.x + 8, cp.y + 5, cp.z + 8); cam2.lookAt((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2); } }
   }, [prog, tp, cam]);
 }
@@ -394,7 +442,8 @@ export default function App() {
   useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
 
   // Keys
-  useEffect(() => { const h = (e) => { if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return; if (e.code === "Space") { e.preventDefault(); if (tp) setPlay((p) => !p); } if (e.code === "KeyR") { setProg(0); setPlay(false); } if (e.code === "KeyT") setShowTel((s) => !s); if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]); if (e.code === "KeyL") setLoop((l) => !l); if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01)); if (e.code === "ArrowLeft") setProg((p) => Math.max(0, p - 0.01)); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [tp]);
+  const lastLeftRef = useRef(0);
+  useEffect(() => { const h = (e) => { if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return; if (e.code === "Space") { e.preventDefault(); if (tp) setPlay((p) => !p); } if (e.code === "KeyR") { setProg(0); setPlay(false); } if (e.code === "KeyT") setShowTel((s) => !s); if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]); if (e.code === "KeyL") setLoop((l) => !l); if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01)); if (e.code === "ArrowLeft") { const now = Date.now(); if (now - lastLeftRef.current < 300) { setProg((p) => Math.max(0, p - 0.05)); } else { setProg((p) => Math.max(0, p - 0.01)); } lastLeftRef.current = now; } }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [tp]);
 
   // Backdrop + modals
   const modBg = (showPresets || showStats || showLaps) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
@@ -555,23 +604,59 @@ export default function App() {
         {((!mob && showTel && tp) || (mob && mobTab === "telemetry" && tp)) && (
           <div style={{ width: mob ? "100%" : 310, borderLeft: mob ? "none" : `1px solid ${F1.borderLight}`, background: F1.panelBg, display: "flex", flexDirection: "column", maxHeight: mob ? "55vh" : "auto", animation: "fadeIn .2s" }}>
             <div style={{ padding: mob ? 10 : 14, overflowY: "auto", flex: 1 }}>
-              {/* Driver cards */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {/* ─── Speedometer gauges ─── */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                 {[{ di: di1, co: co1, ct: ct1, tire: tire1 }, { di: di2, co: co2, ct: ct2, tire: tire2 }].map((x, i) => (
-                  <div key={i} style={{ flex: 1, background: F1.cardBg, borderRadius: 6, padding: "8px 10px", borderTop: `3px solid ${x.co}`, position: "relative" }}>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: x.co, fontFamily: F1.mono, letterSpacing: "0.05em" }}>{x.di?.name_acronym || "—"}</div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "#fff", fontFamily: F1.mono, lineHeight: 1.1 }}>{Math.round(x.ct.speed)}<span style={{ fontSize: 10, color: F1.textMuted, fontWeight: 400 }}> km/h</span></div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 10, fontFamily: F1.mono }}>
-                      <span style={{ color: x.ct.throttle > 50 ? F1.green : F1.textMuted }}>THR {Math.round(x.ct.throttle)}%</span>
-                      <span style={{ color: x.ct.brake > 0 ? F1.red : F1.textMuted }}>BRK {x.ct.brake > 0 ? "ON" : "OFF"}</span>
-                      <span style={{ color: F1.textDim }}>G{x.ct.n_gear ?? x.ct.gear ?? "—"}</span>
+                  <div key={i} style={{ flex: 1, background: F1.cardBg, borderRadius: 6, padding: "8px 8px 6px", borderTop: `3px solid ${x.co}`, position: "relative", textAlign: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: x.co, fontFamily: F1.mono, letterSpacing: "0.05em" }}>{x.di?.name_acronym || "—"}</div>
+                    {/* Circular speedometer */}
+                    <svg width="90" height="55" viewBox="0 0 90 55" style={{ margin: "4px auto 2px" }}>
+                      <path d="M 10 50 A 35 35 0 0 1 80 50" fill="none" stroke={F1.border} strokeWidth="4" strokeLinecap="round" />
+                      <path d="M 10 50 A 35 35 0 0 1 80 50" fill="none" stroke={x.co} strokeWidth="4" strokeLinecap="round"
+                        strokeDasharray={`${(Math.min(x.ct.speed, 360) / 360) * 110} 110`} />
+                      <text x="45" y="42" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily={F1.mono}>{Math.round(x.ct.speed)}</text>
+                      <text x="45" y="52" textAnchor="middle" fill={F1.textMuted} fontSize="7" fontFamily={F1.mono}>KM/H</text>
+                    </svg>
+                    {/* Throttle/Brake pedal bars */}
+                    <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 2 }}>
+                      <div style={{ width: 28, textAlign: "center" }}>
+                        <div style={{ height: 20, width: 6, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
+                          <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${x.ct.throttle}%`, background: F1.green, borderRadius: 2, transition: "height 0.1s" }} />
+                        </div>
+                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>THR</div>
+                      </div>
+                      <div style={{ width: 28, textAlign: "center" }}>
+                        <div style={{ height: 20, width: 6, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
+                          <div style={{ position: "absolute", bottom: 0, width: "100%", height: x.ct.brake > 0 ? "100%" : "0%", background: F1.red, borderRadius: 2, transition: "height 0.1s" }} />
+                        </div>
+                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>BRK</div>
+                      </div>
+                      <div style={{ width: 28, textAlign: "center" }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", fontFamily: F1.mono, lineHeight: "20px" }}>{x.ct.n_gear ?? x.ct.gear ?? "—"}</div>
+                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>GEAR</div>
+                      </div>
                     </div>
-                    {x.tire && <div style={{ position: "absolute", top: 8, right: 8, display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: TIRE_COLORS[x.tire] || "#888" }} /><span style={{ fontSize: 9, fontFamily: F1.mono, color: F1.textMuted }}>{x.tire}</span></div>}
-                    {x.ct.drs >= 10 && <div style={{ position: "absolute", bottom: 8, right: 8, fontSize: 9, fontWeight: 700, color: F1.green, fontFamily: F1.mono, background: `${F1.green}15`, padding: "1px 5px", borderRadius: 3, animation: "pulse 1s infinite" }}>DRS</div>}
+                    {x.tire && <div style={{ position: "absolute", top: 6, right: 6, display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: TIRE_COLORS[x.tire] || "#888" }} /><span style={{ fontSize: 8, fontFamily: F1.mono, color: F1.textMuted }}>{x.tire}</span></div>}
+                    {x.ct.drs >= 10 && <div style={{ position: "absolute", bottom: 4, right: 6, fontSize: 8, fontWeight: 700, color: F1.green, fontFamily: F1.mono, background: `${F1.green}15`, padding: "1px 4px", borderRadius: 2, animation: "pulse 1s infinite" }}>DRS</div>}
                   </div>
                 ))}
               </div>
-              {/* Trace labels + charts */}
+              {/* ─── Elevation profile ─── */}
+              {tp && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ELEVATION</div>
+                  <svg width="100%" height="40" viewBox="0 0 300 40" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg }}>
+                    {(() => {
+                      const ys = tp.map((p) => p.y); const minY = Math.min(...ys), maxY = Math.max(...ys);
+                      const range = maxY - minY || 1; const step = Math.max(1, Math.floor(tp.length / 150));
+                      let d = ""; for (let i = 0; i < tp.length; i += step) { const x = (i / (tp.length - 1)) * 300; const y = 38 - ((ys[i] - minY) / range) * 34; d += (i === 0 ? "M" : "L") + `${x},${y}`; }
+                      return (<><path d={d + `L300,40L0,40Z`} fill={`${F1.red}15`} /><path d={d} fill="none" stroke={F1.red} strokeWidth="1.5" opacity="0.6" />
+                        <line x1={prog * 300} y1="0" x2={prog * 300} y2="40" stroke="#fff" strokeWidth="1" opacity="0.5" /></>);
+                    })()}
+                  </svg>
+                </div>
+              )}
+              {/* ─── Trace charts ─── */}
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED</div>
               <TelChart data1={s1} data2={s2} color1={co1} color2={co2} maxVal={370} />
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>THROTTLE</div>
