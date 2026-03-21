@@ -23,12 +23,29 @@ const TEAM_COLORS = { "Red Bull Racing": "#3671C6", "Red Bull": "#3671C6", "McLa
 const getTeamColor = (t) => { if (!t) return "#888"; for (const [k, v] of Object.entries(TEAM_COLORS)) if (t.toLowerCase().includes(k.toLowerCase())) return v; return "#888"; };
 
 const PRESETS = [
-  { label: "VER vs NOR — Monza 2024 Q", year: 2024, meeting: "Italian Grand Prix", session: "Qualifying", d1: 1, d2: 4 },
-  { label: "HAM vs VER — Bahrain 2024 R", year: 2024, meeting: "Bahrain Grand Prix", session: "Race", d1: 44, d2: 1 },
-  { label: "NOR vs PIA — Silverstone 2024 Q", year: 2024, meeting: "British Grand Prix", session: "Qualifying", d1: 4, d2: 81 },
-  { label: "LEC vs SAI — Monaco 2024 Q", year: 2024, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 16, d2: 55 },
-  { label: "VER vs NOR — Abu Dhabi 2024 Q", year: 2024, meeting: "Abu Dhabi Grand Prix", session: "Qualifying", d1: 1, d2: 4 },
-  { label: "RUS vs HAM — Spa 2024 Q", year: 2024, meeting: "Belgian Grand Prix", session: "Qualifying", d1: 63, d2: 44 },
+  // ─── 2025 Season ───
+  { label: "🏆 NOR vs PIA — Australia 2025 Q • McLaren 1-2 pole battle", year: 2025, meeting: "Australian Grand Prix", session: "Qualifying", d1: 4, d2: 81, cat: "2025" },
+  { label: "🔥 HAM vs LEC — China 2025 Q • Ferrari teammates debut", year: 2025, meeting: "Chinese Grand Prix", session: "Qualifying", d1: 44, d2: 16, cat: "2025" },
+  // ─── 2024 Iconic Battles ───
+  { label: "⚔️ VER vs NOR — Monza 2024 Q • 0.025s gap", year: 2024, meeting: "Italian Grand Prix", session: "Qualifying", d1: 1, d2: 4, cat: "2024" },
+  { label: "🎭 LEC vs SAI — Monaco 2024 Q • Ferrari home pole fight", year: 2024, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 16, d2: 55, cat: "2024" },
+  { label: "🇬🇧 NOR vs PIA — Silverstone 2024 Q • McLaren supremacy", year: 2024, meeting: "British Grand Prix", session: "Qualifying", d1: 4, d2: 81, cat: "2024" },
+  { label: "💥 VER vs NOR — Austria 2024 R • The crash race", year: 2024, meeting: "Austrian Grand Prix", session: "Race", d1: 1, d2: 4, cat: "2024" },
+  { label: "🏁 RUS vs VER — Canada 2024 Q • Identical lap times", year: 2024, meeting: "Canadian Grand Prix", session: "Qualifying", d1: 63, d2: 1, cat: "2024" },
+  { label: "🌙 VER vs NOR — Abu Dhabi 2024 Q • Season finale", year: 2024, meeting: "Abu Dhabi Grand Prix", session: "Qualifying", d1: 1, d2: 4, cat: "2024" },
+  { label: "🇧🇪 RUS vs HAM — Spa 2024 Q • Mercedes 1-2", year: 2024, meeting: "Belgian Grand Prix", session: "Qualifying", d1: 63, d2: 44, cat: "2024" },
+  { label: "🎰 LEC vs PIA — Las Vegas 2024 Q • Night fight", year: 2024, meeting: "Las Vegas Grand Prix", session: "Qualifying", d1: 16, d2: 81, cat: "2024" },
+  { label: "🇺🇸 NOR vs VER — Miami 2024 Q • Sprint weekend", year: 2024, meeting: "Miami Grand Prix", session: "Qualifying", d1: 4, d2: 1, cat: "2024" },
+  { label: "🏎️ HAM vs VER — Bahrain 2024 R • Season opener", year: 2024, meeting: "Bahrain Grand Prix", session: "Race", d1: 44, d2: 1, cat: "2024" },
+  { label: "🇯🇵 VER vs PIA — Japan 2024 Q • Suzuka showdown", year: 2024, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 1, d2: 81, cat: "2024" },
+  { label: "🇪🇸 NOR vs VER — Spain 2024 Q • Barcelona battle", year: 2024, meeting: "Spanish Grand Prix", session: "Qualifying", d1: 4, d2: 1, cat: "2024" },
+  // ─── 2023 Classics ───
+  { label: "👑 VER vs LEC — Bahrain 2023 Q • Season opener", year: 2023, meeting: "Bahrain Grand Prix", session: "Qualifying", d1: 1, d2: 16, cat: "2023" },
+  { label: "🦁 VER vs HAM — Jeddah 2023 Q • Old rivals", year: 2023, meeting: "Saudi Arabian Grand Prix", session: "Qualifying", d1: 1, d2: 44, cat: "2023" },
+  { label: "🌧️ VER vs ALO — Monaco 2023 Q • Wet-dry thriller", year: 2023, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 1, d2: 14, cat: "2023" },
+  { label: "🇸🇬 SAI vs NOR — Singapore 2023 Q • Street circuit pole", year: 2023, meeting: "Singapore Grand Prix", session: "Qualifying", d1: 55, d2: 4, cat: "2023" },
+  { label: "🏆 VER vs NOR — Zandvoort 2023 Q • Dutch home race", year: 2023, meeting: "Dutch Grand Prix", session: "Qualifying", d1: 1, d2: 4, cat: "2023" },
+  { label: "🇲🇽 LEC vs SAI — Mexico 2023 Q • Ferrari lockout", year: 2023, meeting: "Mexico City Grand Prix", session: "Qualifying", d1: 16, d2: 55, cat: "2023" },
 ];
 
 const CAM_MODES = ["orbit", "follow1", "follow2", "top", "cinematic"];
@@ -402,16 +419,41 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2 }) {
   return <canvas ref={ref} width={150} height={150} style={{ width: 150, height: 150, borderRadius: 8 }} />;
 });
 
-// ─── Telemetry Chart ───
-const TelChart = memo(function TC({ data1, data2, color1, color2, maxVal, h: ch }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const c = ref.current; if (!c) return; const ctx = c.getContext("2d"), w = c.width, h = c.height;
-    ctx.clearRect(0, 0, w, h);
-    function draw(data, col) { if (!data?.length) return; const step = Math.max(1, Math.floor(data.length / w)); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.beginPath(); let f = true; for (let i = 0; i < data.length; i += step) { const x = (i / (data.length - 1)) * w, y = h - (data[i] / maxVal) * h * 0.9 - h * 0.05; f ? ctx.moveTo(x, y) : ctx.lineTo(x, y); f = false; } ctx.stroke(); }
-    draw(data1, color1); draw(data2, color2);
-  }, [data1, data2, color1, color2, maxVal]);
-  return <canvas ref={ref} width={320} height={ch || 45} style={{ width: "100%", height: ch || 45, borderRadius: 3 }} />;
+// ─── SVG Telemetry Chart with playback cursor ───
+const TelChart = memo(function TC({ data1, data2, color1, color2, maxVal, h: ch, prog, label, fillColor }) {
+  if (!data1?.length && !data2?.length) return null;
+  const H = ch || 45, W = 300;
+  function buildPath(data) {
+    if (!data?.length) return "";
+    const step = Math.max(1, Math.floor(data.length / 150));
+    let d = "";
+    for (let i = 0; i < data.length; i += step) {
+      const x = (i / (data.length - 1)) * W;
+      const y = H - 2 - ((data[i] || 0) / maxVal) * (H - 4);
+      d += (i === 0 ? "M" : "L") + `${x},${y}`;
+    }
+    return d;
+  }
+  const path1 = buildPath(data1), path2 = buildPath(data2);
+  return (
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block", marginBottom: 2 }}>
+      {path1 && <><path d={path1 + `L${W},${H}L0,${H}Z`} fill={fillColor || `${color1}10`} /><path d={path1} fill="none" stroke={color1} strokeWidth="1.5" opacity="0.7" /></>}
+      {path2 && <><path d={path2 + `L${W},${H}L0,${H}Z`} fill={`${color2}08`} /><path d={path2} fill="none" stroke={color2} strokeWidth="1.2" opacity="0.5" strokeDasharray="3,2" /></>}
+      {prog !== undefined && <line x1={prog * W} y1="0" x2={prog * W} y2={H} stroke="#fff" strokeWidth="1" opacity="0.5" />}
+      {prog !== undefined && data1?.length && (() => {
+        const idx = Math.floor(prog * (data1.length - 1));
+        const val = data1[idx] || 0;
+        const y = H - 2 - (val / maxVal) * (H - 4);
+        return <circle cx={prog * W} cy={y} r="2.5" fill={color1} opacity="0.9" />;
+      })()}
+      {prog !== undefined && data2?.length && (() => {
+        const idx = Math.floor(prog * (data2.length - 1));
+        const val = data2[idx] || 0;
+        const y = H - 2 - (val / maxVal) * (H - 4);
+        return <circle cx={prog * W} cy={y} r="2" fill={color2} opacity="0.7" />;
+      })()}
+    </svg>
+  );
 });
 
 // ─── Sector Delta ───
@@ -582,25 +624,83 @@ export default function App() {
   // Backdrop + modals
   const modBg = (showPresets || showStats || showLaps) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
 
-  const presetsModal = showPresets && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 24, zIndex: 100, minWidth: mob ? "92%" : 400, animation: "fadeIn .2s" }}>
-    <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}><span style={{ fontWeight: 700, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>QUICK PRESETS</span><button onClick={() => setShowPresets(false)} style={{ marginLeft: "auto" }}>✕</button></div>
-    {PRESETS.map((p, i) => <button key={i} onClick={() => loadPreset(p)} style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 14px", marginBottom: 6, fontSize: 13, fontFamily: F1.mono, borderLeft: `3px solid ${F1.red}` }}>{p.label}</button>)}
+  const presetsModal = showPresets && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 460, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>MEMORABLE BATTLES</div>
+        <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>20 iconic qualifying & race comparisons</div>
+      </div>
+      <button onClick={() => setShowPresets(false)} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
+    </div>
+    <div style={{ overflowY: "auto", padding: "12px 20px 20px", flex: 1 }}>
+      {["2025", "2024", "2023"].map((yr) => {
+        const items = PRESETS.filter((p) => p.cat === yr);
+        if (!items.length) return null;
+        return (<div key={yr} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, color: F1.red, letterSpacing: "0.12em", marginBottom: 8, fontFamily: F1.mono, borderBottom: `1px solid ${F1.red}22`, paddingBottom: 4 }}>{yr} SEASON</div>
+          {items.map((p, i) => (
+            <button key={i} onClick={() => loadPreset(p)} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 12px", marginBottom: 4, fontSize: 12, fontFamily: F1.mono, borderLeft: `3px solid ${F1.red}`, lineHeight: 1.4 }}>
+              {p.label}
+            </button>
+          ))}
+        </div>);
+      })}
+    </div>
   </div>);
 
-  const statsModal = showStats && tp && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 24, zIndex: 100, minWidth: mob ? "92%" : 420, animation: "fadeIn .2s" }}>
-    <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}><span style={{ fontWeight: 700, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>COMPARISON</span><button onClick={() => setShowStats(false)} style={{ marginLeft: "auto" }}>✕</button></div>
+  // Extra computed stats
+  const minSpd1 = useMemo(() => tel1?.length ? Math.min(...tel1.filter(t => t.speed > 5).map(t => t.speed)) : 0, [tel1]);
+  const minSpd2 = useMemo(() => tel2?.length ? Math.min(...tel2.filter(t => t.speed > 5).map(t => t.speed)) : 0, [tel2]);
+  const fullThr1 = useMemo(() => tel1?.length ? (tel1.filter(t => t.throttle >= 95).length / tel1.length * 100) : 0, [tel1]);
+  const fullThr2 = useMemo(() => tel2?.length ? (tel2.filter(t => t.throttle >= 95).length / tel2.length * 100) : 0, [tel2]);
+  const brkPct1 = useMemo(() => tel1?.length ? (tel1.filter(t => t.brake > 0).length / tel1.length * 100) : 0, [tel1]);
+  const brkPct2 = useMemo(() => tel2?.length ? (tel2.filter(t => t.brake > 0).length / tel2.length * 100) : 0, [tel2]);
+  const coastPct1 = useMemo(() => tel1?.length ? (tel1.filter(t => t.throttle < 5 && t.brake === 0).length / tel1.length * 100) : 0, [tel1]);
+  const coastPct2 = useMemo(() => tel2?.length ? (tel2.filter(t => t.throttle < 5 && t.brake === 0).length / tel2.length * 100) : 0, [tel2]);
+  const drsCnt1 = useMemo(() => { if (!tel1?.length) return 0; let c = 0; for (let i = 1; i < tel1.length; i++) if (tel1[i].drs >= 10 && tel1[i-1].drs < 10) c++; return c; }, [tel1]);
+  const drsCnt2 = useMemo(() => { if (!tel2?.length) return 0; let c = 0; for (let i = 1; i < tel2.length; i++) if (tel2[i].drs >= 10 && tel2[i-1].drs < 10) c++; return c; }, [tel2]);
+  const maxRpm1 = useMemo(() => tel1?.length ? Math.max(...tel1.map(t => t.rpm || 0)) : 0, [tel1]);
+  const maxRpm2 = useMemo(() => tel2?.length ? Math.max(...tel2.map(t => t.rpm || 0)) : 0, [tel2]);
+
+  const statsModal = showStats && tp && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP ANALYSIS</div>
+        <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Detailed telemetry comparison</div>
+      </div>
+      <button onClick={() => setShowStats(false)} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
+    </div>
+    <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: F1.mono }}>
-      <thead><tr style={{ color: F1.textMuted, fontSize: 10, letterSpacing: "0.1em" }}><th style={{ textAlign: "left", padding: "6px 8px", borderBottom: `1px solid ${F1.red}22` }}>METRIC</th><th style={{ textAlign: "center", padding: "6px 8px", color: co1, borderBottom: `1px solid ${co1}33` }}>{di1?.name_acronym || "D1"}</th><th style={{ textAlign: "center", padding: "6px 8px", color: co2, borderBottom: `1px solid ${co2}33` }}>{di2?.name_acronym || "D2"}</th></tr></thead>
+      <thead><tr style={{ color: F1.textMuted, fontSize: 10, letterSpacing: "0.1em" }}><th style={{ textAlign: "left", padding: "10px 8px 6px", borderBottom: `1px solid ${F1.red}22` }}>METRIC</th><th style={{ textAlign: "center", padding: "10px 8px 6px", color: co1, borderBottom: `2px solid ${co1}44` }}>{di1?.name_acronym || "D1"}</th><th style={{ textAlign: "center", padding: "10px 8px 6px", color: co2, borderBottom: `2px solid ${co2}44` }}>{di2?.name_acronym || "D2"}</th><th style={{ textAlign: "center", padding: "10px 8px 6px", color: F1.textMuted, borderBottom: `1px solid ${F1.borderLight}`, width: 50 }}>Δ</th></tr></thead>
       <tbody>{[
-        { m: "LAP TIME", v1: li1?.lap_duration ? fmt(li1.lap_duration) : "—", v2: li2?.lap_duration ? fmt(li2.lap_duration) : "—" },
-        { m: "TOP SPEED", v1: `${Math.round(topS1)}`, v2: `${Math.round(topS2)}` },
-        { m: "AVG SPEED", v1: `${Math.round(avgS1)}`, v2: `${Math.round(avgS2)}` },
-        { m: "SECTOR 1", v1: li1?.duration_sector_1?.toFixed(3) || "—", v2: li2?.duration_sector_1?.toFixed(3) || "—" },
-        { m: "SECTOR 2", v1: li1?.duration_sector_2?.toFixed(3) || "—", v2: li2?.duration_sector_2?.toFixed(3) || "—" },
-        { m: "SECTOR 3", v1: li1?.duration_sector_3?.toFixed(3) || "—", v2: li2?.duration_sector_3?.toFixed(3) || "—" },
-        { m: "TYRE", v1: tire1 || "—", v2: tire2 || "—" },
-      ].map((r) => <tr key={r.m} style={{ borderBottom: `1px solid ${F1.borderLight}` }}><td style={{ padding: "8px 8px", color: F1.textDim, letterSpacing: "0.05em" }}>{r.m}</td><td style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: co1 }}>{r.v1}</td><td style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: co2 }}>{r.v2}</td></tr>)}</tbody>
+        { m: "LAP TIME", v1: li1?.lap_duration ? fmt(li1.lap_duration) : "—", v2: li2?.lap_duration ? fmt(li2.lap_duration) : "—", d: li1?.lap_duration && li2?.lap_duration ? (li1.lap_duration - li2.lap_duration) : null, unit: "s" },
+        { m: "TOP SPEED", v1: Math.round(topS1), v2: Math.round(topS2), d: topS1 - topS2, unit: "", inv: true },
+        { m: "AVG SPEED", v1: Math.round(avgS1), v2: Math.round(avgS2), d: avgS1 - avgS2, unit: "", inv: true },
+        { m: "MIN SPEED", v1: Math.round(minSpd1), v2: Math.round(minSpd2), d: minSpd1 - minSpd2, unit: "", inv: true },
+        { m: "SECTOR 1", v1: li1?.duration_sector_1?.toFixed(3) || "—", v2: li2?.duration_sector_1?.toFixed(3) || "—", d: li1?.duration_sector_1 && li2?.duration_sector_1 ? li1.duration_sector_1 - li2.duration_sector_1 : null, unit: "s" },
+        { m: "SECTOR 2", v1: li1?.duration_sector_2?.toFixed(3) || "—", v2: li2?.duration_sector_2?.toFixed(3) || "—", d: li1?.duration_sector_2 && li2?.duration_sector_2 ? li1.duration_sector_2 - li2.duration_sector_2 : null, unit: "s" },
+        { m: "SECTOR 3", v1: li1?.duration_sector_3?.toFixed(3) || "—", v2: li2?.duration_sector_3?.toFixed(3) || "—", d: li1?.duration_sector_3 && li2?.duration_sector_3 ? li1.duration_sector_3 - li2.duration_sector_3 : null, unit: "s" },
+        { m: "FULL THROTTLE", v1: `${fullThr1.toFixed(1)}%`, v2: `${fullThr2.toFixed(1)}%`, d: fullThr1 - fullThr2, unit: "%", inv: true },
+        { m: "BRAKING", v1: `${brkPct1.toFixed(1)}%`, v2: `${brkPct2.toFixed(1)}%`, d: brkPct1 - brkPct2, unit: "%" },
+        { m: "COASTING", v1: `${coastPct1.toFixed(1)}%`, v2: `${coastPct2.toFixed(1)}%`, d: coastPct1 - coastPct2, unit: "%" },
+        { m: "DRS OPENS", v1: drsCnt1, v2: drsCnt2, d: null, unit: "" },
+        { m: "MAX RPM", v1: maxRpm1 ? Math.round(maxRpm1).toLocaleString() : "—", v2: maxRpm2 ? Math.round(maxRpm2).toLocaleString() : "—", d: null, unit: "" },
+        { m: "TYRE", v1: tire1 || "—", v2: tire2 || "—", d: null, unit: "" },
+      ].map((r) => {
+        // Determine who's better for highlighting
+        const better = r.d !== null ? (r.inv ? (r.d > 0 ? 1 : r.d < 0 ? 2 : 0) : (r.d < 0 ? 1 : r.d > 0 ? 2 : 0)) : 0;
+        return (<tr key={r.m} style={{ borderBottom: `1px solid ${F1.borderLight}` }}>
+          <td style={{ padding: "7px 8px", color: F1.textDim, letterSpacing: "0.04em", fontSize: 10 }}>{r.m}</td>
+          <td style={{ padding: "7px 8px", textAlign: "center", fontWeight: 700, color: better === 1 ? co1 : F1.text, background: better === 1 ? `${co1}08` : "transparent" }}>{r.v1}</td>
+          <td style={{ padding: "7px 8px", textAlign: "center", fontWeight: 700, color: better === 2 ? co2 : F1.text, background: better === 2 ? `${co2}08` : "transparent" }}>{r.v2}</td>
+          <td style={{ padding: "7px 8px", textAlign: "center", fontSize: 10, color: r.d !== null ? (r.d > 0 ? (r.inv ? F1.green : F1.red) : r.d < 0 ? (r.inv ? F1.red : F1.green) : F1.textMuted) : F1.textMuted }}>
+            {r.d !== null ? `${r.d > 0 ? "+" : ""}${typeof r.d === "number" ? (Math.abs(r.d) < 1 ? r.d.toFixed(3) : Math.round(r.d)) : r.d}` : "—"}
+          </td>
+        </tr>);
+      })}</tbody>
     </table>
+    </div>
   </div>);
 
   const lapsModal = showLaps && (<div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: mob ? "100%" : 380, background: F1.carbon, borderLeft: `1px solid ${F1.red}22`, zIndex: 100, display: "flex", flexDirection: "column", animation: "fadeIn .2s" }}>
@@ -643,17 +743,29 @@ export default function App() {
 
       {modBg}{presetsModal}{statsModal}{lapsModal}
 
-      {/* ─── HEADER — F1 broadcast bar ─── */}
-      <div style={{ padding: mob ? "8px 10px" : "0", display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, ${F1.carbonLight} 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative", overflow: "hidden" }}>
-        {/* Red accent strip */}
-        <div style={{ width: mob ? 4 : 6, background: F1.red, flexShrink: 0 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: mob ? 8 : 14, padding: mob ? "0 8px" : "10px 18px", flex: 1, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontSize: mob ? 16 : 22, fontWeight: 900, letterSpacing: "0.04em", color: "#fff", textTransform: "uppercase" }}>Phantom</span>
-            <span style={{ fontSize: mob ? 16 : 22, fontWeight: 300, color: F1.red, letterSpacing: "0.04em" }}>Cars</span>
-          </div>
-          {selMt && <span style={{ fontSize: 11, color: F1.textDim, fontWeight: 600, letterSpacing: "0.05em" }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+      {/* ─── HEADER — F1 Stories branded ─── */}
+      <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, #111118 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
+        <div style={{ width: mob ? 4 : 5, background: F1.red, flexShrink: 0 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: mob ? 8 : 16, padding: mob ? "8px 10px" : "0 20px", flex: 1, flexWrap: "wrap", minHeight: mob ? "auto" : 48 }}>
+          {/* Logo + brand */}
+          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+            <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 28 : 34, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+              <span style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", letterSpacing: "0.03em" }}>F1 STORIES</span>
+              <span style={{ fontSize: mob ? 8 : 9, fontWeight: 400, color: F1.textMuted, letterSpacing: "0.12em", textTransform: "uppercase" }}>Ghost Car Lab</span>
+            </div>
+          </a>
+          {/* Nav links */}
+          {!mob && <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+            {[{ label: "Blog", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Standings", href: "https://f1stories.gr/standings/" }].map((l) => (
+              <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: F1.textDim, textDecoration: "none", padding: "3px 8px", borderRadius: 3, fontWeight: 600, letterSpacing: "0.05em", transition: "color 0.15s" }}
+                onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = F1.textDim}>{l.label.toUpperCase()}</a>
+            ))}
+          </div>}
+          {/* GP name */}
+          {selMt && <span style={{ fontSize: 11, color: F1.textDim, fontWeight: 600, letterSpacing: "0.05em", marginLeft: mob ? 0 : 8 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
+          {/* Actions */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
             <button onClick={() => setShowPresets(true)} style={{ fontSize: 10, padding: "4px 10px", letterSpacing: "0.05em" }}>⚡ PRESETS</button>
             {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
             {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
@@ -727,9 +839,14 @@ export default function App() {
             </div>}
 
             {!tp && !loading && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
-              <div style={{ fontSize: 72, fontWeight: 900, color: F1.red, opacity: 0.08, letterSpacing: "-0.03em", lineHeight: 1 }}>F1</div>
-              <div style={{ fontSize: mob ? 14 : 17, fontWeight: 700, color: F1.textMuted, marginBottom: 8, letterSpacing: "0.03em" }}>GHOST CAR COMPARISON</div>
-              <div style={{ fontSize: 12, color: F1.textMuted, maxWidth: 340 }}>Select a Grand Prix, session & two drivers above — or try ⚡ Presets for instant comparisons.</div>
+              <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
+              <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4, letterSpacing: "0.04em" }}>GHOST CAR LAB</div>
+              <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>by F1 STORIES</div>
+              <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Compare qualifying laps in 3D with real telemetry data. Select a Grand Prix, session & two drivers — or try ⚡ Presets.</div>
+              <div style={{ marginTop: 18, display: "flex", gap: 8, justifyContent: "center" }}>
+                <button onClick={() => setShowPresets(true)} className="f1-btn" style={{ padding: "8px 20px", fontSize: 12 }}>⚡ QUICK START</button>
+                <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: F1.textDim, textDecoration: "none", padding: "8px 14px", border: `1px solid ${F1.border}`, borderRadius: 4, fontWeight: 600 }}>f1stories.gr →</a>
+              </div>
             </div>}
           </div>
         )}
@@ -790,42 +907,83 @@ export default function App() {
                   </svg>
                 </div>
               )}
-              {/* ─── G-Force indicator ─── */}
+              {/* ─── G-Force indicator — F1 broadcast style ─── */}
               {tp && (
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>G-FORCE</div>
+                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 4, fontWeight: 700 }}>G-FORCE</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     {[{ di: di1, co: co1, ct: ct1, tel: tel1 }, { di: di2, co: co2, ct: ct2, tel: tel2 }].map((x, idx) => {
-                      // Approximate G-forces from speed changes
                       const telArr = x.tel || [];
-                      const ti = Math.min(Math.floor(prog * (telArr.length - 1)), telArr.length - 2);
-                      const prev = telArr[Math.max(0, ti - 1)] || {};
+                      const ti = Math.min(Math.floor(prog * (telArr.length - 1)), telArr.length - 1);
+                      const prev2 = telArr[Math.max(0, ti - 2)] || {};
+                      const prev1 = telArr[Math.max(0, ti - 1)] || {};
                       const curr = telArr[ti] || {};
-                      const next = telArr[Math.min(ti + 1, telArr.length - 1)] || {};
-                      const longG = ((curr.speed || 0) - (prev.speed || 0)) * 0.028; // approx m/s² to G
-                      const latG = Math.sin(prog * Math.PI * 8) * (curr.speed || 0) * 0.003; // approximate lateral
-                      const clampG = (v) => Math.max(-4, Math.min(4, v));
-                      const gx = clampG(latG), gy = clampG(longG);
+                      const next1 = telArr[Math.min(ti + 1, telArr.length - 1)] || {};
+                      // Longitudinal G from speed delta (dv/dt, ~3.7Hz sample rate → dt≈0.27s)
+                      const dv = ((curr.speed || 0) - (prev2.speed || 0)) / 3.6; // km/h to m/s
+                      const longG = dv / (0.54 * 9.81); // 2 samples ≈ 0.54s
+                      // Lateral G approximation from heading change × speed
+                      const p0 = ti > 2 ? lerp(x.tel ? norm(telArr.map((t,i2) => ({ x: i2, y: 0, z: 0 }))) : tp, Math.max(0, prog - 0.01)) : { x: 0, z: 0 };
+                      const p1 = lerp(tp, prog);
+                      const p2 = lerp(tp, Math.min(1, prog + 0.01));
+                      const dx1 = p1.x - p0.x, dz1 = p1.z - p0.z;
+                      const dx2 = p2.x - p1.x, dz2 = p2.z - p1.z;
+                      const cross = dx1 * dz2 - dz1 * dx2;
+                      const latG = cross * (curr.speed || 0) * 0.0004;
+                      const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+                      const gx = clamp(latG, -5, 5), gy = clamp(longG, -5, 5);
+                      const totalG = Math.sqrt(gx * gx + gy * gy);
                       return (
-                        <svg key={idx} width="60" height="60" viewBox="-5 -5 10 10" style={{ background: F1.cardBg, borderRadius: 4, flex: 1 }}>
-                          <circle cx="0" cy="0" r="4" fill="none" stroke={F1.border} strokeWidth="0.15" />
-                          <circle cx="0" cy="0" r="2" fill="none" stroke={F1.border} strokeWidth="0.1" />
-                          <line x1="-4.5" y1="0" x2="4.5" y2="0" stroke={F1.border} strokeWidth="0.05" />
-                          <line x1="0" y1="-4.5" x2="0" y2="4.5" stroke={F1.border} strokeWidth="0.05" />
-                          <circle cx={gx} cy={-gy} r="0.6" fill={x.co} opacity="0.8" />
-                          <text x="0" y="4.8" textAnchor="middle" fill={F1.textMuted} fontSize="1.2" fontFamily="sans-serif">{x.di?.name_acronym || "—"}</text>
-                        </svg>
+                        <div key={idx} style={{ flex: 1, background: F1.cardBg, borderRadius: 6, padding: "6px 4px 4px", textAlign: "center" }}>
+                          <svg width="100%" height="90" viewBox="-6 -6 12 12" style={{ display: "block" }}>
+                            <defs>
+                              <radialGradient id={`gGrad${idx}`}><stop offset="0%" stopColor={x.co} stopOpacity="0.06" /><stop offset="100%" stopColor={x.co} stopOpacity="0" /></radialGradient>
+                            </defs>
+                            {/* Background glow */}
+                            <circle cx="0" cy="0" r="5.5" fill={`url(#gGrad${idx})`} />
+                            {/* G rings */}
+                            {[1, 2, 3, 4, 5].map((r) => (
+                              <circle key={r} cx="0" cy="0" r={r} fill="none" stroke={r <= 2 ? `${F1.textMuted}33` : `${F1.textMuted}18`} strokeWidth="0.06" />
+                            ))}
+                            {/* Axis lines */}
+                            <line x1="-5.5" y1="0" x2="5.5" y2="0" stroke={F1.textMuted} strokeWidth="0.04" opacity="0.4" />
+                            <line x1="0" y1="-5.5" x2="0" y2="5.5" stroke={F1.textMuted} strokeWidth="0.04" opacity="0.4" />
+                            {/* Axis labels */}
+                            <text x="5.3" y="-0.3" textAnchor="end" fill={F1.textMuted} fontSize="0.7" fontFamily="sans-serif" opacity="0.6">LAT</text>
+                            <text x="0.3" y="-5" textAnchor="start" fill={F1.textMuted} fontSize="0.7" fontFamily="sans-serif" opacity="0.6">ACC</text>
+                            <text x="0.3" y="5.5" textAnchor="start" fill={F1.textMuted} fontSize="0.7" fontFamily="sans-serif" opacity="0.6">BRK</text>
+                            {/* G-ring at current magnitude */}
+                            {totalG > 0.2 && <circle cx="0" cy="0" r={Math.min(totalG, 5)} fill="none" stroke={x.co} strokeWidth="0.08" opacity="0.25" />}
+                            {/* Dot trail (fade) */}
+                            {[0.92, 0.84, 0.76, 0.68].map((fade, ti2) => {
+                              const pi = Math.max(0, Math.floor((prog - (ti2 + 1) * 0.003) * (telArr.length - 1)));
+                              const pp = telArr[pi] || {};
+                              const pPrev = telArr[Math.max(0, pi - 2)] || {};
+                              const pdv = ((pp.speed || 0) - (pPrev.speed || 0)) / 3.6;
+                              const plg = pdv / (0.54 * 9.81);
+                              return <circle key={ti2} cx={clamp(latG * fade, -5, 5)} cy={clamp(-plg, -5, 5)} r={0.25 - ti2 * 0.04} fill={x.co} opacity={0.15 + ti2 * -0.03} />;
+                            })}
+                            {/* Main G dot */}
+                            <circle cx={clamp(gx, -5, 5)} cy={clamp(-gy, -5, 5)} r="0.4" fill={x.co} opacity="0.9" />
+                            <circle cx={clamp(gx, -5, 5)} cy={clamp(-gy, -5, 5)} r="0.6" fill="none" stroke={x.co} strokeWidth="0.08" opacity="0.4" />
+                          </svg>
+                          {/* Readout */}
+                          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 2 }}>
+                            <span style={{ fontSize: 13, fontWeight: 900, color: x.co, fontFamily: F1.mono }}>{totalG.toFixed(1)}<span style={{ fontSize: 8, fontWeight: 400, color: F1.textMuted }}>G</span></span>
+                            <span style={{ fontSize: 9, color: F1.textDim, fontFamily: F1.mono, alignSelf: "center" }}>{x.di?.name_acronym || "—"}</span>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
               )}
-              <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED</div>
-              <TelChart data1={s1} data2={s2} color1={co1} color2={co2} maxVal={370} />
-              <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>THROTTLE</div>
-              <TelChart data1={t1} data2={t2} color1={co1} color2={co2} maxVal={100} />
+              <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span></div>
+              <TelChart data1={s1} data2={s2} color1={co1} color2={co2} maxVal={370} prog={prog} />
+              <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>THROTTLE <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span></div>
+              <TelChart data1={t1} data2={t2} color1={co1} color2={co2} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>BRAKE</div>
-              <TelChart data1={b1} data2={b2} color1={co1} color2={co2} maxVal={100} h={35} />
+              <TelChart data1={b1} data2={b2} color1={co1} color2={co2} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
             </div>
           </div>
         )}
@@ -848,6 +1006,18 @@ export default function App() {
           {!mob && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
         </div>
       )}
+
+      {/* ─── Footer ─── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
+        <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+          <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
+          <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
+        </a>
+        <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
+        <span style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>Data by OpenF1 API</span>
+        <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
+        <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
+      </div>
     </div>
   );
 }
