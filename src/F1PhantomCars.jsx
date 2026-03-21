@@ -63,7 +63,9 @@ function decodeURL() { const p = new URLSearchParams(window.location.search); re
 
 // ─── Three.js Scene ───
 function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode) {
-  const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
+  const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 85, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
+  const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
+  const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
   const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
 
@@ -74,7 +76,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     const w = el.clientWidth, h = el.clientHeight;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x121218);
-    scene.fog = new THREE.Fog(0x121218, 80, 200);
+    scene.fog = new THREE.Fog(0x121218, 120, 350);
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
     const ren = new THREE.WebGLRenderer({ antialias: true });
     ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -176,7 +178,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftEdgePts), edgeMat));
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightEdgePts), edgeMat));
 
-    // ─── Sector markers — just thin colored lines across the track ───
+    // ─── Sector markers — colored lines + LED panels ───
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
     [0, 0.33, 0.66].forEach((t, i) => {
       const sp = curve.getPointAt(t);
@@ -185,11 +187,40 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       const L2 = sp.clone().add(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       const R2 = sp.clone().sub(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       L2.y += 0.03; R2.y += 0.03;
-      const sLine = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([L2, R2]),
-        new THREE.LineBasicMaterial({ color: sColors[i], linewidth: 2 })
-      );
-      scene.add(sLine);
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([L2, R2]), new THREE.LineBasicMaterial({ color: sColors[i], linewidth: 2 })));
+      // LED panel boards on both sides
+      [-1, 1].forEach((side) => {
+        const panelGeo = new THREE.BoxGeometry(0.15, 1.2, 2.0);
+        const panelMat = new THREE.MeshStandardMaterial({ color: sColors[i], emissive: sColors[i], emissiveIntensity: 0.5, transparent: true, opacity: 0.7 });
+        const panel = new THREE.Mesh(panelGeo, panelMat);
+        const off = perp2.clone().multiplyScalar(side * (trackW / 2 + 0.8));
+        panel.position.set(sp.x + off.x, sp.y + 0.6, sp.z + off.z);
+        panel.lookAt(sp.x, sp.y + 0.6, sp.z);
+        scene.add(panel);
+      });
+    });
+
+    // ─── Corner numbers ───
+    const corners = []; const cSamp = 250;
+    for (let i = 0; i < cSamp - 2; i++) {
+      const t0 = i / cSamp, t1 = (i + 1) / cSamp, t2 = (i + 2) / cSamp;
+      const p0 = curve.getPointAt(t0), p1c = curve.getPointAt(t1), p2c = curve.getPointAt(t2);
+      const cross = Math.abs((p1c.x - p0.x) * (p2c.z - p1c.z) - (p1c.z - p0.z) * (p2c.x - p1c.x));
+      if (cross > 0.12 && (corners.length === 0 || Math.abs(t1 - corners[corners.length - 1].t) > 0.035))
+        corners.push({ t: t1, p: p1c });
+    }
+    corners.slice(0, 20).forEach((c, i) => {
+      const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
+      const ctx = cv.getContext("2d");
+      ctx.fillStyle = "rgba(225,6,0,0.75)"; ctx.beginPath(); ctx.arc(24, 24, 20, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(`${i + 1}`, 24, 25);
+      const tex = new THREE.CanvasTexture(cv);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+      const tan3 = curve.getTangentAt(c.t);
+      const perp3 = new THREE.Vector3(-tan3.z, 0, tan3.x).normalize();
+      const off = perp3.clone().multiplyScalar(trackW / 2 + 1.5);
+      sp.position.set(c.p.x + off.x, c.p.y + 1.5, c.p.z + off.z);
+      sp.scale.set(1.3, 1.3, 1); scene.add(sp);
     });
 
     // ─── Start/finish — simple white line ───
@@ -220,9 +251,12 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       // Halo
       const haloMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.1 });
       const halo = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 6, 12, Math.PI), haloMat); halo.rotation.z = Math.PI; halo.position.set(0, 0.35, 0.15); g.add(halo);
-      // Ground glow
-      const glowMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.1 : 0.06, side: THREE.DoubleSide });
-      const glow2 = new THREE.Mesh(new THREE.CircleGeometry(1.2, 16), glowMat); glow2.rotation.x = -Math.PI / 2; glow2.position.y = 0.02; g.add(glow2);
+      // Shadow disc under car
+      const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false });
+      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.0, 16), shadowMat); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
+      // Team color glow (subtle)
+      const glowMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.08 : 0.04, side: THREE.DoubleSide, depthWrite: false });
+      const glow2 = new THREE.Mesh(new THREE.CircleGeometry(1.5, 16), glowMat); glow2.rotation.x = -Math.PI / 2; glow2.position.y = 0.005; g.add(glow2);
       // Car light
       const carLight = new THREE.PointLight(col, isGhost ? 0.7 : 0.4, 10); carLight.position.set(0, 0.5, 0); g.add(carLight);
       // Label
@@ -262,8 +296,25 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     const rlLine = new THREE.Line(rlGeo, new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
     rlLine.position.y += 0.015; scene.add(rlLine);
 
-    // Trails — wider, more visible
-    function makeTrail(color, ghost) { const max = 80, pos = new Float32Array(max * 3), geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setDrawRange(0, 0); const ln2 = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: ghost ? 0.35 : 0.6, linewidth: 2 })); scene.add(ln2); return { line: ln2, positions: pos, max, count: 0 }; }
+    // ─── Fading tire marks (ribbon trails that fade to transparent) ───
+    function makeTrail(color, ghost) {
+      const max = 120, pos = new Float32Array(max * 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      // Per-vertex opacity via color alpha
+      const alphas = new Float32Array(max); alphas.fill(0);
+      geo.setAttribute("alpha", new THREE.BufferAttribute(alphas, 1));
+      geo.setDrawRange(0, 0);
+      const mat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false,
+        uniforms: { uColor: { value: new THREE.Color(color) } },
+        vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
+        fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
+      });
+      const points = new THREE.Points(geo, mat);
+      scene.add(points);
+      return { mesh: points, positions: pos, alphas, max, count: 0 };
+    }
     const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
 
     R.current = { scene, camera, ren, car1, car2, tr1, tr2, n1, n2, curve, spot1, spot2, deltaLine, deltaPos, fr: null };
@@ -272,7 +323,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     const onDown = (e) => { cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0; };
     const onMove = (e) => { if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2; };
     const onUp = () => { cs.drag = false; };
-    const onWheel = (e) => { cs.dist = Math.max(15, Math.min(120, cs.dist + e.deltaY * 0.05)); };
+    const onWheel = (e) => { cs.dist = Math.max(15, Math.min(200, cs.dist + e.deltaY * 0.05)); };
     const de = ren.domElement;
     de.addEventListener("mousedown", onDown); de.addEventListener("mousemove", onMove); de.addEventListener("mouseup", onUp); de.addEventListener("mouseleave", onUp);
     de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: true }); de.addEventListener("touchmove", onMove, { passive: true }); de.addEventListener("touchend", onUp);
@@ -280,8 +331,16 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     function animate() {
       R.current.fr = requestAnimationFrame(animate); cs.cinT += 0.0003;
       const cm = cmRef.current;
-      if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camera.position.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camera.lookAt(0, 0, 0); }
-      else if (cm === "top") { camera.position.set(0, 65, 0.01); camera.lookAt(0, 0, 0); }
+      if (cm === "orbit") {
+        if (!cs.drag) cs.angle += 0.0008;
+        camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch));
+        camTargetLook.current.set(0, 0, 0);
+      } else if (cm === "top") {
+        camTargetPos.current.set(0, 65, 0.01);
+        camTargetLook.current.set(0, 0, 0);
+      }
+      camera.position.lerp(camTargetPos.current, 0.08);
+      camera.lookAt(camTargetLook.current);
       ren.render(scene, camera);
     }
     animate();
@@ -295,7 +354,20 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
 
   useEffect(() => {
     const { car1, car2, tr1, tr2, camera: cam2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP } = R.current; if (!car1 || !car2 || !tp || tp.length < 2) return; const cs = CS.current;
-    function upd(car, trail, data, t) { const pts = data?.length >= 2 ? data : tp; const p = lerp(pts, t); if (isNaN(p.x) || isNaN(p.y) || isNaN(p.z)) return { x: 0, y: 0, z: 0 }; car.position.set(p.x, p.y + 0.2, p.z); const p2 = lerp(pts, Math.min(1, t + 0.005)); if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.001 && !isNaN(p2.x)) car.lookAt(p2.x, p.y + 0.2, p2.z); if (trail) { const c = Math.min(trail.count + 1, trail.max); for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; } trail.positions[0] = p.x; trail.positions[1] = p.y + 0.2; trail.positions[2] = p.z; trail.count = c; trail.line.geometry.attributes.position.needsUpdate = true; trail.line.geometry.setDrawRange(0, c); } return p; }
+    function upd(car, trail, data, t) { const pts = data?.length >= 2 ? data : tp; const p = lerp(pts, t); if (isNaN(p.x) || isNaN(p.y) || isNaN(p.z)) return { x: 0, y: 0, z: 0 }; car.position.set(p.x, p.y + 0.2, p.z); const p2 = lerp(pts, Math.min(1, t + 0.005)); if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.001 && !isNaN(p2.x)) car.lookAt(p2.x, p.y + 0.2, p2.z);
+      if (trail) {
+        const c = Math.min(trail.count + 1, trail.max);
+        for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; }
+        trail.positions[0] = p.x; trail.positions[1] = p.y + 0.05; trail.positions[2] = p.z;
+        // Fade alphas
+        for (let i = c - 1; i >= 1; i--) trail.alphas[i] = trail.alphas[i - 1] * 0.97;
+        trail.alphas[0] = 1.0;
+        trail.count = c;
+        trail.mesh.geometry.attributes.position.needsUpdate = true;
+        trail.mesh.geometry.attributes.alpha.needsUpdate = true;
+        trail.mesh.geometry.setDrawRange(0, c);
+      }
+      return p; }
     const p1 = upd(car1, tr1, R.current.n1, prog); const p2 = upd(car2, tr2, R.current.n2, prog);
     // Spotlights follow cars
     if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
@@ -309,7 +381,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2);
       dL.material.opacity = Math.min(0.6, gap * 0.08);
     }
-    if (cam2) { const cm = cmRef.current; if (cm === "follow1" || cm === "follow2") { const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp); const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1; cam2.position.set(tgt.x - (dx / len) * 8, tgt.y + 4.5, tgt.z - (dz / len) * 8); cam2.lookAt(ah.x, tgt.y + 0.3, ah.z); } else if (cm === "cinematic" && R.current.curve) { const ct = (cs.cinT + prog * 0.3) % 1; const cp = R.current.curve.getPointAt(ct); cam2.position.set(cp.x + 8, cp.y + 5, cp.z + 8); cam2.lookAt((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2); } }
+    if (cam2) { const cm = cmRef.current; if (cm === "follow1" || cm === "follow2") { const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp); const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1; camTargetPos.current.set(tgt.x - (dx / len) * 8, tgt.y + 4.5, tgt.z - (dz / len) * 8); camTargetLook.current.set(ah.x, tgt.y + 0.3, ah.z); } else if (cm === "cinematic" && R.current.curve) { const ct = (cs.cinT + prog * 0.3) % 1; const cp = R.current.curve.getPointAt(ct); camTargetPos.current.set(cp.x + 8, cp.y + 5, cp.z + 8); camTargetLook.current.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2); } }
   }, [prog, tp, cam]);
 }
 
@@ -376,6 +448,7 @@ export default function App() {
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
+  const autoLoadRef = useRef(false);
 
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
   const co1 = di1 ? getTeamColor(di1.team_name) : "#4488ff", co2 = di2 ? getTeamColor(di2.team_name) : "#ff4488";
@@ -428,15 +501,40 @@ export default function App() {
 
   const loadPreset = useCallback(async (pr) => {
     setShowPresets(false); setLoading("Loading preset..."); setErr("");
-    try { setYear(pr.year); const m = await fetchMeetings(pr.year); setMts(m.filter((x) => x.meeting_name)); const mt = m.find((x) => x.meeting_name === pr.meeting); if (!mt) throw new Error("Not found"); setSelMt(mt);
-      const ss = await fetchSessions(mt.meeting_key); const fi = ss.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name)); setSess(fi); const se = fi.find((s) => s.session_name === pr.session); if (!se) throw new Error("Not found"); setSelSe(se);
-      const dr = await fetchDrivers(se.session_key); const seen = new Set(); setDrvs(dr.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(pr.d1); setD2(pr.d2); setLoading("");
+    try {
+      setYear(pr.year);
+      const m = await fetchMeetings(pr.year);
+      setMts(m.filter((x) => x.meeting_name));
+      // Fuzzy match meeting name
+      const mt = m.find((x) => x.meeting_name && x.meeting_name.toLowerCase().includes(pr.meeting.toLowerCase().replace(" grand prix", "").trim()));
+      if (!mt) throw new Error(`Meeting "${pr.meeting}" not found for ${pr.year}`);
+      setSelMt(mt);
+      const ss = await fetchSessions(mt.meeting_key);
+      const fi = ss.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
+      setSess(fi);
+      const se = fi.find((s) => s.session_name === pr.session);
+      if (!se) throw new Error(`Session "${pr.session}" not found`);
+      setSelSe(se);
+      const dr = await fetchDrivers(se.session_key);
+      const seen = new Set();
+      setDrvs(dr.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; }));
+      setD1(pr.d1); setD2(pr.d2);
+      autoLoadRef.current = true;
+      setLoading("");
     } catch (e) { setErr(e.message); setLoading(""); }
   }, []);
 
   const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
 
   useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode);
+
+  // Auto-load after preset selects everything
+  useEffect(() => {
+    if (autoLoadRef.current && selSe && d1 && d2 && sl1 && sl2 && !loading && !tp) {
+      autoLoadRef.current = false;
+      loadData();
+    }
+  }, [selSe, d1, d2, sl1, sl2, loading, tp, loadData]);
 
   // Playback
   useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
@@ -656,7 +754,36 @@ export default function App() {
                   </svg>
                 </div>
               )}
-              {/* ─── Trace charts ─── */}
+              {/* ─── G-Force indicator ─── */}
+              {tp && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>G-FORCE</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[{ di: di1, co: co1, ct: ct1, tel: tel1 }, { di: di2, co: co2, ct: ct2, tel: tel2 }].map((x, idx) => {
+                      // Approximate G-forces from speed changes
+                      const telArr = x.tel || [];
+                      const ti = Math.min(Math.floor(prog * (telArr.length - 1)), telArr.length - 2);
+                      const prev = telArr[Math.max(0, ti - 1)] || {};
+                      const curr = telArr[ti] || {};
+                      const next = telArr[Math.min(ti + 1, telArr.length - 1)] || {};
+                      const longG = ((curr.speed || 0) - (prev.speed || 0)) * 0.028; // approx m/s² to G
+                      const latG = Math.sin(prog * Math.PI * 8) * (curr.speed || 0) * 0.003; // approximate lateral
+                      const clampG = (v) => Math.max(-4, Math.min(4, v));
+                      const gx = clampG(latG), gy = clampG(longG);
+                      return (
+                        <svg key={idx} width="60" height="60" viewBox="-5 -5 10 10" style={{ background: F1.cardBg, borderRadius: 4, flex: 1 }}>
+                          <circle cx="0" cy="0" r="4" fill="none" stroke={F1.border} strokeWidth="0.15" />
+                          <circle cx="0" cy="0" r="2" fill="none" stroke={F1.border} strokeWidth="0.1" />
+                          <line x1="-4.5" y1="0" x2="4.5" y2="0" stroke={F1.border} strokeWidth="0.05" />
+                          <line x1="0" y1="-4.5" x2="0" y2="4.5" stroke={F1.border} strokeWidth="0.05" />
+                          <circle cx={gx} cy={-gy} r="0.6" fill={x.co} opacity="0.8" />
+                          <text x="0" y="4.8" textAnchor="middle" fill={F1.textMuted} fontSize="1.2" fontFamily="sans-serif">{x.di?.name_acronym || "—"}</text>
+                        </svg>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED</div>
               <TelChart data1={s1} data2={s2} color1={co1} color2={co2} maxVal={370} />
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>THROTTLE</div>
