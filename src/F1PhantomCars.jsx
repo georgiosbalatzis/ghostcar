@@ -111,7 +111,7 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     scene.background = new THREE.Color(T.sceneBg);
     scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-    const ren = new THREE.WebGLRenderer({ antialias: true });
+    const ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(ren.domElement);
 
@@ -612,7 +612,14 @@ export default function App() {
   const [st1, setSt1] = useState([]); const [st2, setSt2] = useState([]);
   const [prog, setProg] = useState(0); const [play, setPlay] = useState(false); const [spd, setSpd] = useState(1); const [loop, setLoop] = useState(false);
   const [cam, setCam] = useState("orbit");
-  const [vizMode, setVizMode] = useState("normal"); // "normal" | "heatmap"
+  const [vizMode, setVizMode] = useState("normal");
+  const [showKeys, setShowKeys] = useState(false);
+  const [showTour, setShowTour] = useState(() => { try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
+  const [tourStep, setTourStep] = useState(0);
+  const [showH2H, setShowH2H] = useState(false);
+  const [h2hData, setH2hData] = useState(null);
+  const [showreel, setShowreel] = useState(false);
+  const showreelRef = useRef(false); // "normal" | "heatmap"
   const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
   const [showTel, setShowTel] = useState(true); const [mobTab, setMobTab] = useState("3d");
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
@@ -747,10 +754,10 @@ export default function App() {
 
   // Keys
   const lastLeftRef = useRef(0);
-  useEffect(() => { const h = (e) => { if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return; if (e.code === "Space") { e.preventDefault(); if (tp) setPlay((p) => !p); } if (e.code === "KeyR") { setProg(0); setPlay(false); } if (e.code === "KeyT") setShowTel((s) => !s); if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]); if (e.code === "KeyL") setLoop((l) => !l); if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01)); if (e.code === "ArrowLeft") { const now = Date.now(); if (now - lastLeftRef.current < 300) { setProg((p) => Math.max(0, p - 0.05)); } else { setProg((p) => Math.max(0, p - 0.01)); } lastLeftRef.current = now; } }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [tp]);
+  useEffect(() => { const h = (e) => { if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return; if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; } if (e.code === "Escape") { setShowKeys(false); setShowTour(false); return; } if (e.code === "Space") { e.preventDefault(); if (tp) setPlay((p) => !p); } if (e.code === "KeyR") { setProg(0); setPlay(false); } if (e.code === "KeyT") setShowTel((s) => !s); if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]); if (e.code === "KeyL") setLoop((l) => !l); if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01)); if (e.code === "ArrowLeft") { const now = Date.now(); if (now - lastLeftRef.current < 300) { setProg((p) => Math.max(0, p - 0.05)); } else { setProg((p) => Math.max(0, p - 0.01)); } lastLeftRef.current = now; } }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [tp]);
 
   // Backdrop + modals
-  const modBg = (showPresets || showStats || showLaps) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
+  const modBg = (showPresets || showStats || showLaps || showKeys || showH2H) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); setShowKeys(false); setShowH2H(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
 
   const presetsModal = showPresets && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 460, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
     <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
@@ -796,6 +803,30 @@ export default function App() {
         <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP ANALYSIS</div>
         <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Detailed telemetry comparison</div>
       </div>
+      <button onClick={() => {
+        // Generate a text-based report and download
+        const rows = [
+          `F1 STORIES — GHOST CAR LAB REPORT`,
+          `${selMt?.meeting_name || ""} ${year} — ${selSe?.session_name || ""}`,
+          `${di1?.name_acronym || "D1"} vs ${di2?.name_acronym || "D2"}`,
+          ``,
+          `LAP TIME:    ${li1?.lap_duration ? fmt(li1.lap_duration) : "—"}  vs  ${li2?.lap_duration ? fmt(li2.lap_duration) : "—"}  Δ ${li1?.lap_duration && li2?.lap_duration ? (li1.lap_duration - li2.lap_duration > 0 ? "+" : "") + (li1.lap_duration - li2.lap_duration).toFixed(3) + "s" : "—"}`,
+          `TOP SPEED:   ${Math.round(topS1)} km/h  vs  ${Math.round(topS2)} km/h`,
+          `AVG SPEED:   ${Math.round(avgS1)} km/h  vs  ${Math.round(avgS2)} km/h`,
+          `SECTOR 1:    ${li1?.duration_sector_1?.toFixed(3) || "—"}  vs  ${li2?.duration_sector_1?.toFixed(3) || "—"}`,
+          `SECTOR 2:    ${li1?.duration_sector_2?.toFixed(3) || "—"}  vs  ${li2?.duration_sector_2?.toFixed(3) || "—"}`,
+          `SECTOR 3:    ${li1?.duration_sector_3?.toFixed(3) || "—"}  vs  ${li2?.duration_sector_3?.toFixed(3) || "—"}`,
+          `FULL THROTTLE: ${fullThr1.toFixed(1)}%  vs  ${fullThr2.toFixed(1)}%`,
+          `BRAKING:     ${brkPct1.toFixed(1)}%  vs  ${brkPct2.toFixed(1)}%`,
+          `COASTING:    ${coastPct1.toFixed(1)}%  vs  ${coastPct2.toFixed(1)}%`,
+          `TYRE:        ${tire1 || "—"}  vs  ${tire2 || "—"}`,
+          ``,
+          `Generated by f1stories.gr/ghostcar`,
+        ];
+        const blob = new Blob([rows.join("\n")], { type: "text/plain" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        a.download = `f1stories-report-${di1?.name_acronym || "D1"}-vs-${di2?.name_acronym || "D2"}.txt`; a.click();
+      }} style={{ padding: "4px 10px", fontSize: 10 }}>📄 EXPORT</button>
       <button onClick={() => setShowStats(false)} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
     </div>
     <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
@@ -848,6 +879,125 @@ export default function App() {
     </div>
   </div>);
 
+  // ─── Screenshot ───
+  const takeScreenshot = useCallback(() => {
+    const el = cRef.current; if (!el) return;
+    const canvas = el.querySelector("canvas"); if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a"); a.href = url; a.download = `f1stories-ghost-${Date.now()}.png`; a.click();
+  }, []);
+
+  // ─── Head-to-Head fetch ───
+  const loadH2H = useCallback(async () => {
+    if (!selSe || !d1 || !d2) return;
+    setShowH2H(true); setH2hData(null);
+    try {
+      const allMts = await fetchMeetings(year);
+      const results = [];
+      for (const mt of allMts.filter((m) => m.meeting_name)) {
+        try {
+          const ss = await fetchSessions(mt.meeting_key);
+          const q = ss.find((s) => s.session_name === "Qualifying");
+          if (!q) continue;
+          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]);
+          const b1 = bestLap(l1d), b2 = bestLap(l2d);
+          if (b1 && b2) results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration });
+        } catch {}
+        if (results.length >= 10) break; // limit to avoid rate limits
+      }
+      setH2hData(results);
+    } catch (e) { setH2hData([]); }
+  }, [year, selSe, d1, d2]);
+
+  // ─── Showreel auto-play ───
+  useEffect(() => {
+    if (!showreel) { showreelRef.current = false; return; }
+    showreelRef.current = true;
+    let idx = 0;
+    async function next() {
+      if (!showreelRef.current || idx >= PRESETS.length) { setShowreel(false); return; }
+      await loadPreset(PRESETS[idx]);
+      setPlay(true);
+      idx++;
+      setTimeout(() => { setPlay(false); if (showreelRef.current) next(); }, 12000);
+    }
+    next();
+    return () => { showreelRef.current = false; };
+  }, [showreel, loadPreset]);
+
+  // ─── Keyboard shortcuts modal ───
+  const keysModal = showKeys && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 24, zIndex: 100, width: mob ? "92%" : 380, animation: "fadeIn .2s" }}>
+    <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+      <span style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>KEYBOARD SHORTCUTS</span>
+      <button onClick={() => setShowKeys(false)} style={{ marginLeft: "auto" }}>✕</button>
+    </div>
+    {[["Space", "Play / Pause"], ["R", "Reset to start"], ["T", "Toggle telemetry"], ["C", "Cycle camera mode"], ["L", "Toggle loop"], ["← →", "Scrub ±1%"], ["←← (double-tap)", "Rewind 5%"], ["D", "Toggle theme"], ["?", "This overlay"], ["Esc", "Close overlays"]].map(([k, d]) => (
+      <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${F1.borderLight}` }}>
+        <kbd style={{ background: F1.cardBg, padding: "2px 8px", borderRadius: 3, fontFamily: F1.mono, fontSize: 11, fontWeight: 700, color: F1.red, border: `1px solid ${F1.border}` }}>{k}</kbd>
+        <span style={{ fontSize: 12, color: F1.textDim }}>{d}</span>
+      </div>
+    ))}
+  </div>);
+
+  // ─── Onboarding tour ───
+  const TOUR = [
+    { text: "Welcome to Ghost Car Lab! Compare F1 laps in 3D with real telemetry.", pos: "center" },
+    { text: "Select a year, Grand Prix, session, and two drivers to compare.", pos: "top" },
+    { text: "Or click ⚡ PRESETS for instant iconic battle comparisons.", pos: "top-right" },
+    { text: "Use the playback bar to scrub through the lap. Space = play/pause.", pos: "bottom" },
+    { text: "Switch camera modes: Free orbit, Chase D1/D2, Helicopter, Cinematic.", pos: "top-left" },
+    { text: "Open STATS for detailed analysis, LAPS to browse all lap times.", pos: "top-right" },
+    { text: "Press ? anytime to see keyboard shortcuts. Enjoy! 🏁", pos: "center" },
+  ];
+  const tourOverlay = showTour && (<div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+    <div style={{ background: F1.carbon, border: `1px solid ${F1.red}44`, borderRadius: 12, padding: 28, maxWidth: 420, width: "90%", textAlign: "center", animation: "fadeIn .3s" }}>
+      <div style={{ fontSize: 11, color: F1.red, fontWeight: 900, letterSpacing: "0.15em", marginBottom: 12 }}>STEP {tourStep + 1} OF {TOUR.length}</div>
+      <div style={{ fontSize: 15, color: F1.text, lineHeight: 1.6, marginBottom: 20 }}>{TOUR[tourStep].text}</div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        {tourStep > 0 && <button onClick={() => setTourStep((s) => s - 1)} style={{ padding: "6px 16px", fontSize: 11 }}>← BACK</button>}
+        {tourStep < TOUR.length - 1 ? (
+          <button onClick={() => setTourStep((s) => s + 1)} className="f1-btn" style={{ padding: "6px 20px", fontSize: 11 }}>NEXT →</button>
+        ) : (
+          <button onClick={() => { setShowTour(false); try { localStorage.setItem("f1s-toured", "1"); } catch {} }} className="f1-btn" style={{ padding: "6px 20px", fontSize: 11 }}>GOT IT 🏁</button>
+        )}
+      </div>
+      <button onClick={() => { setShowTour(false); try { localStorage.setItem("f1s-toured", "1"); } catch {} }} style={{ marginTop: 12, fontSize: 10, color: F1.textMuted, background: "transparent", border: "none", cursor: "pointer" }}>Skip tour</button>
+    </div>
+  </div>);
+
+  // ─── Head-to-Head modal ───
+  const h2hModal = showH2H && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>HEAD-TO-HEAD {year}</div>
+        <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "D1"} vs {di2?.name_acronym || "D2"} — Qualifying</div>
+      </div>
+      <button onClick={() => setShowH2H(false)} style={{ marginLeft: "auto" }}>✕</button>
+    </div>
+    <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
+      {!h2hData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Loading qualifying data across GPs...</div> : h2hData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No data available</div> : (<>
+        <svg width="100%" height={h2hData.length * 32 + 20} viewBox={`0 0 300 ${h2hData.length * 32 + 20}`} style={{ display: "block" }}>
+          {h2hData.map((r, i) => {
+            const d = r.t1 - r.t2; const maxD = Math.max(...h2hData.map((x) => Math.abs(x.t1 - x.t2))) || 1;
+            const barW = Math.abs(d) / maxD * 100;
+            const y = i * 32 + 16;
+            return (<g key={i}>
+              <text x="2" y={y + 4} fill={F1.textDim} fontSize="9" fontFamily="sans-serif">{r.gp}</text>
+              <rect x={150} y={y - 5} width={d < 0 ? barW : 0} height={10} fill={co1} opacity="0.7" rx="2" transform={d < 0 ? `translate(${-barW},0)` : ""} />
+              <rect x={150} y={y - 5} width={d > 0 ? barW : 0} height={10} fill={co2} opacity="0.7" rx="2" />
+              <text x={150} y={y + 4} textAnchor="middle" fill={F1.text} fontSize="8" fontWeight="700" fontFamily="sans-serif">{d > 0 ? "+" : ""}{d.toFixed(3)}</text>
+            </g>);
+          })}
+        </svg>
+        <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8, fontSize: 11, fontFamily: F1.mono }}>
+          <span style={{ color: co1, fontWeight: 700 }}>{di1?.name_acronym}: {h2hData.filter((r) => r.t1 < r.t2).length}</span>
+          <span style={{ color: F1.textMuted }}>wins</span>
+          <span style={{ color: co2, fontWeight: 700 }}>{di2?.name_acronym}: {h2hData.filter((r) => r.t2 < r.t1).length}</span>
+        </div>
+      </>)}
+    </div>
+  </div>);
+
   return (
     <div style={{ width: "100%", minHeight: "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden" }}>
       <style>{`
@@ -869,7 +1019,7 @@ export default function App() {
         input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:${F1.red};border-radius:50%;cursor:pointer;border:2px solid #fff}
       `}</style>
 
-      {modBg}{presetsModal}{statsModal}{lapsModal}
+      {modBg}{presetsModal}{statsModal}{lapsModal}{keysModal}{h2hModal}{tourOverlay}
 
       {/* ─── HEADER — F1 Stories branded ─── */}
       <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, #111118 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
@@ -898,7 +1048,11 @@ export default function App() {
             {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
             {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
             {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
+            {tp && d1 && d2 && <button onClick={loadH2H} style={{ fontSize: 10, padding: "4px 10px" }}>H2H</button>}
+            {tp && <button onClick={takeScreenshot} style={{ fontSize: 10, padding: "4px 10px" }} title="Screenshot">📸</button>}
+            {!mob && <button onClick={() => setShowreel((s) => !s)} style={{ fontSize: 10, padding: "4px 10px", background: showreel ? `${F1.red}33` : F1.cardBg, borderColor: showreel ? F1.red : F1.border }} title="Auto-play showreel">{showreel ? "⏹" : "🎬"}</button>}
             <button onClick={toggleTheme} style={{ fontSize: 10, padding: "4px 10px", letterSpacing: "0.05em" }}>{isDark ? "☀️" : "🌙"}</button>
+            {!mob && <button onClick={() => setShowKeys(true)} style={{ fontSize: 10, padding: "4px 8px", fontFamily: F1.mono, fontWeight: 900 }}>?</button>}
           </div>
         </div>
       </div>
@@ -1036,7 +1190,56 @@ export default function App() {
                   </svg>
                 </div>
               )}
-              {/* ─── G-Force indicator — F1 broadcast style ─── */}
+              {/* ─── Cumulative sector delta (F1 TV style) ─── */}
+              {li1 && li2 && li1.duration_sector_1 && li2.duration_sector_1 && (() => {
+                const s1d = li1.duration_sector_1, s2d = li1.duration_sector_2, s3d = li1.duration_sector_3;
+                const s1d2 = li2.duration_sector_1, s2d2 = li2.duration_sector_2, s3d2 = li2.duration_sector_3;
+                const d1c = s1d - s1d2;
+                const d2c = d1c + (s2d - s2d2);
+                const d3c = d2c + (s3d - s3d2);
+                const pts = [0, d1c, d2c, d3c];
+                const maxA = Math.max(...pts.map(Math.abs)) || 0.5;
+                return (<div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>LAP DELTA</div>
+                  <svg width="100%" height="50" viewBox="0 0 300 50" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block" }}>
+                    <line x1="0" y1="25" x2="300" y2="25" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
+                    {pts.map((v, i) => {
+                      const x = (i / 3) * 280 + 10;
+                      const y = 25 - (v / maxA) * 20;
+                      return (<g key={i}>
+                        {i > 0 && <line x1={(i - 1) / 3 * 280 + 10} y1={25 - (pts[i - 1] / maxA) * 20} x2={x} y2={y} stroke={v < 0 ? co1 : co2} strokeWidth="2" />}
+                        <circle cx={x} cy={y} r="3" fill={v < 0 ? co1 : v > 0 ? co2 : F1.textMuted} />
+                        {i > 0 && <text x={x} y={y < 25 ? y - 6 : y + 12} textAnchor="middle" fill={F1.text} fontSize="7" fontFamily="sans-serif" fontWeight="700">{v > 0 ? "+" : ""}{v.toFixed(3)}</text>}
+                      </g>);
+                    })}
+                    {["S1", "S2", "S3", "END"].map((l, i) => (
+                      <text key={l} x={i / 3 * 280 + 10} y="48" textAnchor="middle" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">{l}</text>
+                    ))}
+                    <text x="295" y="10" textAnchor="end" fill={co1} fontSize="7">{di1?.name_acronym}</text>
+                    <text x="295" y="45" textAnchor="end" fill={co2} fontSize="7">{di2?.name_acronym}</text>
+                  </svg>
+                </div>);
+              })()}
+              {/* ─── Speed trap comparison ─── */}
+              {s1?.length > 10 && s2?.length > 10 && (() => {
+                const traps = [0.1, 0.25, 0.5, 0.75, 0.9];
+                const labels = ["T1 10%", "T2 25%", "T3 50%", "T4 75%", "T5 90%"];
+                return (<div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED TRAPS</div>
+                  <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                    {traps.map((t, i) => {
+                      const v1 = s1[Math.floor(t * (s1.length - 1))] || 0;
+                      const v2 = s2[Math.floor(t * (s2.length - 1))] || 0;
+                      const faster = v1 > v2 ? 1 : v2 > v1 ? 2 : 0;
+                      return (<div key={i} style={{ flex: 1, minWidth: 48, background: F1.cardBg, borderRadius: 3, padding: "3px 4px", textAlign: "center" }}>
+                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono }}>{labels[i]}</div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: faster === 1 ? co1 : faster === 2 ? co2 : F1.text, fontFamily: F1.mono }}>{Math.round(v1)}</div>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: faster === 2 ? co2 : faster === 1 ? co1 : F1.text, fontFamily: F1.mono, opacity: 0.7 }}>{Math.round(v2)}</div>
+                      </div>);
+                    })}
+                  </div>
+                </div>);
+              })()}
               {tp && (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 4, fontWeight: 700 }}>G-FORCE</div>
