@@ -215,8 +215,8 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
 
     const car1 = makeCarGroup(c1, lab1, false); const car2 = makeCarGroup(c2, lab2, true);
     scene.add(car1); scene.add(car2);
-    const car3 = c3 && lab3 ? makeCarGroup(c3, lab3, true) : null;
-    const car4 = c4 && lab4 ? makeCarGroup(c4, lab4, true) : null;
+    const car3 = l3?.length > 0 && lab3 ? makeCarGroup(c3, lab3, true) : null;
+    const car4 = l4?.length > 0 && lab4 ? makeCarGroup(c4, lab4, true) : null;
     if (car3) scene.add(car3);
     if (car4) scene.add(car4);
 
@@ -241,26 +241,24 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
 
         const col = new THREE.Color(carGroup.userData.color);
         const isGhost = carGroup.userData.isGhost;
-        // Recolor materials
+        // Recolor materials safely
         clone.traverse((child) => {
           if (child.isMesh && child.material) {
-            const mat = child.material.clone();
-            const name = mat.name || "";
-            if (name === "BaseColor" || name === "2ndColor" || name === "Bloody_Red") {
-              mat.color = col.clone();
-              mat.emissive = col.clone();
-              mat.emissiveIntensity = isGhost ? 0.4 : 0.15;
-            } else if (name === "3rdColor") {
-              mat.color = col.clone().multiplyScalar(0.6);
-              mat.emissive = col.clone();
-              mat.emissiveIntensity = 0.1;
-            } else if (name === "Mirror") {
-              mat.color.set(0x888888);
-              mat.metalness = 0.9;
-              mat.roughness = 0.1;
-            }
-            if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
-            child.material = mat;
+            try {
+              const mat = child.material.clone();
+              const name = (mat.name || "").toLowerCase();
+              if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) {
+                mat.color.copy(col);
+                if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = isGhost ? 0.4 : 0.15; }
+              } else if (name.includes("3rd")) {
+                mat.color.copy(col).multiplyScalar(0.6);
+                if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = 0.1; }
+              } else if (name.includes("mirror")) {
+                mat.color.setHex(0x888888);
+              }
+              if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
+              child.material = mat;
+            } catch (e) { /* skip problematic materials */ }
           }
         });
         carGroup.add(clone);
@@ -429,9 +427,10 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2 }) {
   return <canvas ref={ref} width={150} height={150} style={{ width: 150, height: 150, borderRadius: 8 }} />;
 });
 
-// ─── SVG Telemetry Chart with playback cursor ───
-const TelChart = memo(function TC({ data1, data2, color1, color2, maxVal, h: ch, prog, label, fillColor }) {
-  if (!data1?.length && !data2?.length) return null;
+// ─── SVG Telemetry Chart with playback cursor (multi-driver) ───
+const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
+  // traces = [{ data, color }]
+  if (!traces?.length) return null;
   const H = ch || 45, W = 300;
   function buildPath(data) {
     if (!data?.length) return "";
@@ -444,24 +443,25 @@ const TelChart = memo(function TC({ data1, data2, color1, color2, maxVal, h: ch,
     }
     return d;
   }
-  const path1 = buildPath(data1), path2 = buildPath(data2);
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block", marginBottom: 2 }}>
-      {path1 && <><path d={path1 + `L${W},${H}L0,${H}Z`} fill={fillColor || `${color1}10`} /><path d={path1} fill="none" stroke={color1} strokeWidth="1.5" opacity="0.7" /></>}
-      {path2 && <><path d={path2 + `L${W},${H}L0,${H}Z`} fill={`${color2}08`} /><path d={path2} fill="none" stroke={color2} strokeWidth="1.2" opacity="0.5" strokeDasharray="3,2" /></>}
+      {traces.map((tr, i) => {
+        const path = buildPath(tr.data);
+        if (!path) return null;
+        const isFirst = i === 0;
+        return (<g key={i}>
+          <path d={path + `L${W},${H}L0,${H}Z`} fill={isFirst ? (fillColor || `${tr.color}10`) : `${tr.color}06`} />
+          <path d={path} fill="none" stroke={tr.color} strokeWidth={isFirst ? 1.5 : 1.2} opacity={isFirst ? 0.8 : 0.5} strokeDasharray={isFirst ? "none" : `${4 + i},${2 + i}`} />
+        </g>);
+      })}
       {prog !== undefined && <line x1={prog * W} y1="0" x2={prog * W} y2={H} stroke="#fff" strokeWidth="1" opacity="0.5" />}
-      {prog !== undefined && data1?.length && (() => {
-        const idx = Math.floor(prog * (data1.length - 1));
-        const val = data1[idx] || 0;
+      {prog !== undefined && traces.map((tr, i) => {
+        if (!tr.data?.length) return null;
+        const idx = Math.floor(prog * (tr.data.length - 1));
+        const val = tr.data[idx] || 0;
         const y = H - 2 - (val / maxVal) * (H - 4);
-        return <circle cx={prog * W} cy={y} r="2.5" fill={color1} opacity="0.9" />;
-      })()}
-      {prog !== undefined && data2?.length && (() => {
-        const idx = Math.floor(prog * (data2.length - 1));
-        const val = data2[idx] || 0;
-        const y = H - 2 - (val / maxVal) * (H - 4);
-        return <circle cx={prog * W} cy={y} r="2" fill={color2} opacity="0.7" />;
-      })()}
+        return <circle key={i} cx={prog * W} cy={y} r={i === 0 ? 2.5 : 2} fill={tr.color} opacity={0.9 - i * 0.15} />;
+      })}
     </svg>
   );
 });
@@ -718,15 +718,27 @@ export default function App({ embed }) {
   const el1 = li1?.lap_duration ? prog * li1.lap_duration : 0, el2 = li2?.lap_duration ? prog * li2.lap_duration : 0;
   const tire1 = st1.find((s) => sl1 >= s.lap_start && sl1 <= s.lap_end)?.compound?.toUpperCase();
   const tire2 = st2.find((s) => sl2 >= s.lap_start && sl2 <= s.lap_end)?.compound?.toUpperCase();
+  const tire3 = st3.find((s) => sl3 >= s.lap_start && sl3 <= s.lap_end)?.compound?.toUpperCase();
+  const tire4 = st4.find((s) => sl4 >= s.lap_start && sl4 <= s.lap_end)?.compound?.toUpperCase();
   const ms = mob ? 200 : 400;
   const s1 = useMemo(() => ds(tel1?.map((t) => t.speed || 0), ms), [tel1, ms]); const s2 = useMemo(() => ds(tel2?.map((t) => t.speed || 0), ms), [tel2, ms]);
+  const s3 = useMemo(() => ds(tel3?.map((t) => t.speed || 0), ms), [tel3, ms]); const s4 = useMemo(() => ds(tel4?.map((t) => t.speed || 0), ms), [tel4, ms]);
   const t1 = useMemo(() => ds(tel1?.map((t) => t.throttle || 0), ms), [tel1, ms]); const t2 = useMemo(() => ds(tel2?.map((t) => t.throttle || 0), ms), [tel2, ms]);
+  const t3 = useMemo(() => ds(tel3?.map((t) => t.throttle || 0), ms), [tel3, ms]); const t4 = useMemo(() => ds(tel4?.map((t) => t.throttle || 0), ms), [tel4, ms]);
   const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
-  const ct1 = telAt(tel1, prog), ct2 = telAt(tel2, prog);
+  const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
+  const ct1 = telAt(tel1, prog), ct2 = telAt(tel2, prog), ct3 = telAt(tel3, prog), ct4 = telAt(tel4, prog);
   const topS1 = useMemo(() => tel1 ? Math.max(...tel1.map((t) => t.speed || 0)) : 0, [tel1]);
   const topS2 = useMemo(() => tel2 ? Math.max(...tel2.map((t) => t.speed || 0)) : 0, [tel2]);
   const avgS1 = useMemo(() => tel1?.length ? tel1.reduce((a, t) => a + (t.speed || 0), 0) / tel1.length : 0, [tel1]);
   const avgS2 = useMemo(() => tel2?.length ? tel2.reduce((a, t) => a + (t.speed || 0), 0) / tel2.length : 0, [tel2]);
+  // Build a drivers array for easy iteration — MUST be after all derived data
+  const allDrivers = [
+    { di: di1, co: co1, ct: ct1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
+    { di: di2, co: co2, ct: ct2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
+    ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, ct: ct3, li: li3, tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
+    ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, ct: ct4, li: li4, tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
+  ].filter((d) => d.di);
 
   // Data loading — guarded to not fire during preset load
   useEffect(() => { if (presetActiveRef.current) return; setLoading("Loading..."); setErr(""); fetchMeetings(year).then((d) => { setMts(d.filter((m) => m.meeting_name)); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [year]);
@@ -1017,34 +1029,41 @@ export default function App({ embed }) {
       <button onClick={() => setShowStats(false)} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
     </div>
     <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: F1.mono }}>
-      <thead><tr style={{ color: F1.textMuted, fontSize: 10, letterSpacing: "0.1em" }}><th style={{ textAlign: "left", padding: "10px 8px 6px", borderBottom: `1px solid ${F1.red}22` }}>METRIC</th><th style={{ textAlign: "center", padding: "10px 8px 6px", color: co1, borderBottom: `2px solid ${co1}44` }}>{di1?.name_acronym || "D1"}</th><th style={{ textAlign: "center", padding: "10px 8px 6px", color: co2, borderBottom: `2px solid ${co2}44` }}>{di2?.name_acronym || "D2"}</th><th style={{ textAlign: "center", padding: "10px 8px 6px", color: F1.textMuted, borderBottom: `1px solid ${F1.borderLight}`, width: 50 }}>Δ</th></tr></thead>
-      <tbody>{[
-        { m: "LAP TIME", v1: li1?.lap_duration ? fmt(li1.lap_duration) : "—", v2: li2?.lap_duration ? fmt(li2.lap_duration) : "—", d: li1?.lap_duration && li2?.lap_duration ? (li1.lap_duration - li2.lap_duration) : null, unit: "s" },
-        { m: "TOP SPEED", v1: Math.round(topS1), v2: Math.round(topS2), d: topS1 - topS2, unit: "", inv: true },
-        { m: "AVG SPEED", v1: Math.round(avgS1), v2: Math.round(avgS2), d: avgS1 - avgS2, unit: "", inv: true },
-        { m: "MIN SPEED", v1: Math.round(minSpd1), v2: Math.round(minSpd2), d: minSpd1 - minSpd2, unit: "", inv: true },
-        { m: "SECTOR 1", v1: li1?.duration_sector_1?.toFixed(3) || "—", v2: li2?.duration_sector_1?.toFixed(3) || "—", d: li1?.duration_sector_1 && li2?.duration_sector_1 ? li1.duration_sector_1 - li2.duration_sector_1 : null, unit: "s" },
-        { m: "SECTOR 2", v1: li1?.duration_sector_2?.toFixed(3) || "—", v2: li2?.duration_sector_2?.toFixed(3) || "—", d: li1?.duration_sector_2 && li2?.duration_sector_2 ? li1.duration_sector_2 - li2.duration_sector_2 : null, unit: "s" },
-        { m: "SECTOR 3", v1: li1?.duration_sector_3?.toFixed(3) || "—", v2: li2?.duration_sector_3?.toFixed(3) || "—", d: li1?.duration_sector_3 && li2?.duration_sector_3 ? li1.duration_sector_3 - li2.duration_sector_3 : null, unit: "s" },
-        { m: "FULL THROTTLE", v1: `${fullThr1.toFixed(1)}%`, v2: `${fullThr2.toFixed(1)}%`, d: fullThr1 - fullThr2, unit: "%", inv: true },
-        { m: "BRAKING", v1: `${brkPct1.toFixed(1)}%`, v2: `${brkPct2.toFixed(1)}%`, d: brkPct1 - brkPct2, unit: "%" },
-        { m: "COASTING", v1: `${coastPct1.toFixed(1)}%`, v2: `${coastPct2.toFixed(1)}%`, d: coastPct1 - coastPct2, unit: "%" },
-        { m: "DRS OPENS", v1: drsCnt1, v2: drsCnt2, d: null, unit: "" },
-        { m: "MAX RPM", v1: maxRpm1 ? Math.round(maxRpm1).toLocaleString() : "—", v2: maxRpm2 ? Math.round(maxRpm2).toLocaleString() : "—", d: null, unit: "" },
-        { m: "TYRE", v1: tire1 || "—", v2: tire2 || "—", d: null, unit: "" },
-      ].map((r) => {
-        // Determine who's better for highlighting
-        const better = r.d !== null ? (r.inv ? (r.d > 0 ? 1 : r.d < 0 ? 2 : 0) : (r.d < 0 ? 1 : r.d > 0 ? 2 : 0)) : 0;
-        return (<tr key={r.m} style={{ borderBottom: `1px solid ${F1.borderLight}` }}>
-          <td style={{ padding: "7px 8px", color: F1.textDim, letterSpacing: "0.04em", fontSize: 10 }}>{r.m}</td>
-          <td style={{ padding: "7px 8px", textAlign: "center", fontWeight: 700, color: better === 1 ? co1 : F1.text, background: better === 1 ? `${co1}08` : "transparent" }}>{r.v1}</td>
-          <td style={{ padding: "7px 8px", textAlign: "center", fontWeight: 700, color: better === 2 ? co2 : F1.text, background: better === 2 ? `${co2}08` : "transparent" }}>{r.v2}</td>
-          <td style={{ padding: "7px 8px", textAlign: "center", fontSize: 10, color: r.d !== null ? (r.d > 0 ? (r.inv ? F1.green : F1.red) : r.d < 0 ? (r.inv ? F1.red : F1.green) : F1.textMuted) : F1.textMuted }}>
-            {r.d !== null ? `${r.d > 0 ? "+" : ""}${typeof r.d === "number" ? (Math.abs(r.d) < 1 ? r.d.toFixed(3) : Math.round(r.d)) : r.d}` : "—"}
-          </td>
-        </tr>);
-      })}</tbody>
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: F1.mono }}>
+      <thead><tr style={{ color: F1.textMuted, fontSize: 9, letterSpacing: "0.1em" }}>
+        <th style={{ textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${F1.red}22` }}>METRIC</th>
+        {allDrivers.map((d, i) => <th key={i} style={{ textAlign: "center", padding: "8px 4px", color: d.co, borderBottom: `2px solid ${d.co}44`, fontSize: 10 }}>{d.di?.name_acronym || `D${i+1}`}</th>)}
+      </tr></thead>
+      <tbody>{(() => {
+        // Compute stats for each driver
+        const stats = allDrivers.map((d) => {
+          const topSpd = d.tel?.length ? Math.max(...d.tel.map((t) => t.speed || 0)) : 0;
+          const avgSpd = d.tel?.length ? d.tel.reduce((a, t) => a + (t.speed || 0), 0) / d.tel.length : 0;
+          const fThr = d.tel?.length ? d.tel.filter((t) => t.throttle >= 95).length / d.tel.length * 100 : 0;
+          const brk = d.tel?.length ? d.tel.filter((t) => t.brake > 0).length / d.tel.length * 100 : 0;
+          return { lapTime: d.li?.lap_duration, topSpd, avgSpd, fThr, brk, s1: d.li?.duration_sector_1, s2: d.li?.duration_sector_2, s3: d.li?.duration_sector_3, tire: d.tire };
+        });
+        const rows = [
+          { m: "LAP TIME", vals: stats.map((s) => s.lapTime ? fmt(s.lapTime) : "—"), raw: stats.map((s) => s.lapTime || 999), lower: true },
+          { m: "TOP SPEED", vals: stats.map((s) => Math.round(s.topSpd)), raw: stats.map((s) => s.topSpd), lower: false },
+          { m: "AVG SPEED", vals: stats.map((s) => Math.round(s.avgSpd)), raw: stats.map((s) => s.avgSpd), lower: false },
+          { m: "SECTOR 1", vals: stats.map((s) => s.s1?.toFixed(3) || "—"), raw: stats.map((s) => s.s1 || 999), lower: true },
+          { m: "SECTOR 2", vals: stats.map((s) => s.s2?.toFixed(3) || "—"), raw: stats.map((s) => s.s2 || 999), lower: true },
+          { m: "SECTOR 3", vals: stats.map((s) => s.s3?.toFixed(3) || "—"), raw: stats.map((s) => s.s3 || 999), lower: true },
+          { m: "FULL THROTTLE", vals: stats.map((s) => `${s.fThr.toFixed(1)}%`), raw: stats.map((s) => s.fThr), lower: false },
+          { m: "BRAKING", vals: stats.map((s) => `${s.brk.toFixed(1)}%`), raw: stats.map((s) => s.brk), lower: true },
+          { m: "TYRE", vals: stats.map((s) => s.tire || "—"), raw: null },
+        ];
+        return rows.map((r) => {
+          const bestIdx = r.raw ? (r.lower ? r.raw.indexOf(Math.min(...r.raw)) : r.raw.indexOf(Math.max(...r.raw))) : -1;
+          return (<tr key={r.m} style={{ borderBottom: `1px solid ${F1.borderLight}` }}>
+            <td style={{ padding: "6px 6px", color: F1.textDim, fontSize: 9 }}>{r.m}</td>
+            {r.vals.map((v, i) => (
+              <td key={i} style={{ padding: "6px 4px", textAlign: "center", fontWeight: i === bestIdx ? 800 : 400, color: i === bestIdx ? allDrivers[i].co : F1.text, background: i === bestIdx ? `${allDrivers[i].co}08` : "transparent" }}>{v}</td>
+            ))}
+          </tr>);
+        });
+      })()}</tbody>
     </table>
     </div>
   </div>);
@@ -1658,39 +1677,37 @@ export default function App({ embed }) {
           <div style={{ width: mob ? "100%" : 310, borderLeft: mob ? "none" : `1px solid ${F1.borderLight}`, background: F1.panelBg, display: "flex", flexDirection: "column", maxHeight: mob ? "55vh" : "auto", animation: "fadeIn .2s" }}>
             <div style={{ padding: mob ? 10 : 14, overflowY: "auto", flex: 1 }}>
               {/* ─── Speedometer gauges ─── */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                {[{ di: di1, co: co1, ct: ct1, tire: tire1 }, { di: di2, co: co2, ct: ct2, tire: tire2 }].map((x, i) => (
-                  <div key={i} style={{ flex: 1, background: F1.cardBg, borderRadius: 6, padding: "8px 8px 6px", borderTop: `3px solid ${x.co}`, position: "relative", textAlign: "center" }}>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: x.co, fontFamily: F1.mono, letterSpacing: "0.05em" }}>{x.di?.name_acronym || "—"}</div>
-                    {/* Circular speedometer */}
-                    <svg width="90" height="55" viewBox="0 0 90 55" style={{ margin: "4px auto 2px" }}>
+              <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+                {allDrivers.map((x, i) => (
+                  <div key={i} style={{ flex: 1, minWidth: numDrivers > 2 ? 120 : "auto", background: F1.cardBg, borderRadius: 6, padding: numDrivers > 2 ? "6px 6px 4px" : "8px 8px 6px", borderTop: `3px solid ${x.co}`, position: "relative", textAlign: "center" }}>
+                    <div style={{ fontSize: numDrivers > 2 ? 10 : 12, fontWeight: 900, color: x.co, fontFamily: F1.mono, letterSpacing: "0.05em" }}>{x.di?.name_acronym || "—"}</div>
+                    <svg width={numDrivers > 2 ? "70" : "90"} height={numDrivers > 2 ? "42" : "55"} viewBox="0 0 90 55" style={{ margin: "2px auto" }}>
                       <path d="M 10 50 A 35 35 0 0 1 80 50" fill="none" stroke={F1.border} strokeWidth="4" strokeLinecap="round" />
                       <path d="M 10 50 A 35 35 0 0 1 80 50" fill="none" stroke={x.co} strokeWidth="4" strokeLinecap="round"
                         strokeDasharray={`${(Math.min(x.ct.speed, 360) / 360) * 110} 110`} />
                       <text x="45" y="42" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily={F1.mono}>{Math.round(x.ct.speed)}</text>
                       <text x="45" y="52" textAnchor="middle" fill={F1.textMuted} fontSize="7" fontFamily={F1.mono}>KM/H</text>
                     </svg>
-                    {/* Throttle/Brake pedal bars */}
-                    <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 2 }}>
-                      <div style={{ width: 28, textAlign: "center" }}>
-                        <div style={{ height: 20, width: 6, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
+                    <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 1 }}>
+                      <div style={{ width: 24, textAlign: "center" }}>
+                        <div style={{ height: 16, width: 5, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
                           <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${x.ct.throttle}%`, background: F1.green, borderRadius: 2, transition: "height 0.1s" }} />
                         </div>
-                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>THR</div>
+                        <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>THR</div>
                       </div>
-                      <div style={{ width: 28, textAlign: "center" }}>
-                        <div style={{ height: 20, width: 6, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
+                      <div style={{ width: 24, textAlign: "center" }}>
+                        <div style={{ height: 16, width: 5, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
                           <div style={{ position: "absolute", bottom: 0, width: "100%", height: x.ct.brake > 0 ? "100%" : "0%", background: F1.red, borderRadius: 2, transition: "height 0.1s" }} />
                         </div>
-                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>BRK</div>
+                        <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>BRK</div>
                       </div>
-                      <div style={{ width: 28, textAlign: "center" }}>
-                        <div style={{ fontSize: 16, fontWeight: 900, color: "#fff", fontFamily: F1.mono, lineHeight: "20px" }}>{x.ct.n_gear ?? x.ct.gear ?? "—"}</div>
-                        <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>GEAR</div>
+                      <div style={{ width: 24, textAlign: "center" }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", fontFamily: F1.mono, lineHeight: "16px" }}>{x.ct.n_gear ?? x.ct.gear ?? "—"}</div>
+                        <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>GEAR</div>
                       </div>
                     </div>
-                    {x.tire && <div style={{ position: "absolute", top: 6, right: 6, display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 6, height: 6, borderRadius: "50%", background: TIRE_COLORS[x.tire] || "#888" }} /><span style={{ fontSize: 8, fontFamily: F1.mono, color: F1.textMuted }}>{x.tire}</span></div>}
-                    {x.ct.drs >= 10 && <div style={{ position: "absolute", bottom: 4, right: 6, fontSize: 8, fontWeight: 700, color: F1.green, fontFamily: F1.mono, background: `${F1.green}15`, padding: "1px 4px", borderRadius: 2, animation: "pulse 1s infinite" }}>DRS</div>}
+                    {x.tire && <div style={{ position: "absolute", top: 4, right: 4, display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: TIRE_COLORS[x.tire] || "#888" }} /><span style={{ fontSize: 7, fontFamily: F1.mono, color: F1.textMuted }}>{x.tire}</span></div>}
+                    {x.ct.drs >= 10 && <div style={{ position: "absolute", bottom: 3, right: 4, fontSize: 7, fontWeight: 700, color: F1.green, fontFamily: F1.mono, background: `${F1.green}15`, padding: "1px 3px", borderRadius: 2, animation: "pulse 1s infinite" }}>DRS</div>}
                   </div>
                 ))}
               </div>
@@ -1762,8 +1779,8 @@ export default function App({ embed }) {
               {tp && (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 4, fontWeight: 700 }}>G-FORCE</div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {[{ di: di1, co: co1, ct: ct1, tel: tel1 }, { di: di2, co: co2, ct: ct2, tel: tel2 }].map((x, idx) => {
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {allDrivers.map((x, idx) => {
                       const telArr = x.tel || [];
                       const ti = Math.min(Math.floor(prog * (telArr.length - 1)), telArr.length - 1);
                       const prev2 = telArr[Math.max(0, ti - 2)] || {};
@@ -1869,11 +1886,11 @@ export default function App({ embed }) {
                 </div>);
               })()}
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span></div>
-              <TelChart data1={s1} data2={s2} color1={co1} color2={co2} maxVal={370} prog={prog} />
+              <TelChart traces={allDrivers.map((d) => ({ data: d.s, color: d.co }))} maxVal={370} prog={prog} />
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>THROTTLE <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span></div>
-              <TelChart data1={t1} data2={t2} color1={co1} color2={co2} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
+              <TelChart traces={allDrivers.map((d) => ({ data: d.t, color: d.co }))} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
               <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>BRAKE</div>
-              <TelChart data1={b1} data2={b2} color1={co1} color2={co2} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
+              <TelChart traces={allDrivers.map((d) => ({ data: d.b, color: d.co }))} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
             </div>
           </div>
         )}
@@ -1887,8 +1904,9 @@ export default function App({ embed }) {
           <button onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>🔁</button>
           <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => setProg(parseFloat(e.target.value))} style={{ flex: 1, height: 4, accentColor: F1.red }} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: mob ? 55 : 70, gap: 0 }}>
-            <span style={{ fontSize: 10, color: co1, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(el1)}</span>
-            <span style={{ fontSize: 10, color: co2, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(el2)}</span>
+            {allDrivers.map((d, i) => (
+              <span key={i} style={{ fontSize: 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>
+            ))}
           </div>
           <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: 48, padding: "2px 3px", fontSize: 10 }}>
             <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
