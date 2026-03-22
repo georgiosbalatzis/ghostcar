@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { F1_DARK, F1_LIGHT, TIRE_COLORS, TEAM_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS } from "./constants.js";
 import { fetchJSON, fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
 import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL } from "./helpers.js";
@@ -182,160 +183,100 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       new THREE.LineBasicMaterial({ color: 0xffffff })
     ));
 
-    // ─── F1 Car factory — smooth sculpted model ───
-    function makeCar(color, label, isGhost) {
+    // ─── F1 Car — GLTF model loader ───
+    function makeCarGroup(color, label, isGhost) {
       const g = new THREE.Group();
       const col = new THREE.Color(color);
-      const alpha = isGhost ? 0.5 : 1;
-      const emI = isGhost ? 0.45 : 0.2;
-      const bodyMat = new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: emI, specular: 0x444444, shininess: 80, transparent: isGhost, opacity: alpha });
-      const darkMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 30, transparent: isGhost, opacity: alpha });
-      const carbonMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a, shininess: 50, transparent: isGhost, opacity: alpha });
-      const tireMat = new THREE.MeshPhongMaterial({ color: 0x151515, shininess: 10, transparent: isGhost, opacity: alpha });
-      const hubMat = new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.15, specular: 0xffffff, shininess: 120, transparent: isGhost, opacity: alpha });
-      const s = 0.55; // scale
-
-      // ─── Body: smooth extruded profile using CatmullRom tube ───
-      const bodyCurve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0, 0.12 * s, 2.0 * s),   // nose tip
-        new THREE.Vector3(0, 0.13 * s, 1.5 * s),   // nose mid
-        new THREE.Vector3(0, 0.15 * s, 1.0 * s),   // front
-        new THREE.Vector3(0, 0.18 * s, 0.5 * s),   // cockpit front
-        new THREE.Vector3(0, 0.22 * s, 0.1 * s),   // cockpit
-        new THREE.Vector3(0, 0.28 * s, -0.1 * s),  // airbox
-        new THREE.Vector3(0, 0.24 * s, -0.5 * s),  // engine
-        new THREE.Vector3(0, 0.2 * s, -0.9 * s),   // rear
-        new THREE.Vector3(0, 0.18 * s, -1.1 * s),  // tail
-      ]);
-      const bodyTube = new THREE.TubeGeometry(bodyCurve, 32, 0.12 * s, 8, false);
-      const bodyMesh = new THREE.Mesh(bodyTube, bodyMat);
-      g.add(bodyMesh);
-
-      // ─── Nose tip (smooth tapered cone) ───
-      const noseGeo = new THREE.ConeGeometry(0.08 * s, 0.6 * s, 12);
-      noseGeo.rotateX(-Math.PI / 2);
-      const nose = new THREE.Mesh(noseGeo, bodyMat);
-      nose.position.set(0, 0.12 * s, 2.3 * s); g.add(nose);
-
-      // ─── Airbox (smooth rounded box) ───
-      const airGeo = new THREE.CylinderGeometry(0.08 * s, 0.1 * s, 0.22 * s, 8);
-      const air = new THREE.Mesh(airGeo, bodyMat);
-      air.position.set(0, 0.38 * s, 0); g.add(air);
-
-      // ─── Cockpit opening ───
-      const cpGeo = new THREE.SphereGeometry(0.1 * s, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5);
-      const cp = new THREE.Mesh(cpGeo, darkMat);
-      cp.position.set(0, 0.22 * s, 0.2 * s); cp.scale.set(1.2, 0.6, 2.0); g.add(cp);
-
-      // ─── Halo (smooth titanium) ───
-      const haloMat2 = new THREE.MeshPhongMaterial({ color: 0x555555, specular: 0xffffff, shininess: 200, transparent: isGhost, opacity: alpha });
-      const haloRing = new THREE.Mesh(new THREE.TorusGeometry(0.16 * s, 0.016 * s, 8, 24, Math.PI), haloMat2);
-      haloRing.rotation.z = Math.PI; haloRing.position.set(0, 0.32 * s, 0.22 * s); g.add(haloRing);
-      const haloPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.012 * s, 0.015 * s, 0.32 * s, 8), haloMat2);
-      haloPillar.rotation.x = -0.18; haloPillar.position.set(0, 0.3 * s, 0.42 * s); g.add(haloPillar);
-
-      // ─── Sidepods (smooth capsules) ───
-      [-1, 1].forEach((side) => {
-        const spCurve = new THREE.CatmullRomCurve3([
-          new THREE.Vector3(side * 0.28 * s, 0.14 * s, 0.4 * s),
-          new THREE.Vector3(side * 0.34 * s, 0.16 * s, 0.1 * s),
-          new THREE.Vector3(side * 0.33 * s, 0.14 * s, -0.3 * s),
-          new THREE.Vector3(side * 0.25 * s, 0.12 * s, -0.6 * s),
-        ]);
-        const spTube = new THREE.TubeGeometry(spCurve, 16, 0.07 * s, 8, false);
-        g.add(new THREE.Mesh(spTube, bodyMat));
-      });
-
-      // ─── Floor (thin smooth slab) ───
-      const flGeo = new THREE.BoxGeometry(0.85 * s, 0.015 * s, 2.8 * s);
-      flGeo.translate(0, 0.04 * s, 0.3 * s);
-      g.add(new THREE.Mesh(flGeo, carbonMat));
-
-      // ─── Front wing (smooth curved elements) ───
-      const fwShape = new THREE.Shape();
-      fwShape.moveTo(-0.48 * s, 0); fwShape.quadraticCurveTo(0, -0.015 * s, 0.48 * s, 0);
-      fwShape.lineTo(0.48 * s, 0.008 * s); fwShape.quadraticCurveTo(0, 0.02 * s, -0.48 * s, 0.008 * s);
-      fwShape.closePath();
-      const fwGeo = new THREE.ExtrudeGeometry(fwShape, { depth: 0.16 * s, bevelEnabled: true, bevelThickness: 0.005 * s, bevelSize: 0.005 * s, bevelSegments: 3 });
-      const fw = new THREE.Mesh(fwGeo, bodyMat);
-      fw.position.set(0, 0.06 * s, 2.0 * s); g.add(fw);
-      // Front wing endplates (smooth)
-      [-1, 1].forEach((side) => {
-        const epGeo = new THREE.BoxGeometry(0.008 * s, 0.07 * s, 0.2 * s);
-        const ep = new THREE.Mesh(epGeo, bodyMat);
-        ep.position.set(side * 0.48 * s, 0.065 * s, 2.08 * s); g.add(ep);
-      });
-
-      // ─── Rear wing (smooth with DRS flap) ───
-      const rwGeo = new THREE.BoxGeometry(0.5 * s, 0.012 * s, 0.1 * s);
-      const rw = new THREE.Mesh(rwGeo, bodyMat);
-      rw.position.set(0, 0.47 * s, -1.0 * s); g.add(rw);
-      // DRS flap
-      const drsGeo = new THREE.BoxGeometry(0.44 * s, 0.01 * s, 0.05 * s);
-      const drs = new THREE.Mesh(drsGeo, bodyMat);
-      drs.position.set(0, 0.51 * s, -1.02 * s); drs.rotation.x = -0.2; g.add(drs);
-      // Endplates (smooth rounded)
-      [-1, 1].forEach((side) => {
-        const repGeo = new THREE.BoxGeometry(0.008 * s, 0.16 * s, 0.14 * s);
-        const rep = new THREE.Mesh(repGeo, bodyMat);
-        rep.position.set(side * 0.25 * s, 0.43 * s, -1.0 * s); g.add(rep);
-      });
-      // Pylons
-      [-1, 1].forEach((side) => {
-        const pylGeo = new THREE.CylinderGeometry(0.006 * s, 0.008 * s, 0.16 * s, 6);
-        const pyl = new THREE.Mesh(pylGeo, carbonMat);
-        pyl.position.set(side * 0.1 * s, 0.34 * s, -0.96 * s); g.add(pyl);
-      });
-
-      // ─── Rear light ───
-      const rlMat = new THREE.MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0.8 });
-      const rl = new THREE.Mesh(new THREE.BoxGeometry(0.2 * s, 0.025 * s, 0.01 * s), rlMat);
-      rl.position.set(0, 0.19 * s, -1.12 * s); g.add(rl);
-
-      // ─── Wheels (smooth, high-segment) ───
-      const wR = 0.16 * s, wW = 0.08 * s;
-      [{ x: 0.38, z: 1.5 }, { x: -0.38, z: 1.5 }, { x: 0.42, z: -0.65 }, { x: -0.42, z: -0.65 }].forEach((wPos) => {
-        const tGeo = new THREE.CylinderGeometry(wR, wR, wW, 24);
-        tGeo.rotateZ(Math.PI / 2);
-        const tire = new THREE.Mesh(tGeo, tireMat);
-        tire.position.set(wPos.x * s, wR, wPos.z * s); g.add(tire);
-        // Smooth hub
-        const hGeo = new THREE.CylinderGeometry(wR * 0.5, wR * 0.5, wW + 0.008 * s, 16);
-        hGeo.rotateZ(Math.PI / 2);
-        const hub = new THREE.Mesh(hGeo, hubMat);
-        hub.position.set(wPos.x * s, wR, wPos.z * s); g.add(hub);
-      });
-
-      // ─── Shadow + glow ───
+      // Shadow disc
       const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
-      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.2 * s, 24), shadowMat);
+      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.0, 24), shadowMat);
       shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
+      // Glow
       const glowMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false });
-      const glowMesh = new THREE.Mesh(new THREE.CircleGeometry(1.4 * s, 16), glowMat);
-      glowMesh.rotation.x = -Math.PI / 2; glowMesh.position.set(0, 0.005, 0); g.add(glowMesh);
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), glowMat);
+      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(glow);
       // Light
       const carLight = new THREE.PointLight(col, isGhost ? 0.5 : 0.25, 8);
-      carLight.position.set(0, 0.35 * s, 0); g.add(carLight);
-
-      // ─── Label ───
+      carLight.position.set(0, 0.3, 0); g.add(carLight);
+      // Label sprite
       if (label) {
         const cv = document.createElement("canvas"); cv.width = 160; cv.height = 56; const ctx = cv.getContext("2d");
         ctx.fillStyle = color; ctx.globalAlpha = 0.9;
         ctx.beginPath(); const r2 = 6; ctx.moveTo(r2, 0); ctx.lineTo(160 - r2, 0); ctx.quadraticCurveTo(160, 0, 160, r2); ctx.lineTo(160, 56 - r2); ctx.quadraticCurveTo(160, 56, 160 - r2, 56); ctx.lineTo(r2, 56); ctx.quadraticCurveTo(0, 56, 0, 56 - r2); ctx.lineTo(0, r2); ctx.quadraticCurveTo(0, 0, r2, 0); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.globalAlpha = 0.15; ctx.fillRect(0, 0, 6, 56);
         ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 80, 30);
-        const tex2 = new THREE.CanvasTexture(cv);
-        const sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex2, transparent: true, depthWrite: false }));
-        sp2.position.set(0, 0.85 * s, 0); sp2.scale.set(2.2, 0.8, 1); g.add(sp2);
+        const tex = new THREE.CanvasTexture(cv);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        sp.position.set(0, 0.8, 0); sp.scale.set(2.2, 0.8, 1); g.add(sp);
       }
+      g.userData = { color, isGhost, modelLoaded: false };
       return g;
     }
-    const car1 = makeCar(c1, lab1, false); const car2 = makeCar(c2, lab2, true);
+
+    const car1 = makeCarGroup(c1, lab1, false); const car2 = makeCarGroup(c2, lab2, true);
     scene.add(car1); scene.add(car2);
-    const car3 = c3 && lab3 ? makeCar(c3, lab3, true) : null;
-    const car4 = c4 && lab4 ? makeCar(c4, lab4, true) : null;
+    const car3 = c3 && lab3 ? makeCarGroup(c3, lab3, true) : null;
+    const car4 = c4 && lab4 ? makeCarGroup(c4, lab4, true) : null;
     if (car3) scene.add(car3);
     if (car4) scene.add(car4);
+
+    // Load GLTF model and clone for each car
+    const loader = new GLTFLoader();
+    const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
+    loader.load(basePath, (gltf) => {
+      const template = gltf.scene;
+      // Model is ~46x107x76 units, we need ~1.5 units long
+      // Scale: 1.5 / 107 ≈ 0.014 — but Z is the long axis
+      const modelScale = 0.12;
+
+      function applyModel(carGroup) {
+        if (!carGroup) return;
+        const clone = template.clone(true);
+        clone.scale.set(modelScale, modelScale, modelScale);
+        // No Y rotation — model faces correct direction
+        // Center and ground the model
+        const box = new THREE.Box3().setFromObject(clone);
+        const center = box.getCenter(new THREE.Vector3());
+        clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
+
+        const col = new THREE.Color(carGroup.userData.color);
+        const isGhost = carGroup.userData.isGhost;
+        // Recolor materials
+        clone.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const mat = child.material.clone();
+            const name = mat.name || "";
+            if (name === "BaseColor" || name === "2ndColor" || name === "Bloody_Red") {
+              mat.color = col.clone();
+              mat.emissive = col.clone();
+              mat.emissiveIntensity = isGhost ? 0.4 : 0.15;
+            } else if (name === "3rdColor") {
+              mat.color = col.clone().multiplyScalar(0.6);
+              mat.emissive = col.clone();
+              mat.emissiveIntensity = 0.1;
+            } else if (name === "Mirror") {
+              mat.color.set(0x888888);
+              mat.metalness = 0.9;
+              mat.roughness = 0.1;
+            }
+            if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
+            child.material = mat;
+          }
+        });
+        carGroup.add(clone);
+        carGroup.userData.modelLoaded = true;
+      }
+
+      applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
+    }, undefined, (err) => {
+      console.warn("GLTF load failed, using fallback:", err);
+      // Fallback: add a simple colored box if model fails
+      [car1, car2, car3, car4].filter(Boolean).forEach((g) => {
+        const col = new THREE.Color(g.userData.color);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: g.userData.isGhost, opacity: g.userData.isGhost ? 0.5 : 1 }));
+        m.position.y = 0.15; g.add(m);
+      });
+    });
 
     // ─── Spotlight cone following each car ───
     const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1);
