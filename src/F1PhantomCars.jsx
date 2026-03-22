@@ -708,7 +708,7 @@ const SD = memo(function SD({ s, t1, t2, c1, c2 }) {
 });
 
 // ═══════════════════════════════════════════
-export default function App() {
+export default function App({ embed }) {
   const mob = useIsMobile();
   const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; } });
   F1 = isDark ? F1_DARK : F1_LIGHT;
@@ -1265,19 +1265,150 @@ export default function App() {
         </div>
       </div>)}
 
-      {/* ─── Embed Modal ─── */}
-      {showEmbed && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 24, zIndex: 100, width: mob ? "92%" : 480, animation: "fadeIn .2s" }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-          <span style={{ fontWeight: 900, fontSize: 16 }}>EMBED CODE</span>
+      {/* ─── Integration Hub Modal ─── */}
+      {showEmbed && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+          <div><div style={{ fontWeight: 900, fontSize: 16 }}>INTEGRATION HUB</div><div style={{ fontSize: 10, color: F1.textMuted }}>Embed, share & publish on f1stories.gr</div></div>
           <button onClick={() => setShowEmbed(false)} style={{ marginLeft: "auto" }}>✕</button>
         </div>
-        <div style={{ fontSize: 12, color: F1.textDim, marginBottom: 12 }}>Copy this code to embed the Ghost Car Lab on your website or blog:</div>
-        <textarea readOnly value={`<iframe src="${encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })}" width="100%" height="700" frameborder="0" style="border-radius:12px;border:1px solid #E1060033" allowfullscreen></iframe>`} style={{ width: "100%", height: 100, background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 6, padding: 10, fontFamily: F1.mono, fontSize: 11, resize: "none" }} onClick={(e) => e.target.select()} />
-        <button onClick={() => { const ta = document.querySelector("textarea"); ta?.select(); document.execCommand("copy"); }} className="f1-btn" style={{ marginTop: 10, padding: "8px 20px", fontSize: 11 }}>COPY TO CLIPBOARD</button>
+        <div style={{ overflowY: "auto", padding: "16px 20px 20px" }}>
+          {/* 1. Embed iframe */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: F1.red, letterSpacing: "0.08em", marginBottom: 6 }}>EMBED IFRAME</div>
+            <div style={{ fontSize: 10, color: F1.textDim, marginBottom: 6 }}>Paste in any HTML page or CMS. Shows the full 3D viewer with minimal chrome.</div>
+            <textarea id="ta-embed" readOnly value={`<iframe src="${encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })}&embed=1" width="100%" height="650" frameborder="0" style="border-radius:12px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>`} style={{ width: "100%", height: 70, background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 6, padding: 8, fontFamily: F1.mono, fontSize: 10, resize: "none" }} onClick={(e) => e.target.select()} />
+            <button onClick={() => { document.getElementById("ta-embed")?.select(); document.execCommand("copy"); }} className="f1-btn" style={{ marginTop: 6, padding: "5px 14px", fontSize: 10 }}>COPY</button>
+          </div>
+
+          {/* 2. Blog widget */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: F1.red, letterSpacing: "0.08em", marginBottom: 6 }}>BLOG WIDGET</div>
+            <div style={{ fontSize: 10, color: F1.textDim, marginBottom: 6 }}>A compact card for f1stories.gr blog posts. Shows drivers, delta, and a CTA button.</div>
+            {(() => {
+              const widgetUrl = encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 });
+              const widgetHtml = `<div style="max-width:480px;margin:20px auto;background:#15151e;border-radius:12px;border:1px solid #E1060033;overflow:hidden;font-family:'Titillium Web',sans-serif;color:#e8e8f0">
+  <div style="padding:4px 16px;background:#E10600;display:flex;align-items:center;gap:8px">
+    <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:#fff">🏎️ GHOST CAR LAB</span>
+    <span style="margin-left:auto;font-size:9px;color:#fffa">f1stories.gr</span>
+  </div>
+  <div style="padding:16px 20px">
+    <div style="font-size:13px;color:#888;margin-bottom:8px">${selMt?.meeting_name || "Grand Prix"} ${year}</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0">
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:${co1}">${di1?.name_acronym || "D1"}</div>
+        <div style="font-size:14px;color:#aaa">${fmt(li1?.lap_duration)}</div>
+      </div>
+      <div style="font-size:14px;font-weight:900;color:#E10600;letter-spacing:0.1em">VS</div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:${co2}">${di2?.name_acronym || "D2"}</div>
+        <div style="font-size:14px;color:#aaa">${fmt(li2?.lap_duration)}</div>
+      </div>
+    </div>
+    ${delta !== null ? `<div style="text-align:center;font-size:24px;font-weight:900;color:${delta > 0 ? "#E10600" : "#00d26a"};margin:8px 0">${delta > 0 ? "+" : ""}${delta.toFixed(3)}s</div>` : ""}
+    <a href="${widgetUrl}" target="_blank" style="display:block;text-align:center;background:#E10600;color:#fff;padding:10px;border-radius:6px;font-weight:700;font-size:12px;text-decoration:none;letter-spacing:0.08em;margin-top:12px">VIEW IN 3D →</a>
+  </div>
+</div>`;
+              return (<>
+                {/* Preview */}
+                <div style={{ border: `1px solid ${F1.borderLight}`, borderRadius: 8, padding: 8, marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: widgetHtml }} />
+                <textarea id="ta-widget" readOnly value={widgetHtml} style={{ width: "100%", height: 60, background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 6, padding: 8, fontFamily: F1.mono, fontSize: 9, resize: "none" }} onClick={(e) => e.target.select()} />
+                <button onClick={() => { document.getElementById("ta-widget")?.select(); document.execCommand("copy"); }} className="f1-btn" style={{ marginTop: 6, padding: "5px 14px", fontSize: 10 }}>COPY WIDGET HTML</button>
+              </>);
+            })()}
+          </div>
+
+          {/* 3. Full article generator */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: F1.red, letterSpacing: "0.08em", marginBottom: 6 }}>GENERATE BLOG ARTICLE</div>
+            <div style={{ fontSize: 10, color: F1.textDim, marginBottom: 8 }}>Download a complete blog-ready HTML page with stats, analysis text, and embedded 3D viewer.</div>
+            <button onClick={() => {
+              const url = encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 });
+              const d1n = di1?.name_acronym || "D1", d2n = di2?.name_acronym || "D2";
+              const gpName = selMt?.meeting_name || "Grand Prix";
+              const sessName = selSe?.session_name || "Session";
+              const winner = delta !== null ? (delta < 0 ? d1n : d2n) : "N/A";
+              const loser = delta !== null ? (delta < 0 ? d2n : d1n) : "N/A";
+              const gap = delta !== null ? Math.abs(delta).toFixed(3) : "0.000";
+              const article = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${d1n} vs ${d2n} — ${gpName} ${year} | F1 Stories Ghost Car Lab</title>
+  <meta name="description" content="${d1n} vs ${d2n} qualifying lap comparison at the ${gpName} ${year}. ${winner} was ${gap}s faster. Full 3D analysis with telemetry data.">
+  <meta property="og:title" content="${d1n} vs ${d2n} — ${gpName} ${year}">
+  <meta property="og:description" content="${winner} beat ${loser} by ${gap}s in ${sessName}. Interactive 3D ghost car comparison.">
+  <meta property="og:image" content="https://f1stories.gr/images/logo.png">
+  <meta property="og:url" content="${url}">
+  <meta name="twitter:card" content="summary_large_image">
+  <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Titillium Web',sans-serif;background:#0e0e16;color:#e8e8f0;max-width:800px;margin:0 auto;padding:20px}
+    h1{font-size:32px;font-weight:900;margin-bottom:4px}
+    .meta{font-size:14px;color:#8b8ba0;margin-bottom:24px}
+    .delta{font-size:48px;font-weight:900;text-align:center;margin:24px 0}
+    .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:24px 0}
+    .stat{background:rgba(25,25,38,0.85);border-radius:8px;padding:14px;text-align:center}
+    .stat-label{font-size:10px;color:#8b8ba0;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px}
+    .stat-val{font-size:20px;font-weight:900}
+    .analysis{line-height:1.8;font-size:15px;color:#bbb;margin:24px 0}
+    .cta{display:block;background:#E10600;color:#fff;text-align:center;padding:16px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;letter-spacing:0.05em;margin:24px 0}
+    .cta:hover{background:#B30500}
+    .footer{text-align:center;padding:20px;color:#505068;font-size:12px;border-top:1px solid #222}
+    .footer a{color:#E10600;text-decoration:none}
+  </style>
+</head>
+<body>
+  <a href="https://f1stories.gr" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:24px">
+    <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style="height:36px">
+    <div><div style="font-size:18px;font-weight:900;color:#fff">F1 STORIES</div><div style="font-size:9px;color:#8b8ba0;letter-spacing:0.12em">GHOST CAR LAB</div></div>
+  </a>
+
+  <h1><span style="color:${co1}">${d1n}</span> vs <span style="color:${co2}">${d2n}</span></h1>
+  <div class="meta">${gpName} ${year} — ${sessName}</div>
+
+  <div class="delta" style="color:${delta > 0 ? "#E10600" : "#00d26a"}">${delta > 0 ? "+" : ""}${delta?.toFixed(3) || "0.000"}s</div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-label">${d1n} Lap</div><div class="stat-val" style="color:${co1}">${fmt(li1?.lap_duration)}</div></div>
+    <div class="stat"><div class="stat-label">Gap</div><div class="stat-val" style="color:${delta > 0 ? "#E10600" : "#00d26a"}">${gap}s</div></div>
+    <div class="stat"><div class="stat-label">${d2n} Lap</div><div class="stat-val" style="color:${co2}">${fmt(li2?.lap_duration)}</div></div>
+    <div class="stat"><div class="stat-label">${d1n} Top Speed</div><div class="stat-val">${Math.round(topS1)} km/h</div></div>
+    <div class="stat"><div class="stat-label">Avg Δ</div><div class="stat-val">${Math.round(Math.abs(avgS1 - avgS2))} km/h</div></div>
+    <div class="stat"><div class="stat-label">${d2n} Top Speed</div><div class="stat-val">${Math.round(topS2)} km/h</div></div>
+    ${li1?.duration_sector_1 ? `<div class="stat"><div class="stat-label">S1</div><div class="stat-val">${li1.duration_sector_1.toFixed(3)}</div></div>` : ""}
+    ${li1?.duration_sector_2 ? `<div class="stat"><div class="stat-label">S2</div><div class="stat-val">${li1.duration_sector_2.toFixed(3)}</div></div>` : ""}
+    ${li1?.duration_sector_3 ? `<div class="stat"><div class="stat-label">S3</div><div class="stat-val">${li1.duration_sector_3.toFixed(3)}</div></div>` : ""}
+  </div>
+
+  <div class="analysis">
+    <p><strong>${winner}</strong> took ${sessName === "Race" ? "the faster race lap" : "pole position"} at the <strong>${gpName} ${year}</strong>, beating <strong>${loser}</strong> by just <strong>${gap} seconds</strong>.</p>
+    <p style="margin-top:12px">${d1n} posted a best time of <strong>${fmt(li1?.lap_duration)}</strong> while ${d2n} managed <strong>${fmt(li2?.lap_duration)}</strong>. ${Math.round(topS1) > Math.round(topS2) ? d1n + " had the higher top speed at " + Math.round(topS1) + " km/h versus " + Math.round(topS2) + " km/h" : d2n + " had the edge on top speed with " + Math.round(topS2) + " km/h compared to " + Math.round(topS1) + " km/h"}.</p>
+    <p style="margin-top:12px">Use the interactive 3D comparison below to see exactly where the time was gained and lost around the circuit.</p>
+  </div>
+
+  <iframe src="${url}&embed=1" width="100%" height="600" frameborder="0" style="border-radius:12px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>
+
+  <a href="${url}" class="cta" target="_blank">OPEN FULL GHOST CAR LAB →</a>
+
+  <div class="footer">
+    <p>Powered by <a href="https://f1stories.gr">F1 Stories</a> • Data from OpenF1 API</p>
+    <p style="margin-top:4px">© ${new Date().getFullYear()} F1 Stories. All rights reserved.</p>
+  </div>
+</body>
+</html>`;
+              const blob = new Blob([article], { type: "text/html" });
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = `f1stories-${d1n}-vs-${d2n}-${gpName.replace(/\s+/g, "-")}-${year}.html`;
+              a.click();
+            }} className="f1-btn" style={{ padding: "8px 20px", fontSize: 11 }}>📄 DOWNLOAD ARTICLE HTML</button>
+          </div>
+        </div>
       </div>)}
 
       {/* ─── HEADER — F1 Stories branded ─── */}
-      <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, ${F1.carbonLight} 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
+      {!embed && <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, ${F1.carbonLight} 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
         <div style={{ width: mob ? 4 : 5, background: F1.red, flexShrink: 0 }} />
         <div style={{ display: "flex", alignItems: "center", gap: mob ? 8 : 16, padding: mob ? "8px 10px" : "0 20px", flex: 1, flexWrap: "wrap", minHeight: mob ? "auto" : 48 }}>
           {/* Logo + brand */}
@@ -1314,10 +1445,10 @@ export default function App() {
             {!mob && <button onClick={() => setShowKeys(true)} style={{ fontSize: 10, padding: "4px 8px", fontFamily: F1.mono, fontWeight: 900 }}>?</button>}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ─── SELECTORS ─── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: mob ? "8px 10px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
+      {!embed && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: mob ? "8px 10px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
         <select value={year} onChange={(e) => setYear(Number(e.target.value))}>{[2026,2025,2024,2023].map((y) => <option key={y} value={y}>{y}</option>)}</select>
         <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 110 : 155 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
         <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 85 : 115 }}><option value="">Session</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{s.session_name}</option>)}</select>
@@ -1334,15 +1465,15 @@ export default function App() {
           {laps2.length > 0 && <select value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 56 : 72 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
         </div>
         <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading}>{loading ? "..." : "COMPARE"}</button>
-      </div>
+      </div>}
 
-      {err && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{err}</span><button onClick={() => setErr("")} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
-      {loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}><div style={{ fontSize: 11, color: F1.textDim, fontFamily: F1.mono, marginBottom: 4 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.red, borderRadius: 1, transition: "width .3s" }} /></div>}</div>}
+      {!embed && err && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{err}</span><button onClick={() => setErr("")} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
+      {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}><div style={{ fontSize: 11, color: F1.textDim, fontFamily: F1.mono, marginBottom: 4 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.red, borderRadius: 1, transition: "width .3s" }} /></div>}</div>}
 
-      {mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}` }}>{["3d","telemetry"].map((tab) => <button key={tab} onClick={() => setMobTab(tab)} style={{ flex: 1, borderRadius: 0, borderBottom: mobTab === tab ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab ? F1.cardBg : "transparent", fontWeight: mobTab === tab ? 700 : 400, fontSize: 11, padding: "7px 0", letterSpacing: "0.08em", textTransform: "uppercase" }}>{tab === "3d" ? "Track" : "Telemetry"}</button>)}</div>}
+      {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}` }}>{["3d","telemetry"].map((tab) => <button key={tab} onClick={() => setMobTab(tab)} style={{ flex: 1, borderRadius: 0, borderBottom: mobTab === tab ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab ? F1.cardBg : "transparent", fontWeight: mobTab === tab ? 700 : 400, fontSize: 11, padding: "7px 0", letterSpacing: "0.08em", textTransform: "uppercase" }}>{tab === "3d" ? "Track" : "Telemetry"}</button>)}</div>}
 
       {/* ─── MAIN ─── */}
-      <div style={{ display: "flex", flexDirection: mob ? "column" : "row", height: mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)` }}>
+      <div style={{ display: "flex", flexDirection: mob ? "column" : "row", height: embed ? "100vh" : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`) }}>
         {(!mob || mobTab === "3d") && (
           <div style={{ flex: 1, position: "relative", minHeight: mob ? "50vh" : "auto" }}>
             <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: mob ? "50vh" : "auto" }} />
@@ -1646,16 +1777,22 @@ export default function App() {
       )}
 
       {/* ─── Footer ─── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
-        <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
-          <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
-          <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
+      {!embed ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
+          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+            <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
+            <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
+          </a>
+          <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
+          <span style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>Data by OpenF1 API</span>
+          <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
+          <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
+        </div>
+      ) : (
+        <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ position: "fixed", bottom: 6, right: 8, zIndex: 10, background: "rgba(0,0,0,0.7)", padding: "3px 10px", borderRadius: 4, fontSize: 9, color: "#888", textDecoration: "none", fontFamily: F1.sans, backdropFilter: "blur(4px)" }}>
+          Powered by <span style={{ color: "#E10600", fontWeight: 700 }}>F1 Stories</span>
         </a>
-        <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
-        <span style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>Data by OpenF1 API</span>
-        <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
-        <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
-      </div>
+      )}
     </div>
   );
 }

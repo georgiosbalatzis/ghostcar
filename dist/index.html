@@ -3,9 +3,57 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ghost Car — F1 Stories | 3D Lap Comparison</title>
+    <title>Ghost Car Lab — F1 Stories | 3D Lap Comparison</title>
+    <meta name="description" content="Compare F1 qualifying laps in 3D with real telemetry data. See ghost cars race around the track with speed, throttle, and brake data from OpenF1." />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏎</text></svg>" />
-    <script type="module" crossorigin src="/ghostcar/assets/index-x5xCET6x.js"></script>
+    <link rel="canonical" href="https://georgiosbalatzis.github.io/ghostcar/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="F1 Stories" />
+    <meta property="og:title" content="Ghost Car Lab — 3D F1 Lap Comparison" />
+    <meta property="og:description" content="Compare F1 qualifying laps in 3D with real telemetry. Ghost cars, speed traces, sector analysis — powered by F1 Stories." />
+    <meta property="og:image" content="https://f1stories.gr/images/logo.png" />
+    <meta property="og:url" content="https://georgiosbalatzis.github.io/ghostcar/" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Ghost Car Lab — F1 Stories" />
+    <meta name="twitter:description" content="Compare F1 laps in 3D with real telemetry data." />
+    <meta name="twitter:image" content="https://f1stories.gr/images/logo.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Ghost Car Lab",
+      "description": "3D F1 lap comparison tool with real telemetry data",
+      "url": "https://georgiosbalatzis.github.io/ghostcar/",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "Web",
+      "author": {
+        "@type": "Organization",
+        "name": "F1 Stories",
+        "url": "https://f1stories.gr"
+      },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+    }
+    </script>
+
+    <!-- Dynamic OG update from URL params -->
+    <script>
+      (function() {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('d1') && p.get('d2')) {
+          var title = 'Ghost Car Lab — Driver #' + p.get('d1') + ' vs #' + p.get('d2');
+          document.title = title;
+          var ogTitle = document.querySelector('meta[property="og:title"]');
+          if (ogTitle) ogTitle.setAttribute('content', title);
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/ghostcar/assets/index-BPPZ46qL.js"></script>
     <link rel="modulepreload" crossorigin href="/ghostcar/assets/three-CLeVvu3a.js">
   </head>
   <body style="margin:0; background:#0a0a12;">
