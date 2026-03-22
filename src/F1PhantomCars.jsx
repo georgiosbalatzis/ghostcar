@@ -7,11 +7,12 @@ import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL 
 let F1 = F1_DARK;
 
 // ─── Three.js Scene ───
-function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark) {
+function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
   const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
+  const n3 = useMemo(() => l3 ? norm(l3) : null, [l3]); const n4 = useMemo(() => l4 ? norm(l4) : null, [l4]);
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
 
   useEffect(() => {
@@ -331,6 +332,10 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     }
     const car1 = makeCar(c1, lab1, false); const car2 = makeCar(c2, lab2, true);
     scene.add(car1); scene.add(car2);
+    const car3 = c3 && lab3 ? makeCar(c3, lab3, true) : null;
+    const car4 = c4 && lab4 ? makeCar(c4, lab4, true) : null;
+    if (car3) scene.add(car3);
+    if (car4) scene.add(car4);
 
     // ─── Spotlight cone following each car ───
     const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1);
@@ -373,8 +378,10 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       return { mesh: points, positions: pos, alphas, max, count: 0 };
     }
     const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
+    const tr3 = car3 ? makeTrail(c3, true) : null;
+    const tr4 = car4 ? makeTrail(c4, true) : null;
 
-    R.current = { scene, camera, ren, car1, car2, tr1, tr2, n1, n2, curve, spot1, spot2, deltaLine, deltaPos, sectorPanels, fr: null };
+    R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorPanels, fr: null };
 
     const cs = CS.current;
     const onDown = (e) => { cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0; };
@@ -407,7 +414,9 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     return () => { window.removeEventListener("resize", onR); de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp); cancelAnimationFrame(R.current.fr); ren.dispose(); if (el.contains(ren.domElement)) el.removeChild(ren.domElement); };
   }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, isDark]);
 
-  useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]); useEffect(() => { cmRef.current = cam; }, [cam]);
+  useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
+  useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
+  useEffect(() => { cmRef.current = cam; }, [cam]);
 
   useEffect(() => {
     const { car1, car2, tr1, tr2, camera: cam2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP } = R.current; if (!car1 || !car2 || !tp || tp.length < 2) return; const cs = CS.current;
@@ -426,6 +435,8 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       }
       return p; }
     const p1 = upd(car1, tr1, R.current.n1, prog); const p2 = upd(car2, tr2, R.current.n2, prog);
+    if (R.current.car3) upd(R.current.car3, R.current.tr3, R.current.n3, prog);
+    if (R.current.car4) upd(R.current.car4, R.current.tr4, R.current.n4, prog);
     // Spotlights follow cars
     if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
     if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
@@ -717,12 +728,21 @@ export default function App({ embed }) {
   const [mts, setMts] = useState([]); const [selMt, setSelMt] = useState(null);
   const [sess, setSess] = useState([]); const [selSe, setSelSe] = useState(null);
   const [drvs, setDrvs] = useState([]); const [d1, setD1] = useState(null); const [d2, setD2] = useState(null);
+  const [d3, setD3] = useState(null); const [d4, setD4] = useState(null);
   const [sl1, setSl1] = useState(null); const [sl2, setSl2] = useState(null);
+  const [sl3, setSl3] = useState(null); const [sl4, setSl4] = useState(null);
   const [laps1, setLaps1] = useState([]); const [laps2, setLaps2] = useState([]);
+  const [laps3, setLaps3] = useState([]); const [laps4, setLaps4] = useState([]);
   const [loc1, setLoc1] = useState(null); const [loc2, setLoc2] = useState(null);
+  const [loc3, setLoc3] = useState(null); const [loc4, setLoc4] = useState(null);
   const [tel1, setTel1] = useState(null); const [tel2, setTel2] = useState(null);
+  const [tel3, setTel3] = useState(null); const [tel4, setTel4] = useState(null);
   const [tp, setTp] = useState(null);
   const [st1, setSt1] = useState([]); const [st2, setSt2] = useState([]);
+  const [st3, setSt3] = useState([]); const [st4, setSt4] = useState([]);
+  const [numDrivers, setNumDrivers] = useState(2);
+  const [showDash, setShowDash] = useState(false);
+  const [dashData, setDashData] = useState(null);
   const [prog, setProg] = useState(0); const [play, setPlay] = useState(false); const [spd, setSpd] = useState(1); const [loop, setLoop] = useState(false);
   const [cam, setCam] = useState("orbit");
   const [vizMode, setVizMode] = useState("normal");
@@ -748,8 +768,11 @@ export default function App({ embed }) {
   const presetActiveRef = useRef(false);
 
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
+  const di3 = drvs.find((x) => x.driver_number === d3), di4 = drvs.find((x) => x.driver_number === d4);
   const co1 = di1 ? getTeamColor(di1.team_name) : "#4488ff", co2 = di2 ? getTeamColor(di2.team_name) : "#ff4488";
+  const co3 = di3 ? getTeamColor(di3.team_name) : "#44cc44", co4 = di4 ? getTeamColor(di4.team_name) : "#ffaa00";
   const li1 = laps1.find((l) => l.lap_number === sl1), li2 = laps2.find((l) => l.lap_number === sl2);
+  const li3 = laps3.find((l) => l.lap_number === sl3), li4 = laps4.find((l) => l.lap_number === sl4);
   const delta = li1?.lap_duration && li2?.lap_duration ? li1.lap_duration - li2.lap_duration : null;
   const el1 = li1?.lap_duration ? prog * li1.lap_duration : 0, el2 = li2?.lap_duration ? prog * li2.lap_duration : 0;
   const tire1 = st1.find((s) => sl1 >= s.lap_start && sl1 <= s.lap_end)?.compound?.toUpperCase();
@@ -770,8 +793,12 @@ export default function App({ embed }) {
   useEffect(() => { if (!selSe || presetActiveRef.current) return; setLoading("Loading drivers..."); fetchDrivers(selSe.session_key).then((d) => { const seen = new Set(); setDrvs(d.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selSe]);
   useEffect(() => { if (presetActiveRef.current) return; if (selSe && d1) { fetchLaps(selSe.session_key, d1).then((l) => { setLaps1(l); setSl1(null); }).catch(() => setLaps1([])); fetchStints(selSe.session_key, d1).then(setSt1).catch(() => setSt1([])); } }, [selSe, d1]);
   useEffect(() => { if (presetActiveRef.current) return; if (selSe && d2) { fetchLaps(selSe.session_key, d2).then((l) => { setLaps2(l); setSl2(null); }).catch(() => setLaps2([])); fetchStints(selSe.session_key, d2).then(setSt2).catch(() => setSt2([])); } }, [selSe, d2]);
+  useEffect(() => { if (presetActiveRef.current) return; if (selSe && d3) { fetchLaps(selSe.session_key, d3).then((l) => { setLaps3(l); setSl3(null); }).catch(() => setLaps3([])); fetchStints(selSe.session_key, d3).then(setSt3).catch(() => setSt3([])); } }, [selSe, d3]);
+  useEffect(() => { if (presetActiveRef.current) return; if (selSe && d4) { fetchLaps(selSe.session_key, d4).then((l) => { setLaps4(l); setSl4(null); }).catch(() => setLaps4([])); fetchStints(selSe.session_key, d4).then(setSt4).catch(() => setSt4([])); } }, [selSe, d4]);
   useEffect(() => { if (laps1.length && !sl1) { const f = bestLap(laps1); if (f) setSl1(f.lap_number); } }, [laps1]);
   useEffect(() => { if (laps2.length && !sl2) { const f = bestLap(laps2); if (f) setSl2(f.lap_number); } }, [laps2]);
+  useEffect(() => { if (laps3.length && !sl3) { const f = bestLap(laps3); if (f) setSl3(f.lap_number); } }, [laps3]);
+  useEffect(() => { if (laps4.length && !sl4) { const f = bestLap(laps4); if (f) setSl4(f.lap_number); } }, [laps4]);
 
   // URL restore
   useEffect(() => { if (urlLoaded.current) return; const u = decodeURL(); if (u.year && u.mk) { urlLoaded.current = true; setYear(Number(u.year)); } }, []);
@@ -784,17 +811,40 @@ export default function App({ embed }) {
   const loadData = useCallback(async () => {
     if (!selSe || !d1 || !d2 || !sl1 || !sl2) return; setLoading("Fetching telemetry..."); setErr(""); setLdPct(0);
     try {
-      const sk = selSe.session_key; const la1 = laps1.find((l) => l.lap_number === sl1), la2 = laps2.find((l) => l.lap_number === sl2);
+      const sk = selSe.session_key;
+      const la1 = laps1.find((l) => l.lap_number === sl1), la2 = laps2.find((l) => l.lap_number === sl2);
       if (!la1?.date_start || !la2?.date_start) { setErr("Lap timing unavailable."); setLoading(""); return; }
       const e1 = new Date(new Date(la1.date_start).getTime() + (la1.lap_duration || 120) * 1000).toISOString();
       const e2 = new Date(new Date(la2.date_start).getTime() + (la2.lap_duration || 120) * 1000).toISOString();
-      setLdPct(20); const [lo1, lo2] = await Promise.all([fetchLocation(sk, d1, la1.date_start, e1), fetchLocation(sk, d2, la2.date_start, e2)]);
-      setLdPct(60); const [ca1, ca2] = await Promise.all([fetchCarData(sk, d1, la1.date_start, e1), fetchCarData(sk, d2, la2.date_start, e2)]);
-      if (lo1.length < 5 || lo2.length < 5) { setErr("Insufficient data."); setLoading(""); setLdPct(undefined); return; }
-      setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2); setTp(norm(lo1)); setProg(0); setPlay(false);
+      setLdPct(15);
+      const locProms = [fetchLocation(sk, d1, la1.date_start, e1), fetchLocation(sk, d2, la2.date_start, e2)];
+      const telProms = [fetchCarData(sk, d1, la1.date_start, e1), fetchCarData(sk, d2, la2.date_start, e2)];
+      // Driver 3
+      const la3 = d3 && sl3 ? laps3.find((l) => l.lap_number === sl3) : null;
+      if (la3?.date_start) {
+        const e3 = new Date(new Date(la3.date_start).getTime() + (la3.lap_duration || 120) * 1000).toISOString();
+        locProms.push(fetchLocation(sk, d3, la3.date_start, e3));
+        telProms.push(fetchCarData(sk, d3, la3.date_start, e3));
+      }
+      // Driver 4
+      const la4 = d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
+      if (la4?.date_start) {
+        const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString();
+        locProms.push(fetchLocation(sk, d4, la4.date_start, e4));
+        telProms.push(fetchCarData(sk, d4, la4.date_start, e4));
+      }
+      setLdPct(20);
+      const locs = await Promise.all(locProms);
+      setLdPct(55);
+      const tels = await Promise.all(telProms);
+      if (locs[0].length < 5 || locs[1].length < 5) { setErr("Insufficient data."); setLoading(""); setLdPct(undefined); return; }
+      setLoc1(locs[0]); setLoc2(locs[1]); setTel1(tels[0]); setTel2(tels[1]);
+      if (locs[2]) { setLoc3(locs[2]); setTel3(tels[2]); } else { setLoc3(null); setTel3(null); }
+      if (locs[3]) { setLoc4(locs[3]); setTel4(tels[3]); } else { setLoc4(null); setTel4(null); }
+      setTp(norm(locs[0])); setProg(0); setPlay(false);
       setLdPct(100); setTimeout(() => { setLoading(""); setLdPct(undefined); }, 300);
     } catch (e) { setErr(e.message); setLoading(""); setLdPct(undefined); }
-  }, [selSe, d1, d2, sl1, sl2, laps1, laps2]);
+  }, [selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4]);
 
   const loadPreset = useCallback(async (pr) => {
     setShowPresets(false); setLoading("Loading preset..."); setErr(""); setLdPct(0);
@@ -866,7 +916,7 @@ export default function App({ embed }) {
 
   const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
 
-  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark);
+  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "");
 
   // Playback with countdown
   const startWithCountdown = useCallback(() => {
@@ -953,7 +1003,7 @@ export default function App({ embed }) {
   }, [di1, di2, selMt, li1, li2, delta, co1, co2]);
 
   // Backdrop + modals
-  const modBg = (showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); setShowKeys(false); setShowH2H(false); setShowGallery(false); setShowEmbed(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
+  const modBg = (showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); setShowKeys(false); setShowH2H(false); setShowGallery(false); setShowEmbed(false); setShowDash(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
 
   const presetsModal = showPresets && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 460, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
     <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
@@ -1205,6 +1255,114 @@ export default function App({ embed }) {
     </div>
   </div>);
 
+  // ─── Season Dashboard ───
+  const loadSeasonDash = useCallback(async () => {
+    if (!d1 || !d2) return;
+    setShowDash(true); setDashData(null);
+    try {
+      const allMts = await fetchMeetings(year);
+      const results = [];
+      for (let i = 0; i < allMts.length && results.length < 15; i++) {
+        const mt = allMts[i];
+        if (!mt.meeting_name) continue;
+        try {
+          if (i > 0 && i % 3 === 0) await new Promise((r) => setTimeout(r, 1200));
+          const ss = await fetchSessions(mt.meeting_key);
+          const q = ss.find((s) => s.session_name === "Qualifying");
+          if (!q) continue;
+          await new Promise((r) => setTimeout(r, 400));
+          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]);
+          const b1 = bestLap(l1d), b2 = bestLap(l2d);
+          if (b1 && b2) {
+            results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration, d: b1.lap_duration - b2.lap_duration });
+            setDashData([...results]);
+          }
+        } catch (e) { if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 3000)); }
+      }
+      if (results.length === 0) setDashData([]);
+    } catch { setDashData([]); }
+  }, [year, d1, d2]);
+
+  const dashModal = showDash && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 600, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
+    <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+      <div>
+        <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>SEASON DASHBOARD {year}</div>
+        <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "D1"} vs {di2?.name_acronym || "D2"} — Qualifying overview</div>
+      </div>
+      <button onClick={() => setShowDash(false)} style={{ marginLeft: "auto" }}>✕</button>
+    </div>
+    <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
+      {!dashData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching season data<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
+      : dashData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No data found</div>
+      : (<>
+        {/* Summary bar */}
+        {(() => {
+          const w1 = dashData.filter((r) => r.d < 0).length, w2 = dashData.filter((r) => r.d > 0).length;
+          const pct1 = dashData.length ? (w1 / dashData.length * 100) : 50;
+          return (<div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: F1.mono, marginBottom: 4 }}>
+              <span style={{ color: co1, fontWeight: 900 }}>{di1?.name_acronym} {w1}</span>
+              <span style={{ color: F1.textMuted, fontSize: 10 }}>QUALIFYING WINS</span>
+              <span style={{ color: co2, fontWeight: 900 }}>{w2} {di2?.name_acronym}</span>
+            </div>
+            <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ width: `${pct1}%`, background: co1, transition: "width 0.5s" }} />
+              <div style={{ flex: 1, background: co2 }} />
+            </div>
+          </div>);
+        })()}
+        {/* Results table */}
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: F1.mono }}>
+          <thead><tr style={{ color: F1.textMuted, fontSize: 9, letterSpacing: "0.1em" }}>
+            <th style={{ textAlign: "left", padding: "6px 4px" }}>GP</th>
+            <th style={{ textAlign: "center", padding: "6px 4px", color: co1 }}>{di1?.name_acronym}</th>
+            <th style={{ textAlign: "center", padding: "6px 4px", color: co2 }}>{di2?.name_acronym}</th>
+            <th style={{ textAlign: "center", padding: "6px 4px" }}>GAP</th>
+            <th style={{ textAlign: "center", padding: "6px 4px" }}>WINNER</th>
+          </tr></thead>
+          <tbody>{dashData.map((r, i) => {
+            const winner = r.d < 0 ? 1 : r.d > 0 ? 2 : 0;
+            return (<tr key={i} style={{ borderBottom: `1px solid ${F1.borderLight}` }}>
+              <td style={{ padding: "6px 4px", color: F1.textDim, fontSize: 10 }}>{r.gp}</td>
+              <td style={{ padding: "6px 4px", textAlign: "center", fontWeight: winner === 1 ? 800 : 400, color: winner === 1 ? co1 : F1.text }}>{fmt(r.t1)}</td>
+              <td style={{ padding: "6px 4px", textAlign: "center", fontWeight: winner === 2 ? 800 : 400, color: winner === 2 ? co2 : F1.text }}>{fmt(r.t2)}</td>
+              <td style={{ padding: "6px 4px", textAlign: "center", color: winner === 1 ? co1 : co2, fontWeight: 700 }}>{r.d > 0 ? "+" : ""}{r.d.toFixed(3)}</td>
+              <td style={{ padding: "6px 4px", textAlign: "center" }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: winner === 1 ? co1 : co2 }} />
+              </td>
+            </tr>);
+          })}</tbody>
+        </table>
+        {/* Momentum chart */}
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 6, fontWeight: 700 }}>MOMENTUM</div>
+          <svg width="100%" height="60" viewBox="0 0 400 60" preserveAspectRatio="none" style={{ borderRadius: 4, background: F1.cardBg }}>
+            <line x1="0" y1="30" x2="400" y2="30" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
+            {dashData.map((r, i) => {
+              const x = dashData.length > 1 ? (i / (dashData.length - 1)) * 380 + 10 : 200;
+              // Cumulative score: +1 for D1 win, -1 for D2 win
+              let cum = 0;
+              for (let j = 0; j <= i; j++) cum += dashData[j].d < 0 ? 1 : -1;
+              const maxCum = Math.max(3, ...dashData.map((_, idx) => { let c = 0; for (let j = 0; j <= idx; j++) c += dashData[j].d < 0 ? 1 : -1; return Math.abs(c); }));
+              const y = 30 - (cum / maxCum) * 25;
+              return (<g key={i}>
+                {i > 0 && (() => {
+                  let prevCum = 0; for (let j = 0; j < i; j++) prevCum += dashData[j].d < 0 ? 1 : -1;
+                  const px = ((i - 1) / (dashData.length - 1)) * 380 + 10;
+                  const py = 30 - (prevCum / maxCum) * 25;
+                  return <line x1={px} y1={py} x2={x} y2={y} stroke={cum > 0 ? co1 : co2} strokeWidth="2" />;
+                })()}
+                <circle cx={x} cy={y} r="3" fill={r.d < 0 ? co1 : co2} />
+              </g>);
+            })}
+            <text x="5" y="10" fill={co1} fontSize="8" fontFamily="sans-serif">{di1?.name_acronym}</text>
+            <text x="5" y="56" fill={co2} fontSize="8" fontFamily="sans-serif">{di2?.name_acronym}</text>
+          </svg>
+        </div>
+      </>)}
+    </div>
+  </div>);
+
   return (
     <div style={{ width: "100%", minHeight: "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden" }}>
       <style>{`
@@ -1226,7 +1384,7 @@ export default function App({ embed }) {
         input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:${F1.red};border-radius:50%;cursor:pointer;border:2px solid #fff}
       `}</style>
 
-      {modBg}{presetsModal}{statsModal}{lapsModal}{keysModal}{h2hModal}{tourOverlay}
+      {modBg}{presetsModal}{statsModal}{lapsModal}{keysModal}{h2hModal}{dashModal}{tourOverlay}
 
       {/* ─── F1 Lights Countdown Overlay ─── */}
       {countdown !== null && (<div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -1435,6 +1593,7 @@ export default function App({ embed }) {
             {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
             {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
             {tp && d1 && d2 && <button onClick={loadH2H} style={{ fontSize: 10, padding: "4px 10px" }}>H2H</button>}
+            {d1 && d2 && selSe && <button onClick={loadSeasonDash} style={{ fontSize: 10, padding: "4px 10px" }}>SEASON</button>}
             {tp && <button onClick={saveToGallery} style={{ fontSize: 10, padding: "4px 10px" }} title="Save to gallery">💾</button>}
             <button onClick={() => setShowGallery(true)} style={{ fontSize: 10, padding: "4px 10px" }} title="Gallery">📂</button>
             {tp && <button onClick={generateSocialCard} style={{ fontSize: 10, padding: "4px 10px" }} title="Social card">🖼️</button>}
@@ -1464,6 +1623,27 @@ export default function App({ embed }) {
           <select value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 100 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
           {laps2.length > 0 && <select value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 56 : 72 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
         </div>
+        {/* Driver 3 */}
+        {numDrivers >= 3 && (<>
+          <span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <div style={{ width: 3, height: 18, background: co3, borderRadius: 1 }} />
+            <select value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 90 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
+            {laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 50 : 62 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+          </div>
+        </>)}
+        {/* Driver 4 */}
+        {numDrivers >= 4 && (<>
+          <span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <div style={{ width: 3, height: 18, background: co4, borderRadius: 1 }} />
+            <select value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 90 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
+            {laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 50 : 62 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+          </div>
+        </>)}
+        {/* Add/remove driver buttons */}
+        {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 8px", fontSize: 10, color: F1.green }} title="Add driver">+D{numDrivers + 1}</button>}
+        {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 8px", fontSize: 10, color: F1.red }} title="Remove driver">−</button>}
         <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading}>{loading ? "..." : "COMPARE"}</button>
       </div>}
 
