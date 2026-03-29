@@ -1,28 +1,78 @@
-// ─── F1 Broadcast Design System — Dark + Light ───
+// ─── F1 Stories Design System — Aligned with f1stories.gr ───
+// Dark: "Neutral Charcoal" — matches f1stories.gr dark mode
+// Light: "Clean White" — Apple-inspired, matches f1stories.gr light mode
+// Accent: #E10600 (F1 red) used sparingly for highlights & CTAs
+
 export const F1_DARK = {
-  red: "#E10600", redDark: "#B30500", carbon: "#15151e", carbonLight: "#1c1c28",
-  carbonMid: "#222230", panelBg: "rgba(18,18,28,0.96)", overlay: "rgba(12,12,20,0.92)",
-  cardBg: "rgba(25,25,38,0.85)", inputBg: "rgba(28,28,42,0.95)",
-  text: "#e8e8f0", textDim: "#8b8ba0", textMuted: "#505068",
-  border: "rgba(80,80,120,0.25)", borderLight: "rgba(60,60,90,0.18)",
-  green: "#00d26a", greenDim: "#00a854", yellow: "#ffd700",
-  purple: "#9b59b6", white: "#ffffff",
-  fogColor: 0x121218, groundColor: 0x18181f,
-  trackColor: 0x3a3a48, lineColor: 0xe10600, sceneBg: 0x121218,
+  // Primary accent
+  red: "#E10600", redDark: "#B30500", redGlow: "rgba(225,6,0,0.15)",
+
+  // Backgrounds — f1stories.gr dark palette
+  carbon: "#111118",         // deepest background (was #15151e)
+  carbonLight: "#18181f",    // slightly elevated surfaces
+  carbonMid: "#1e1e28",      // hover / elevated cards
+  panelBg: "rgba(14,14,22,0.97)",
+  overlay: "rgba(10,10,16,0.94)",
+  cardBg: "rgba(22,22,32,0.88)",
+  inputBg: "rgba(24,24,36,0.95)",
+
+  // Text — softer contrast, less blue-tinted
+  text: "#e4e4ec",
+  textDim: "#8a8a9e",
+  textMuted: "#4e4e64",
+
+  // Borders — subtle, warm-neutral
+  border: "rgba(70,70,100,0.22)",
+  borderLight: "rgba(55,55,80,0.15)",
+
+  // Semantic colors
+  green: "#00d26a", greenDim: "#00a854",
+  yellow: "#ffd700",
+  purple: "#9b59b6",
+  white: "#ffffff",
+
+  // 3D scene
+  fogColor: 0x0e0e16, groundColor: 0x141420,
+  trackColor: 0x36364a, lineColor: 0xe10600, sceneBg: 0x0e0e16,
+
+  // Typography — Titillium Web (same as f1stories.gr)
   mono: "'Titillium Web', 'Barlow Condensed', sans-serif",
   sans: "'Titillium Web', sans-serif",
 };
 
 export const F1_LIGHT = {
-  red: "#E10600", redDark: "#B30500", carbon: "#f4f5f7", carbonLight: "#eaebef",
-  carbonMid: "#dddee4", panelBg: "rgba(255,255,255,0.97)", overlay: "rgba(245,246,250,0.95)",
-  cardBg: "rgba(235,236,244,0.85)", inputBg: "rgba(255,255,255,0.95)",
-  text: "#1a1a2e", textDim: "#5a5a7a", textMuted: "#8888a0",
-  border: "rgba(80,85,120,0.2)", borderLight: "rgba(80,85,120,0.1)",
-  green: "#00a854", greenDim: "#008844", yellow: "#cc9900",
-  purple: "#8844aa", white: "#ffffff",
-  fogColor: 0xe8eaf0, groundColor: 0xd8dae0,
-  trackColor: 0x888898, lineColor: 0xe10600, sceneBg: 0xe8eaf0,
+  // Primary accent
+  red: "#E10600", redDark: "#B30500", redGlow: "rgba(225,6,0,0.08)",
+
+  // Backgrounds — f1stories.gr clean white palette
+  carbon: "#f5f5f7",         // main bg (Apple-inspired off-white)
+  carbonLight: "#ededf0",    // slightly darker surface
+  carbonMid: "#e0e0e6",      // hover states
+  panelBg: "rgba(255,255,255,0.98)",
+  overlay: "rgba(248,248,252,0.96)",
+  cardBg: "rgba(240,240,244,0.9)",
+  inputBg: "rgba(255,255,255,0.96)",
+
+  // Text — true dark for readability
+  text: "#1a1a2e",
+  textDim: "#555570",
+  textMuted: "#8888a0",
+
+  // Borders — very subtle
+  border: "rgba(0,0,0,0.1)",
+  borderLight: "rgba(0,0,0,0.06)",
+
+  // Semantic colors — slightly toned down for light bg
+  green: "#00a854", greenDim: "#008844",
+  yellow: "#cc9900",
+  purple: "#8844aa",
+  white: "#ffffff",
+
+  // 3D scene — lighter, cleaner
+  fogColor: 0xeceef2, groundColor: 0xdddee4,
+  trackColor: 0x8a8a9a, lineColor: 0xe10600, sceneBg: 0xeceef2,
+
+  // Typography
   mono: "'Titillium Web', 'Barlow Condensed', sans-serif",
   sans: "'Titillium Web', sans-serif",
 };

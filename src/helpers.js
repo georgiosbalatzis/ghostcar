@@ -1,13 +1,28 @@
 import { useState, useEffect } from "react";
 
+// ─── Smooth cubic Catmull-Rom interpolation (replaces linear lerp) ───
 export function lerp(pts, t) {
   if (!pts?.length) return { x: 0, y: 0, z: 0 };
-  const idx = Math.max(0, Math.min(1, t)) * (pts.length - 1);
-  const i0 = Math.floor(idx), i1 = Math.min(i0 + 1, pts.length - 1), f = idx - i0;
+  const len = pts.length;
+  if (len === 1) return { x: pts[0].x, y: pts[0].y, z: pts[0].z };
+  const ct = Math.max(0, Math.min(1, t));
+  const idx = ct * (len - 1);
+  const i1 = Math.floor(idx);
+  const i2 = Math.min(i1 + 1, len - 1);
+  const f = idx - i1;
+
+  // Catmull-Rom spline with 4 control points
+  const i0 = Math.max(i1 - 1, 0);
+  const i3 = Math.min(i2 + 1, len - 1);
+  const p0 = pts[i0], p1 = pts[i1], p2 = pts[i2], p3 = pts[i3];
+
+  const f2 = f * f;
+  const f3 = f2 * f;
+
   return {
-    x: pts[i0].x + (pts[i1].x - pts[i0].x) * f,
-    y: pts[i0].y + (pts[i1].y - pts[i0].y) * f,
-    z: pts[i0].z + (pts[i1].z - pts[i0].z) * f,
+    x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * f + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * f2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * f3),
+    y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * f + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * f2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * f3),
+    z: 0.5 * ((2 * p1.z) + (-p0.z + p2.z) * f + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * f2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * f3),
   };
 }
 
@@ -30,7 +45,22 @@ export function norm(points) {
 
 export function telAt(tel, t) {
   if (!tel?.length) return { speed: 0, throttle: 0, brake: 0, rpm: 0, gear: 0, drs: 0, n_gear: 0 };
-  return tel[Math.min(Math.floor(t * (tel.length - 1)), tel.length - 1)];
+  const len = tel.length;
+  const idx = Math.max(0, Math.min(1, t)) * (len - 1);
+  const i0 = Math.floor(idx);
+  const i1 = Math.min(i0 + 1, len - 1);
+  const f = idx - i0;
+  const a = tel[i0], b = tel[i1];
+  // Smooth interpolation for telemetry values too
+  return {
+    speed: a.speed + (b.speed - a.speed) * f,
+    throttle: a.throttle + (b.throttle - a.throttle) * f,
+    brake: f > 0.5 ? b.brake : a.brake, // brake is binary, use nearest
+    rpm: a.rpm + ((b.rpm || 0) - (a.rpm || 0)) * f,
+    gear: f > 0.5 ? (b.gear || b.n_gear || 0) : (a.gear || a.n_gear || 0),
+    drs: f > 0.5 ? (b.drs || 0) : (a.drs || 0),
+    n_gear: f > 0.5 ? (b.n_gear || b.gear || 0) : (a.n_gear || a.gear || 0),
+  };
 }
 
 export function bestLap(laps) {
