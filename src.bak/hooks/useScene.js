@@ -93,22 +93,9 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
       heatMesh.position.y += 0.01; scene.add(heatMesh);
     }
 
-    // Edge lines colored by sector
-    const sColorHex = [0x00d26a, 0xffd700, 0xe10600];
-    [leftEdgePts, rightEdgePts].forEach((edgePts) => {
-      const totalPts = edgePts.length;
-      for (let s = 0; s < 3; s++) {
-        const start = Math.floor((s / 3) * totalPts);
-        const end = Math.min(Math.floor(((s + 1) / 3) * totalPts) + 1, totalPts);
-        const sectorPts = edgePts.slice(start, end);
-        if (sectorPts.length > 1) {
-          scene.add(new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(sectorPts),
-            new THREE.LineBasicMaterial({ color: sColorHex[s], transparent: true, opacity: 0.6 })
-          ));
-        }
-      }
-    });
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftEdgePts), edgeMat));
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightEdgePts), edgeMat));
 
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
     const sectorPanels = [];
@@ -162,24 +149,14 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(glow);
       const carLight = new THREE.PointLight(col, isGhost ? 0.5 : 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(carLight);
       if (label) {
-        // Vertical pole line from car to flag
-        const poleGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(0, 2.0, 0)]);
-        const pole = new THREE.Line(poleGeo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 }));
-        g.add(pole);
-        // Flag-style name badge — tall, bold, high contrast
-        const cv = document.createElement("canvas"); cv.width = 200; cv.height = 80; const ctx = cv.getContext("2d");
-        // Dark background pill
-        ctx.fillStyle = "#000"; ctx.globalAlpha = 0.85;
-        ctx.beginPath(); const r2 = 10; ctx.moveTo(r2, 0); ctx.lineTo(200 - r2, 0); ctx.quadraticCurveTo(200, 0, 200, r2); ctx.lineTo(200, 80 - r2); ctx.quadraticCurveTo(200, 80, 200 - r2, 80); ctx.lineTo(r2, 80); ctx.quadraticCurveTo(0, 80, 0, 80 - r2); ctx.lineTo(0, r2); ctx.quadraticCurveTo(0, 0, r2, 0); ctx.fill();
-        // Team color left accent bar
-        ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.fillRect(0, 0, 8, 80);
-        // Team color top strip
-        ctx.fillStyle = color; ctx.fillRect(8, 0, 192, 4);
-        // Driver name — large bold white
-        ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 104, 44);
+        const cv = document.createElement("canvas"); cv.width = 160; cv.height = 56; const ctx = cv.getContext("2d");
+        ctx.fillStyle = color; ctx.globalAlpha = 0.9;
+        ctx.beginPath(); const r2 = 6; ctx.moveTo(r2, 0); ctx.lineTo(160 - r2, 0); ctx.quadraticCurveTo(160, 0, 160, r2); ctx.lineTo(160, 56 - r2); ctx.quadraticCurveTo(160, 56, 160 - r2, 56); ctx.lineTo(r2, 56); ctx.quadraticCurveTo(0, 56, 0, 56 - r2); ctx.lineTo(0, r2); ctx.quadraticCurveTo(0, 0, r2, 0); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.globalAlpha = 0.15; ctx.fillRect(0, 0, 6, 56);
+        ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 80, 30);
         const tex = new THREE.CanvasTexture(cv);
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-        sp.position.set(0, 2.3, 0); sp.scale.set(2.8, 1.1, 1); g.add(sp);
+        sp.position.set(0, 0.8, 0); sp.scale.set(2.2, 0.8, 1); g.add(sp);
       }
       g.userData = { color, isGhost, modelLoaded: false }; return g;
     }
