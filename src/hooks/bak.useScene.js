@@ -111,40 +111,22 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     });
 
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
-    const sColorCSS = ["#00d26a", "#ffd700", "#e10600"];
-    const sectorMarkers = [];
+    const sectorPanels = [];
     [0, 0.33, 0.66].forEach((t, i) => {
       const sp = curve.getPointAt(t); const tan2 = curve.getTangentAt(t);
       const perp2 = new THREE.Vector3(-tan2.z, 0, tan2.x).normalize();
       const L2 = sp.clone().add(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       const R2 = sp.clone().sub(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       L2.y += 0.03; R2.y += 0.03;
-      // Dashed sector line across track
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([L2, R2]), new THREE.LineBasicMaterial({ color: sColors[i], transparent: true, opacity: 0.7 })));
-      // Small glowing dot on each side of the track
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([L2, R2]), new THREE.LineBasicMaterial({ color: sColors[i], linewidth: 2 })));
       [-1, 1].forEach((side) => {
-        const dotGeo = new THREE.CircleGeometry(0.25, 16);
-        const dotMat = new THREE.MeshBasicMaterial({ color: sColors[i], transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false });
-        const dot = new THREE.Mesh(dotGeo, dotMat);
-        const off = perp2.clone().multiplyScalar(side * (trackW / 2 + 0.15));
-        dot.position.set(sp.x + off.x, sp.y + 0.04, sp.z + off.z);
-        dot.rotation.x = -Math.PI / 2;
-        scene.add(dot);
-        sectorMarkers.push({ mesh: dot, sector: i });
+        const panelGeo = new THREE.BoxGeometry(0.15, 1.2, 2.0);
+        const panelMat = new THREE.MeshStandardMaterial({ color: sColors[i], emissive: sColors[i], emissiveIntensity: 0.3, transparent: true, opacity: 0.7 });
+        const panel = new THREE.Mesh(panelGeo, panelMat);
+        const off = perp2.clone().multiplyScalar(side * (trackW / 2 + 0.8));
+        panel.position.set(sp.x + off.x, sp.y + 0.6, sp.z + off.z); panel.lookAt(sp.x, sp.y + 0.6, sp.z);
+        scene.add(panel); sectorPanels.push({ mesh: panel, sector: i });
       });
-      // Floating "S1/S2/S3" label sprite — small, offset to the outside of the track
-      const cv = document.createElement("canvas"); cv.width = 64; cv.height = 32;
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle = sColorCSS[i]; ctx.globalAlpha = 0.85;
-      ctx.beginPath(); ctx.roundRect(0, 0, 64, 32, 6); ctx.fill();
-      ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(`S${i + 1}`, 32, 17);
-      const tex = new THREE.CanvasTexture(cv);
-      const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-      const labelOff = perp2.clone().multiplyScalar(trackW / 2 + 1.8);
-      label.position.set(sp.x + labelOff.x, sp.y + 1.0, sp.z + labelOff.z);
-      label.scale.set(1.0, 0.5, 1);
-      scene.add(label);
     });
 
     const corners = []; const cSamp = 250;
@@ -267,7 +249,7 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
     const tr3 = car3 ? makeTrail(c3, true) : null; const tr4 = car4 ? makeTrail(c4, true) : null;
 
-    R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorMarkers, fr: null };
+    R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorPanels, fr: null };
 
     const cs = CS.current;
     const onDown = (e) => { cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0; };
@@ -313,7 +295,7 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
     if (dL && dP) { dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z; dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z; dL.geometry.attributes.position.needsUpdate = true; const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2); dL.material.opacity = Math.min(0.6, gap * 0.08); }
     const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
-    if (R.current.sectorMarkers) { R.current.sectorMarkers.forEach((sm) => { sm.mesh.material.opacity = sm.sector === curSector ? 0.9 + Math.sin(Date.now() * 0.006) * 0.1 : 0.4; }); }
+    if (R.current.sectorPanels) { R.current.sectorPanels.forEach((sp) => { sp.mesh.material.emissiveIntensity = sp.sector === curSector ? 0.8 + Math.sin(Date.now() * 0.006) * 0.2 : 0.2; sp.mesh.material.opacity = sp.sector === curSector ? 0.9 : 0.5; }); }
     if (cam2) { const cm = cmRef.current; if (cm === "follow1" || cm === "follow2") { const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp); const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1;
       const telNow = telData1?.length ? telData1[Math.floor(prog * (telData1.length - 1))] : null; const braking = telNow?.brake > 0 ? 1 : 0;
       const shakeX = braking * (Math.random() - 0.5) * 0.12; const shakeY = braking * (Math.random() - 0.5) * 0.08;
