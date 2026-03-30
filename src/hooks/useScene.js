@@ -11,7 +11,6 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
   const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
   const n3 = useMemo(() => l3 ? norm(l3) : null, [l3]); const n4 = useMemo(() => l4 ? norm(l4) : null, [l4]);
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
-  const brakeArr = useMemo(() => telData1?.map((t) => t.brake > 0 ? 1 : 0) || [], [telData1]);
 
   useEffect(() => {
     const el = ref.current; if (!el || !tp || tp.length < 10) return;
@@ -92,33 +91,6 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
       heatGeo.setAttribute("color", new THREE.Float32BufferAttribute(heatColors, 3));
       const heatMesh = new THREE.Mesh(heatGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
       heatMesh.position.y += 0.01; scene.add(heatMesh);
-    }
-
-    // Brake heatmap overlay
-    if (vizMode === "brake" && brakeArr.length > 10) {
-      const brakeColors = new Float32Array((curvePts.length * 2) * 3);
-      for (let i = 0; i < curvePts.length; i++) {
-        const t = i / (curvePts.length - 1);
-        const si = Math.min(Math.floor(t * (brakeArr.length - 1)), brakeArr.length - 1);
-        // Sample a small window around the point for smoother visualization
-        let brakeVal = 0;
-        for (let w = -2; w <= 2; w++) {
-          const wi = Math.max(0, Math.min(brakeArr.length - 1, si + w));
-          brakeVal += brakeArr[wi];
-        }
-        brakeVal /= 5;
-        // Braking zones: red, non-braking: green/transparent
-        const r = brakeVal > 0.3 ? 0.9 : 0.0;
-        const g = brakeVal > 0.3 ? 0.05 : 0.15;
-        const b = brakeVal > 0.3 ? 0.05 : 0.08;
-        const vi = i * 2;
-        brakeColors[vi * 3] = r; brakeColors[vi * 3 + 1] = g; brakeColors[vi * 3 + 2] = b;
-        brakeColors[(vi + 1) * 3] = r; brakeColors[(vi + 1) * 3 + 1] = g; brakeColors[(vi + 1) * 3 + 2] = b;
-      }
-      const brakeGeo = ribbonGeo.clone();
-      brakeGeo.setAttribute("color", new THREE.Float32BufferAttribute(brakeColors, 3));
-      const brakeMesh = new THREE.Mesh(brakeGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
-      brakeMesh.position.y += 0.01; scene.add(brakeMesh);
     }
 
     // Edge lines colored by sector
@@ -318,7 +290,7 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     let rt; const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el) return; camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix(); ren.setSize(el.clientWidth, el.clientHeight); }, 100); };
     window.addEventListener("resize", onR);
     return () => { window.removeEventListener("resize", onR); de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp); cancelAnimationFrame(R.current.fr); ren.dispose(); if (el.contains(ren.domElement)) el.removeChild(ren.domElement); };
-  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, brakeArr, isDark]);
+  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, isDark]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
