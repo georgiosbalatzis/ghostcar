@@ -232,7 +232,7 @@ export default function App({ embed }) {
 
   // ─── RENDER ───
   return (
-    <div style={{ width: "100%", minHeight: embed ? "auto" : "100vh", height: embed ? "100vh" : "auto", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden", display: embed ? "flex" : "block", flexDirection: embed ? "column" : undefined }}>
+    <div style={{ width: "100%", minHeight: "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -339,10 +339,10 @@ export default function App({ embed }) {
       {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}` }}>{["3d","telemetry"].map((tab) => <button key={tab} onClick={() => setMobTab(tab)} style={{ flex: 1, borderRadius: 0, borderBottom: mobTab === tab ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab ? F1.cardBg : "transparent", fontWeight: mobTab === tab ? 700 : 400, fontSize: 11, padding: "7px 0", textTransform: "uppercase" }}>{tab === "3d" ? "Track" : "Telemetry"}</button>)}</div>}
 
       {/* Main area */}
-      <div style={{ display: "flex", flexDirection: mob ? "column" : "row", flex: embed ? 1 : undefined, height: embed ? undefined : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`), overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: mob ? "column" : "row", height: embed ? "100vh" : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`) }}>
         {(!mob || mobTab === "3d") && (
-          <div style={{ flex: 1, position: "relative", minHeight: embed ? 0 : (mob ? "50vh" : "auto") }}>
-            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: embed ? 0 : (mob ? "50vh" : "auto") }} />
+          <div style={{ flex: 1, position: "relative", minHeight: mob ? "50vh" : "auto" }}>
+            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: mob ? "50vh" : "auto" }} />
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
@@ -389,7 +389,7 @@ export default function App({ embed }) {
       </div>
 
       {/* Playback bar */}
-      {tp && <div style={{ display: "flex", alignItems: "center", gap: mob ? 6 : 10, padding: mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.red}22`, flexShrink: 0 }}>
+      {tp && <div style={{ display: "flex", alignItems: "center", gap: mob ? 6 : 10, padding: mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.red}22` }}>
         <button onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>⏮</button>
         <button onClick={startWithCountdown} style={{ padding: "3px 9px", fontSize: 13, background: play ? `${F1.red}33` : F1.cardBg, borderColor: play ? F1.red : F1.border }}>{play ? "⏸" : "▶"}</button>
         <button onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>🔁</button>
