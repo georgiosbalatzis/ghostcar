@@ -427,158 +427,6 @@ const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
     </svg>
   );
 });
-
-// ─── F1 TV Live Timing Map View ───
-const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2, ct1, ct2, delta, tel1, tel2 }) {
-  const ref = useRef(null);
-  const nn1 = useMemo(() => l1 ? norm(l1) : null, [l1]);
-  const nn2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
-
-  useEffect(() => {
-    const c = ref.current; if (!c || !tp?.length) return;
-    const ctx = c.getContext("2d");
-    const W = c.width, H = c.height;
-    ctx.clearRect(0, 0, W, H);
-
-    const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
-    bg.addColorStop(0, "#0e0e1a"); bg.addColorStop(1, "#060610");
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-
-    let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
-    for (const p of tp) { if (p.x < mnX) mnX = p.x; if (p.x > mxX) mxX = p.x; if (p.z < mnZ) mnZ = p.z; if (p.z > mxZ) mxZ = p.z; }
-    const pad = 80;
-    const scale = Math.min((W - pad * 2) / (mxX - mnX || 1), (H - pad * 2 - 140) / (mxZ - mnZ || 1));
-    const cx = W / 2, cy = H / 2 - 20;
-    const proj = (p) => ({ x: cx + (p.x - (mnX + mxX) / 2) * scale, y: cy + (p.z - (mnZ + mxZ) / 2) * scale });
-
-    ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 22; ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.beginPath(); tp.forEach((p, i) => { const pp = proj(p); i === 0 ? ctx.moveTo(pp.x, pp.y) : ctx.lineTo(pp.x, pp.y); }); ctx.closePath(); ctx.stroke();
-
-    const sectorColors = ["#00d26a", "#ffd700", "#e10600"];
-    ctx.lineWidth = 10; ctx.lineCap = "round";
-    for (let s = 0; s < 3; s++) {
-      const start = Math.floor((s / 3) * tp.length), end = Math.floor(((s + 1) / 3) * tp.length);
-      ctx.strokeStyle = sectorColors[s] + "35";
-      ctx.beginPath();
-      for (let i = start; i <= end && i < tp.length; i++) {
-        const pp = proj(tp[i]); i === start ? ctx.moveTo(pp.x, pp.y) : ctx.lineTo(pp.x, pp.y);
-      }
-      ctx.stroke();
-    }
-
-    ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 2.5;
-    ctx.beginPath(); tp.forEach((p, i) => { const pp = proj(p); i === 0 ? ctx.moveTo(pp.x, pp.y) : ctx.lineTo(pp.x, pp.y); }); ctx.closePath(); ctx.stroke();
-
-    [0, 0.33, 0.66].forEach((t, i) => {
-      const pp = proj(tp[Math.floor(t * (tp.length - 1))]);
-      ctx.fillStyle = sectorColors[i]; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(`S${i + 1}`, pp.x, pp.y - 18);
-    });
-
-    const sfP = proj(tp[0]);
-    ctx.save(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.moveTo(sfP.x - 14, sfP.y); ctx.lineTo(sfP.x + 14, sfP.y); ctx.stroke(); ctx.restore();
-
-    function drawDriver(data, color, name, speed, isGhost) {
-      const pts = data?.length >= 2 ? data : tp;
-      const pt = lerp(pts, prog); const pp = proj(pt);
-      ctx.lineWidth = 5; ctx.lineCap = "round";
-      for (let i = 20; i >= 1; i--) {
-        const t2 = Math.max(0, prog - i * 0.002);
-        const t3 = Math.max(0, prog - (i - 1) * 0.002);
-        const p2 = proj(lerp(pts, t2)), p3 = proj(lerp(pts, t3));
-        const alpha = (1 - i / 20) * 0.6;
-        ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2, "0");
-        ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.stroke();
-      }
-      const pulse = 0.8 + Math.sin(Date.now() * 0.005) * 0.2;
-      ctx.shadowColor = color; ctx.shadowBlur = 20 * pulse;
-      ctx.fillStyle = color; ctx.globalAlpha = 0.3;
-      ctx.beginPath(); ctx.arc(pp.x, pp.y, 14 * pulse, 0, Math.PI * 2); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(pp.x, pp.y, isGhost ? 8 : 10, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = "#fff";
-      ctx.beginPath(); ctx.arc(pp.x, pp.y, 3.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = color; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(name || "???", pp.x, pp.y - 20);
-      ctx.fillStyle = "#aaa"; ctx.font = "bold 11px sans-serif";
-      ctx.fillText(Math.round(speed || 0) + " km/h", pp.x, pp.y - 34);
-    }
-    drawDriver(nn1, c1, di1?.name_acronym, ct1?.speed, false);
-    drawDriver(nn2, c2, di2?.name_acronym, ct2?.speed, true);
-
-    const barH = 50;
-    ctx.fillStyle = "rgba(6,6,16,0.92)"; ctx.fillRect(0, 0, W, barH);
-    ctx.fillStyle = "#E10600"; ctx.fillRect(0, barH - 2, W, 2);
-    ctx.fillStyle = "#fff"; ctx.font = "bold 18px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("LIVE TIMING", W / 2, 22);
-    ctx.fillStyle = "#666"; ctx.font = "11px sans-serif";
-    ctx.fillText("LAP COMPARISON • F1 STORIES", W / 2, 40);
-
-    const prgY = barH + 6, prgH = 4;
-    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(40, prgY, W - 80, prgH);
-    for (let s = 0; s < 3; s++) {
-      const sx = 40 + (s / 3) * (W - 80), sw = (1 / 3) * (W - 80);
-      if (prog > s / 3) {
-        const fill = Math.min(1, (prog - s / 3) * 3);
-        ctx.fillStyle = sectorColors[s] + "88";
-        ctx.fillRect(sx, prgY, sw * fill, prgH);
-      }
-    }
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(40 + prog * (W - 80) - 1, prgY - 2, 3, prgH + 4);
-
-    const cardH = 95, cardW = (W - 40) / 2, cardY = H - cardH - 12;
-    [{ x: 12, co: c1, di: di1, ct: ct1, li: li1, pos: "1" },
-     { x: cardW + 28, co: c2, di: di2, ct: ct2, li: li2, pos: "2" }].forEach((d) => {
-      ctx.fillStyle = "rgba(8,8,20,0.93)";
-      ctx.beginPath(); ctx.roundRect(d.x, cardY, cardW, cardH, 6); ctx.fill();
-      ctx.strokeStyle = d.co + "44"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.roundRect(d.x, cardY, cardW, cardH, 6); ctx.stroke();
-      ctx.fillStyle = d.co; ctx.fillRect(d.x + 1, cardY + 1, cardW - 2, 3);
-      ctx.fillStyle = d.co; ctx.font = "bold 24px sans-serif"; ctx.textAlign = "left";
-      ctx.fillText(d.pos, d.x + 12, cardY + 32);
-      ctx.fillStyle = "#fff"; ctx.font = "bold 18px sans-serif";
-      ctx.fillText(d.di?.name_acronym || "???", d.x + 40, cardY + 32);
-      ctx.fillStyle = "#fff"; ctx.font = "bold 30px sans-serif";
-      ctx.fillText(Math.round(d.ct?.speed || 0), d.x + 12, cardY + 68);
-      ctx.fillStyle = "#555"; ctx.font = "11px sans-serif";
-      ctx.fillText("KM/H", d.x + 90, cardY + 68);
-      ctx.fillStyle = "#888"; ctx.font = "bold 13px sans-serif";
-      ctx.fillText(d.li?.lap_duration ? fmt(d.li.lap_duration) : "--:--.---", d.x + 12, cardY + 86);
-      const bx = d.x + cardW - 55;
-      ctx.fillStyle = "#1a1a2e"; ctx.fillRect(bx, cardY + 14, 10, 45);
-      ctx.fillStyle = "#00d26a";
-      ctx.fillRect(bx, cardY + 14 + 45 - (d.ct?.throttle || 0) * 0.45, 10, (d.ct?.throttle || 0) * 0.45);
-      ctx.fillStyle = "#1a1a2e"; ctx.fillRect(bx + 16, cardY + 14, 10, 45);
-      if (d.ct?.brake > 0) { ctx.fillStyle = "#E10600"; ctx.fillRect(bx + 16, cardY + 14, 10, 45); }
-      ctx.fillStyle = "#555"; ctx.font = "7px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText("THR", bx + 5, cardY + 70); ctx.fillText("BRK", bx + 21, cardY + 70);
-      ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif";
-      ctx.fillText(d.ct?.n_gear ?? d.ct?.gear ?? "—", bx + 38, cardY + 50);
-      ctx.fillStyle = "#555"; ctx.font = "8px sans-serif";
-      ctx.fillText("GEAR", bx + 38, cardY + 62);
-    });
-
-    if (delta !== null) {
-      const dx = W / 2, dy = cardY - 20;
-      ctx.fillStyle = "rgba(6,6,16,0.95)";
-      ctx.beginPath(); ctx.roundRect(dx - 65, dy - 24, 130, 44, 8); ctx.fill();
-      ctx.strokeStyle = "#E1060055"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.roundRect(dx - 65, dy - 24, 130, 44, 8); ctx.stroke();
-      ctx.fillStyle = "#666"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center";
-      ctx.fillText("INTERVAL", dx, dy - 12);
-      ctx.fillStyle = delta > 0 ? "#E10600" : "#00d26a"; ctx.font = "bold 24px sans-serif";
-      ctx.fillText((delta > 0 ? "+" : "") + delta.toFixed(3) + "s", dx, dy + 14);
-    }
-
-  }, [tp, l1, l2, prog, c1, c2, di1, di2, li1, li2, ct1, ct2, delta, tel1, tel2]);
-
-  return <canvas ref={ref} width={900} height={900} style={{ width: "100%", height: "100%", display: "block" }} />;
-});
-
 // ─── Sector Delta ───
 const SD = memo(function SD({ s, t1, t2, c1, c2 }) {
   const d = t1 && t2 ? t1 - t2 : null; const sC = [F1.green, F1.yellow, F1.red];
@@ -623,7 +471,6 @@ export default function App({ embed }) {
   const [showKeys, setShowKeys] = useState(false);
   const [showTour, setShowTour] = useState(() => { if (embed) return false; try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
   const [tourStep, setTourStep] = useState(0);
-  const [showMap, setShowMap] = useState(false);
   const [showH2H, setShowH2H] = useState(false);
   const [h2hData, setH2hData] = useState(null);
   const [showreel, setShowreel] = useState(false);
@@ -823,7 +670,6 @@ export default function App({ embed }) {
     const onTE = (e) => {
       const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
       if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) setProg((p) => Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03))));
-      else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 60) setShowMap((m) => !m);
     };
     document.addEventListener("touchstart", onTS, { passive: true });
     document.addEventListener("touchend", onTE, { passive: true });
@@ -1348,19 +1194,12 @@ export default function App({ embed }) {
             <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: mob ? "50vh" : "auto" }} />
 
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
-              {CAM_MODES.map((m) => <button key={m} onClick={() => { setCam(m); setShowMap(false); }} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: cam === m && !showMap ? F1.red : F1.overlay, color: cam === m && !showMap ? "#fff" : F1.textDim, borderColor: cam === m && !showMap ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
-              <button onClick={() => setShowMap((m) => !m)} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: showMap ? "#0088ff" : F1.overlay, color: showMap ? "#fff" : F1.textDim, borderColor: showMap ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>📡 MAP</button>
+              {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
               <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : "normal")} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: vizMode === "heatmap" ? "#0088ff" : F1.overlay, color: vizMode === "heatmap" ? "#fff" : F1.textDim, borderColor: vizMode === "heatmap" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>🌡 Speed</button>
             </div>}
 
-            {tp && !mob && !showMap && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
-
-            {showMap && tp && (
-              <div style={{ position: "absolute", inset: 0, zIndex: 4, background: F1.carbon }}>
-                <LiveMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} di1={di1} di2={di2} li1={li1} li2={li2} ct1={ct1} ct2={ct2} delta={delta} tel1={tel1} tel2={tel2} />
-              </div>
-            )}
+            {tp && !mob && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
 
             {delta !== null && tp && (
               <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 2, animation: "fadeIn .4s" }}>
