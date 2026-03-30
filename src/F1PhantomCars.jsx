@@ -338,17 +338,29 @@ export default function App({ embed }) {
       {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}><div style={{ fontSize: 11, color: F1.textDim, fontFamily: F1.mono, marginBottom: 4 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.red, borderRadius: 1, transition: "width .3s" }} /></div>}</div>}
       {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}` }}>{["3d","telemetry"].map((tab) => <button key={tab} onClick={() => setMobTab(tab)} style={{ flex: 1, borderRadius: 0, borderBottom: mobTab === tab ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab ? F1.cardBg : "transparent", fontWeight: mobTab === tab ? 700 : 400, fontSize: 11, padding: "7px 0", textTransform: "uppercase" }}>{tab === "3d" ? "Track" : "Telemetry"}</button>)}</div>}
 
+      {/* Embed tab bar */}
+      {embed && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, flexShrink: 0, overflowX: "auto" }}>
+        {[
+          { id: "3d", label: "🏎️ Track" },
+          { id: "telemetry", label: "📊 Telemetry" },
+          { id: "stats", label: "📈 Stats" },
+          { id: "laps", label: "⏱ Laps" },
+          { id: "h2h", label: "⚔️ H2H" },
+          { id: "season", label: "🏆 Season" },
+        ].map((tab) => <button key={tab.id} onClick={() => { setMobTab(tab.id); if (tab.id === "h2h" && !h2hData) loadH2H(); if (tab.id === "season" && !dashData) loadSeasonDash(); }} style={{ flex: 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: 0 }}>{tab.label}</button>)}
+      </div>}
+
       {/* Main area */}
-      <div style={{ display: "flex", flexDirection: mob ? "column" : "row", flex: embed ? 1 : undefined, height: embed ? undefined : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`), overflow: "hidden" }}>
-        {(!mob || mobTab === "3d") && (
-          <div style={{ flex: 1, position: "relative", minHeight: embed ? 0 : (mob ? "50vh" : "auto") }}>
+      <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: embed ? 1 : undefined, height: embed ? undefined : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`), overflow: "hidden" }}>
+        {((!mob && !embed) || mobTab === "3d") && (
+          <div style={{ flex: 1, position: "relative", minHeight: embed ? 0 : (mob ? "50vh" : "auto"), display: (embed && mobTab !== "3d") ? "none" : undefined }}>
             <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: embed ? 0 : (mob ? "50vh" : "auto") }} />
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
               <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode === "heatmap" ? "#0088ff" : F1.overlay, color: vizMode === "heatmap" ? "#fff" : F1.textDim, borderColor: vizMode === "heatmap" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>🌡 Speed</button>
             </div>}
-            {tp && !mob && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
+            {tp && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
             {delta !== null && tp && <div style={{ position: "absolute", bottom: 8, left: 10, zIndex: 3, animation: "fadeIn .4s" }}>
               <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.red}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ fontSize: 7, color: F1.textMuted, letterSpacing: "0.15em", fontWeight: 700, textTransform: "uppercase" }}>Interval</div>
@@ -380,10 +392,41 @@ export default function App({ embed }) {
           </div>
         )}
 
-        {/* Telemetry panel */}
-        {((!mob && showTel && tp) || (mob && mobTab === "telemetry" && tp)) && (
-          <div style={{ width: mob ? "100%" : 310, borderLeft: mob ? "none" : `1px solid ${F1.borderLight}`, background: F1.panelBg, display: "flex", flexDirection: "column", maxHeight: mob ? "55vh" : "auto", animation: "fadeIn .2s" }}>
-            <TelemetryPanel mob={mob} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
+        {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
+        {((!mob && !embed && showTel && tp) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
+          <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: embed ? 1 : undefined, maxHeight: (!mob && !embed) ? "auto" : (embed ? undefined : "55vh"), overflow: "auto", animation: "fadeIn .2s" }}>
+            <TelemetryPanel mob={mob || embed} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
+          </div>
+        )}
+
+        {/* Embed inline Stats tab */}
+        {embed && mobTab === "stats" && tp && (
+          <div style={{ flex: 1, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
+            <StatsModal mob={true} allDrivers={allDrivers} onClose={() => setMobTab("3d")} inline />
+          </div>
+        )}
+
+        {/* Embed inline Laps tab */}
+        {embed && mobTab === "laps" && tp && (
+          <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
+            <LapsModal mob={true} onClose={() => setMobTab("3d")} inline drivers={[
+              { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
+              { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
+            ]} />
+          </div>
+        )}
+
+        {/* Embed inline H2H tab */}
+        {embed && mobTab === "h2h" && tp && (
+          <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
+            <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} onClose={() => setMobTab("3d")} inline />
+          </div>
+        )}
+
+        {/* Embed inline Season tab */}
+        {embed && mobTab === "season" && tp && (
+          <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
+            <DashModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={() => setMobTab("3d")} inline />
           </div>
         )}
       </div>
@@ -401,6 +444,7 @@ export default function App({ embed }) {
           <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
         </select>
         {!mob && !embed && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
+        {embed && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
       </div>}
 
       {/* Footer */}

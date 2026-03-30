@@ -1,7 +1,7 @@
 import { getF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
 
-export default function StatsModal({ mob, allDrivers, onClose }) {
+export default function StatsModal({ mob, allDrivers, onClose, inline }) {
   const F1 = getF1();
   const stats = allDrivers.map((d) => {
     const topSpd = d.tel?.length ? Math.max(...d.tel.map((t) => t.speed || 0)) : 0;
@@ -22,8 +22,12 @@ export default function StatsModal({ mob, allDrivers, onClose }) {
     { m: "TYRE", vals: stats.map((s) => s.tire || "—"), raw: null },
   ];
 
+  const wrapStyle = inline
+    ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
+    : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" };
+
   return (
-    <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
+    <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP ANALYSIS</div>

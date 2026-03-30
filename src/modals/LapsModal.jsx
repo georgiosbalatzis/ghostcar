@@ -1,10 +1,13 @@
 import { getF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
 
-export default function LapsModal({ mob, drivers, onClose }) {
+export default function LapsModal({ mob, drivers, onClose, inline }) {
   const F1 = getF1();
+  const wrapStyle = inline
+    ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
+    : { position: "fixed", top: 0, right: 0, bottom: 0, width: mob ? "100%" : 380, background: F1.carbon, borderLeft: `1px solid ${F1.red}22`, zIndex: 100, display: "flex", flexDirection: "column", animation: "fadeIn .2s" };
   return (
-    <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: mob ? "100%" : 380, background: F1.carbon, borderLeft: `1px solid ${F1.red}22`, zIndex: 100, display: "flex", flexDirection: "column", animation: "fadeIn .2s" }}>
+    <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <span style={{ fontWeight: 700, fontSize: 14, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP TIMES</span>
         <button onClick={onClose} style={{ marginLeft: "auto" }}>✕</button>
