@@ -30,25 +30,21 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     el.appendChild(ren.domElement);
 
-    // Lighting — brighter for light mode
     scene.add(new THREE.AmbientLight(0xdddde8, isDark ? 0.7 : 1.2));
     const sun = new THREE.DirectionalLight(0xffffff, isDark ? 1.0 : 1.4); sun.position.set(40, 80, 30); scene.add(sun);
     scene.add(new THREE.HemisphereLight(isDark ? 0xbbc4dd : 0xeeeeff, isDark ? 0x333340 : 0x889988, isDark ? 0.4 : 0.6));
 
-    // Ground
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(400, 400),
       new THREE.MeshLambertMaterial({ color: T.groundColor })
     );
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(ground);
 
-    // ─── Skybox: gradient dome ───
     const skyGeo = new THREE.SphereGeometry(180, 32, 16);
     const skyColors = new Float32Array(skyGeo.attributes.position.count * 3);
     for (let i = 0; i < skyGeo.attributes.position.count; i++) {
       const y = skyGeo.attributes.position.getY(i);
       const t = Math.max(0, Math.min(1, (y + 10) / 190));
-      // Dark bottom → deep blue middle → navy top
       skyColors[i * 3] = 0.06 + t * 0.04;
       skyColors[i * 3 + 1] = 0.06 + t * 0.07;
       skyColors[i * 3 + 2] = 0.1 + t * 0.12;
@@ -57,16 +53,13 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     const sky = new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }));
     scene.add(sky);
 
-    // ─── Track curve ───
     const curve = new THREE.CatmullRomCurve3(tp.map((p) => new THREE.Vector3(p.x, p.y, p.z)), true);
     const seg = Math.min(tp.length * 3, 800);
     const trackW = 2.0;
 
-    // ─── Build smooth flat ribbon ───
     const curvePts = curve.getPoints(seg);
     const ribbonPos = [], ribbonNorm = [], ribbonIdx = [];
     const leftEdgePts = [], rightEdgePts = [];
-    // Smooth tangents by averaging neighbors
     const tangents = curvePts.map((_, i) => {
       const next = curvePts[(i + 1) % curvePts.length];
       const prev = curvePts[(i - 1 + curvePts.length) % curvePts.length];
@@ -91,13 +84,11 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     ribbonGeo.setAttribute("normal", new THREE.Float32BufferAttribute(ribbonNorm, 3));
     ribbonGeo.setIndex(ribbonIdx);
 
-    // Track surface
     const trackMesh = new THREE.Mesh(ribbonGeo, new THREE.MeshStandardMaterial({
       color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide
     }));
     scene.add(trackMesh);
 
-    // ─── Speed heatmap overlay ───
     if (vizMode === "heatmap" && speedArr.length > 10) {
       const heatColors = new Float32Array((curvePts.length * 2) * 3);
       for (let i = 0; i < curvePts.length; i++) {
@@ -121,12 +112,10 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       heatMesh.position.y += 0.01; scene.add(heatMesh);
     }
 
-    // ─── White edge lines ───
     const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 });
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftEdgePts), edgeMat));
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightEdgePts), edgeMat));
 
-    // ─── Sector markers — colored lines + LED panels ───
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
     const sectorPanels = [];
     [0, 0.33, 0.66].forEach((t, i) => {
@@ -137,7 +126,6 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       const R2 = sp.clone().sub(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       L2.y += 0.03; R2.y += 0.03;
       scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([L2, R2]), new THREE.LineBasicMaterial({ color: sColors[i], linewidth: 2 })));
-      // LED panel boards on both sides
       [-1, 1].forEach((side) => {
         const panelGeo = new THREE.BoxGeometry(0.15, 1.2, 2.0);
         const panelMat = new THREE.MeshStandardMaterial({ color: sColors[i], emissive: sColors[i], emissiveIntensity: 0.3, transparent: true, opacity: 0.7 });
@@ -150,7 +138,6 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       });
     });
 
-    // ─── Corner numbers ───
     const corners = []; const cSamp = 250;
     for (let i = 0; i < cSamp - 2; i++) {
       const t0 = i / cSamp, t1 = (i + 1) / cSamp, t2 = (i + 2) / cSamp;
@@ -173,7 +160,6 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       sp.scale.set(1.3, 1.3, 1); scene.add(sp);
     });
 
-    // ─── Start/finish — simple white line ───
     const sf = curve.getPointAt(0), sfTan = curve.getTangentAt(0);
     const sfPerp = new THREE.Vector3(-sfTan.z, 0, sfTan.x).normalize();
     const sfL = sf.clone().add(sfPerp.clone().multiplyScalar(trackW / 2)); sfL.y += 0.03;
@@ -183,22 +169,17 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       new THREE.LineBasicMaterial({ color: 0xffffff })
     ));
 
-    // ─── F1 Car — GLTF model loader ───
     function makeCarGroup(color, label, isGhost) {
       const g = new THREE.Group();
       const col = new THREE.Color(color);
-      // Shadow disc
       const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false });
       const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.0, 24), shadowMat);
       shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
-      // Glow
       const glowMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false });
       const glow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), glowMat);
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(glow);
-      // Light
       const carLight = new THREE.PointLight(col, isGhost ? 0.5 : 0.25, 8);
       carLight.position.set(0, 0.3, 0); g.add(carLight);
-      // Label sprite
       if (label) {
         const cv = document.createElement("canvas"); cv.width = 160; cv.height = 56; const ctx = cv.getContext("2d");
         ctx.fillStyle = color; ctx.globalAlpha = 0.9;
@@ -220,28 +201,22 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     if (car3) scene.add(car3);
     if (car4) scene.add(car4);
 
-    // Load GLTF model and clone for each car
     const loader = new GLTFLoader();
     const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
     loader.load(basePath, (gltf) => {
       const template = gltf.scene;
-      // Model is ~46x107x76 units, we need ~1.5 units long
-      // Scale: 1.5 / 107 ≈ 0.014 — but Z is the long axis
       const modelScale = 0.12;
 
       function applyModel(carGroup) {
         if (!carGroup) return;
         const clone = template.clone(true);
         clone.scale.set(modelScale, modelScale, modelScale);
-        // No Y rotation — model faces correct direction
-        // Center and ground the model
         const box = new THREE.Box3().setFromObject(clone);
         const center = box.getCenter(new THREE.Vector3());
         clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
 
         const col = new THREE.Color(carGroup.userData.color);
         const isGhost = carGroup.userData.isGhost;
-        // Recolor materials safely
         clone.traverse((child) => {
           if (child.isMesh && child.material) {
             try {
@@ -268,7 +243,6 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
     }, undefined, (err) => {
       console.warn("GLTF load failed, using fallback:", err);
-      // Fallback: add a simple colored box if model fails
       [car1, car2, car3, car4].filter(Boolean).forEach((g) => {
         const col = new THREE.Color(g.userData.color);
         const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: g.userData.isGhost, opacity: g.userData.isGhost ? 0.5 : 1 }));
@@ -276,33 +250,28 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       });
     });
 
-    // ─── Spotlight cone following each car ───
     const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1);
     spot1.position.set(0, 12, 0); scene.add(spot1);
     const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1);
     spot2.position.set(0, 12, 0); scene.add(spot2);
 
-    // ─── Delta bar: line connecting two cars ───
     const deltaGeo = new THREE.BufferGeometry();
-    const deltaPos = new Float32Array(6); // 2 points x 3 components
+    const deltaPos = new Float32Array(6);
     deltaGeo.setAttribute("position", new THREE.Float32BufferAttribute(deltaPos, 3));
     const deltaMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
     const deltaLine = new THREE.Line(deltaGeo, deltaMat);
     deltaLine.frustumCulled = false;
     scene.add(deltaLine);
 
-    // ─── Racing line (smooth center path, slightly offset) ───
     const racingLinePts = curve.getPoints(seg);
     const rlGeo = new THREE.BufferGeometry().setFromPoints(racingLinePts);
     const rlLine = new THREE.Line(rlGeo, new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
     rlLine.position.y += 0.015; scene.add(rlLine);
 
-    // ─── Fading tire marks (ribbon trails that fade to transparent) ───
     function makeTrail(color, ghost) {
       const max = 120, pos = new Float32Array(max * 3);
       const geo = new THREE.BufferGeometry();
       geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      // Per-vertex opacity via color alpha
       const alphas = new Float32Array(max); alphas.fill(0);
       geo.setAttribute("alpha", new THREE.BufferAttribute(alphas, 1));
       geo.setDrawRange(0, 0);
@@ -364,7 +333,6 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
         const c = Math.min(trail.count + 1, trail.max);
         for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; }
         trail.positions[0] = p.x; trail.positions[1] = p.y + 0.05; trail.positions[2] = p.z;
-        // Fade alphas
         for (let i = c - 1; i >= 1; i--) trail.alphas[i] = trail.alphas[i - 1] * 0.97;
         trail.alphas[0] = 1.0;
         trail.count = c;
@@ -376,19 +344,15 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
     const p1 = upd(car1, tr1, R.current.n1, prog); const p2 = upd(car2, tr2, R.current.n2, prog);
     if (R.current.car3) upd(R.current.car3, R.current.tr3, R.current.n3, prog);
     if (R.current.car4) upd(R.current.car4, R.current.tr4, R.current.n4, prog);
-    // Spotlights follow cars
     if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
     if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
-    // Delta bar between cars
     if (dL && dP) {
       dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z;
       dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z;
       dL.geometry.attributes.position.needsUpdate = true;
-      // Color: green if car1 ahead, red if behind (based on distance along track)
       const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2);
       dL.material.opacity = Math.min(0.6, gap * 0.08);
     }
-    // Pulse sector LED panels based on current sector
     const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
     if (R.current.sectorPanels) {
       R.current.sectorPanels.forEach((sp) => {
@@ -397,7 +361,6 @@ function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizM
       });
     }
     if (cam2) { const cm = cmRef.current; if (cm === "follow1" || cm === "follow2") { const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp); const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1;
-      // Camera shake on braking — derive from telemetry
       const telNow = telData1?.length ? telData1[Math.floor(prog * (telData1.length - 1))] : null;
       const braking = telNow?.brake > 0 ? 1 : 0;
       const shakeX = braking * (Math.random() - 0.5) * 0.12;
@@ -427,9 +390,8 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2 }) {
   return <canvas ref={ref} width={150} height={150} style={{ width: 150, height: 150, borderRadius: 8 }} />;
 });
 
-// ─── SVG Telemetry Chart with playback cursor (multi-driver) ───
+// ─── SVG Telemetry Chart ───
 const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
-  // traces = [{ data, color }]
   if (!traces?.length) return null;
   const H = ch || 45, W = 300;
   function buildPath(data) {
@@ -478,12 +440,10 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
     const W = c.width, H = c.height;
     ctx.clearRect(0, 0, W, H);
 
-    // Background — deep dark with subtle gradient
     const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
     bg.addColorStop(0, "#0e0e1a"); bg.addColorStop(1, "#060610");
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-    // Projection
     let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
     for (const p of tp) { if (p.x < mnX) mnX = p.x; if (p.x > mxX) mxX = p.x; if (p.z < mnZ) mnZ = p.z; if (p.z > mxZ) mxZ = p.z; }
     const pad = 80;
@@ -491,11 +451,9 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
     const cx = W / 2, cy = H / 2 - 20;
     const proj = (p) => ({ x: cx + (p.x - (mnX + mxX) / 2) * scale, y: cy + (p.z - (mnZ + mxZ) / 2) * scale });
 
-    // ─── Track glow (wide, dim) ───
     ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 22; ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.beginPath(); tp.forEach((p, i) => { const pp = proj(p); i === 0 ? ctx.moveTo(pp.x, pp.y) : ctx.lineTo(pp.x, pp.y); }); ctx.closePath(); ctx.stroke();
 
-    // ─── Track sectors (colored bands) ───
     const sectorColors = ["#00d26a", "#ffd700", "#e10600"];
     ctx.lineWidth = 10; ctx.lineCap = "round";
     for (let s = 0; s < 3; s++) {
@@ -508,27 +466,22 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
       ctx.stroke();
     }
 
-    // ─── Track center line ───
     ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 2.5;
     ctx.beginPath(); tp.forEach((p, i) => { const pp = proj(p); i === 0 ? ctx.moveTo(pp.x, pp.y) : ctx.lineTo(pp.x, pp.y); }); ctx.closePath(); ctx.stroke();
 
-    // ─── Sector labels ───
     [0, 0.33, 0.66].forEach((t, i) => {
       const pp = proj(tp[Math.floor(t * (tp.length - 1))]);
       ctx.fillStyle = sectorColors[i]; ctx.font = "bold 11px sans-serif"; ctx.textAlign = "center";
       ctx.fillText(`S${i + 1}`, pp.x, pp.y - 18);
     });
 
-    // ─── Start/finish ───
     const sfP = proj(tp[0]);
     ctx.save(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(sfP.x - 14, sfP.y); ctx.lineTo(sfP.x + 14, sfP.y); ctx.stroke(); ctx.restore();
 
-    // ─── Driver trail + dot ───
     function drawDriver(data, color, name, speed, isGhost) {
       const pts = data?.length >= 2 ? data : tp;
       const pt = lerp(pts, prog); const pp = proj(pt);
-      // Speed trail (20 points, colored by speed)
       ctx.lineWidth = 5; ctx.lineCap = "round";
       for (let i = 20; i >= 1; i--) {
         const t2 = Math.max(0, prog - i * 0.002);
@@ -538,20 +491,16 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
         ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2, "0");
         ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.stroke();
       }
-      // Pulsing outer halo
       const pulse = 0.8 + Math.sin(Date.now() * 0.005) * 0.2;
       ctx.shadowColor = color; ctx.shadowBlur = 20 * pulse;
       ctx.fillStyle = color; ctx.globalAlpha = 0.3;
       ctx.beginPath(); ctx.arc(pp.x, pp.y, 14 * pulse, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
-      // Main dot
       ctx.fillStyle = color;
       ctx.beginPath(); ctx.arc(pp.x, pp.y, isGhost ? 8 : 10, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
-      // White center
       ctx.fillStyle = "#fff";
       ctx.beginPath(); ctx.arc(pp.x, pp.y, 3.5, 0, Math.PI * 2); ctx.fill();
-      // Name + speed above
       ctx.fillStyle = color; ctx.font = "bold 14px sans-serif"; ctx.textAlign = "center";
       ctx.fillText(name || "???", pp.x, pp.y - 20);
       ctx.fillStyle = "#aaa"; ctx.font = "bold 11px sans-serif";
@@ -560,7 +509,6 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
     drawDriver(nn1, c1, di1?.name_acronym, ct1?.speed, false);
     drawDriver(nn2, c2, di2?.name_acronym, ct2?.speed, true);
 
-    // ─── Top bar ───
     const barH = 50;
     ctx.fillStyle = "rgba(6,6,16,0.92)"; ctx.fillRect(0, 0, W, barH);
     ctx.fillStyle = "#E10600"; ctx.fillRect(0, barH - 2, W, 2);
@@ -569,10 +517,8 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
     ctx.fillStyle = "#666"; ctx.font = "11px sans-serif";
     ctx.fillText("LAP COMPARISON • F1 STORIES", W / 2, 40);
 
-    // ─── Lap progress bar ───
     const prgY = barH + 6, prgH = 4;
     ctx.fillStyle = "#1a1a2e"; ctx.fillRect(40, prgY, W - 80, prgH);
-    // Sector colors in progress bar
     for (let s = 0; s < 3; s++) {
       const sx = 40 + (s / 3) * (W - 80), sw = (1 / 3) * (W - 80);
       if (prog > s / 3) {
@@ -581,54 +527,41 @@ const LiveMap = memo(function LM({ tp, l1, l2, prog, c1, c2, di1, di2, li1, li2,
         ctx.fillRect(sx, prgY, sw * fill, prgH);
       }
     }
-    // Progress marker
     ctx.fillStyle = "#fff";
     ctx.fillRect(40 + prog * (W - 80) - 1, prgY - 2, 3, prgH + 4);
 
-    // ─── Driver tower cards (bottom) ───
     const cardH = 95, cardW = (W - 40) / 2, cardY = H - cardH - 12;
     [{ x: 12, co: c1, di: di1, ct: ct1, li: li1, pos: "1" },
      { x: cardW + 28, co: c2, di: di2, ct: ct2, li: li2, pos: "2" }].forEach((d) => {
-      // Card
       ctx.fillStyle = "rgba(8,8,20,0.93)";
       ctx.beginPath(); ctx.roundRect(d.x, cardY, cardW, cardH, 6); ctx.fill();
       ctx.strokeStyle = d.co + "44"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.roundRect(d.x, cardY, cardW, cardH, 6); ctx.stroke();
-      // Color top bar
       ctx.fillStyle = d.co; ctx.fillRect(d.x + 1, cardY + 1, cardW - 2, 3);
-      // Position number
       ctx.fillStyle = d.co; ctx.font = "bold 24px sans-serif"; ctx.textAlign = "left";
       ctx.fillText(d.pos, d.x + 12, cardY + 32);
-      // Driver name
       ctx.fillStyle = "#fff"; ctx.font = "bold 18px sans-serif";
       ctx.fillText(d.di?.name_acronym || "???", d.x + 40, cardY + 32);
-      // Speed
       ctx.fillStyle = "#fff"; ctx.font = "bold 30px sans-serif";
       ctx.fillText(Math.round(d.ct?.speed || 0), d.x + 12, cardY + 68);
       ctx.fillStyle = "#555"; ctx.font = "11px sans-serif";
       ctx.fillText("KM/H", d.x + 90, cardY + 68);
-      // Lap time
       ctx.fillStyle = "#888"; ctx.font = "bold 13px sans-serif";
       ctx.fillText(d.li?.lap_duration ? fmt(d.li.lap_duration) : "--:--.---", d.x + 12, cardY + 86);
-      // Throttle bar
       const bx = d.x + cardW - 55;
       ctx.fillStyle = "#1a1a2e"; ctx.fillRect(bx, cardY + 14, 10, 45);
       ctx.fillStyle = "#00d26a";
       ctx.fillRect(bx, cardY + 14 + 45 - (d.ct?.throttle || 0) * 0.45, 10, (d.ct?.throttle || 0) * 0.45);
-      // Brake bar
       ctx.fillStyle = "#1a1a2e"; ctx.fillRect(bx + 16, cardY + 14, 10, 45);
       if (d.ct?.brake > 0) { ctx.fillStyle = "#E10600"; ctx.fillRect(bx + 16, cardY + 14, 10, 45); }
-      // Labels
       ctx.fillStyle = "#555"; ctx.font = "7px sans-serif"; ctx.textAlign = "center";
       ctx.fillText("THR", bx + 5, cardY + 70); ctx.fillText("BRK", bx + 21, cardY + 70);
-      // Gear
       ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif";
       ctx.fillText(d.ct?.n_gear ?? d.ct?.gear ?? "—", bx + 38, cardY + 50);
       ctx.fillStyle = "#555"; ctx.font = "8px sans-serif";
       ctx.fillText("GEAR", bx + 38, cardY + 62);
     });
 
-    // ─── Delta badge ───
     if (delta !== null) {
       const dx = W / 2, dy = cardY - 20;
       ctx.fillStyle = "rgba(6,6,16,0.95)";
@@ -688,20 +621,20 @@ export default function App({ embed }) {
   const [cam, setCam] = useState("orbit");
   const [vizMode, setVizMode] = useState("normal");
   const [showKeys, setShowKeys] = useState(false);
-  const [showTour, setShowTour] = useState(() => { try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
+  const [showTour, setShowTour] = useState(() => { if (embed) return false; try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
   const [tourStep, setTourStep] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [showH2H, setShowH2H] = useState(false);
   const [h2hData, setH2hData] = useState(null);
   const [showreel, setShowreel] = useState(false);
   const showreelRef = useRef(false);
-  const [countdown, setCountdown] = useState(null); // null | 5,4,3,2,1,0
+  const [countdown, setCountdown] = useState(null);
   const [gallery, setGallery] = useState(() => { try { return JSON.parse(localStorage.getItem("f1s-gallery") || "[]"); } catch { return []; } });
   const [showGallery, setShowGallery] = useState(false);
   const [showEmbed, setShowEmbed] = useState(false);
   const touchRef = useRef({ sx: 0, sy: 0 });
   const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
-  const [showTel, setShowTel] = useState(true); const [mobTab, setMobTab] = useState("3d");
+  const [showTel, setShowTel] = useState(!embed); const [mobTab, setMobTab] = useState("3d");
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
@@ -732,7 +665,6 @@ export default function App({ embed }) {
   const topS2 = useMemo(() => tel2 ? Math.max(...tel2.map((t) => t.speed || 0)) : 0, [tel2]);
   const avgS1 = useMemo(() => tel1?.length ? tel1.reduce((a, t) => a + (t.speed || 0), 0) / tel1.length : 0, [tel1]);
   const avgS2 = useMemo(() => tel2?.length ? tel2.reduce((a, t) => a + (t.speed || 0), 0) / tel2.length : 0, [tel2]);
-  // Build a drivers array for easy iteration — MUST be after all derived data
   const allDrivers = [
     { di: di1, co: co1, ct: ct1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
     { di: di2, co: co2, ct: ct2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
@@ -740,7 +672,6 @@ export default function App({ embed }) {
     ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, ct: ct4, li: li4, tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
   ].filter((d) => d.di);
 
-  // Data loading — guarded to not fire during preset load
   useEffect(() => { if (presetActiveRef.current) return; setLoading("Loading..."); setErr(""); fetchMeetings(year).then((d) => { setMts(d.filter((m) => m.meeting_name)); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [year]);
   useEffect(() => { if (!selMt || presetActiveRef.current) return; setLoading("Loading sessions..."); fetchSessions(selMt.meeting_key).then((d) => { setSess(d.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name))); setSelSe(null); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selMt]);
   useEffect(() => { if (!selSe || presetActiveRef.current) return; setLoading("Loading drivers..."); fetchDrivers(selSe.session_key).then((d) => { const seen = new Set(); setDrvs(d.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selSe]);
@@ -761,6 +692,15 @@ export default function App({ embed }) {
   useEffect(() => { const u = decodeURL(); if (u.l1 && laps1.length && !sl1) setSl1(Number(u.l1)); }, [laps1]);
   useEffect(() => { const u = decodeURL(); if (u.l2 && laps2.length && !sl2) setSl2(Number(u.l2)); }, [laps2]);
 
+  // ─── EMBED AUTO-LOAD: trigger loadData automatically when all URL params are restored ───
+  useEffect(() => {
+    if (!embed || autoLoadRef.current) return;
+    if (selSe && d1 && d2 && sl1 && sl2) {
+      autoLoadRef.current = true;
+      setTimeout(() => loadData(), 300);
+    }
+  }, [embed, selSe, d1, d2, sl1, sl2]);
+
   const loadData = useCallback(async () => {
     if (!selSe || !d1 || !d2 || !sl1 || !sl2) return; setLoading("Fetching telemetry..."); setErr(""); setLdPct(0);
     try {
@@ -772,14 +712,12 @@ export default function App({ embed }) {
       setLdPct(15);
       const locProms = [fetchLocation(sk, d1, la1.date_start, e1), fetchLocation(sk, d2, la2.date_start, e2)];
       const telProms = [fetchCarData(sk, d1, la1.date_start, e1), fetchCarData(sk, d2, la2.date_start, e2)];
-      // Driver 3
       const la3 = d3 && sl3 ? laps3.find((l) => l.lap_number === sl3) : null;
       if (la3?.date_start) {
         const e3 = new Date(new Date(la3.date_start).getTime() + (la3.lap_duration || 120) * 1000).toISOString();
         locProms.push(fetchLocation(sk, d3, la3.date_start, e3));
         telProms.push(fetchCarData(sk, d3, la3.date_start, e3));
       }
-      // Driver 4
       const la4 = d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
       if (la4?.date_start) {
         const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString();
@@ -803,39 +741,28 @@ export default function App({ embed }) {
     setShowPresets(false); setLoading("Loading preset..."); setErr(""); setLdPct(0);
     presetActiveRef.current = true;
     try {
-      // 1. Fetch meetings
       const allMts = await fetchMeetings(pr.year);
       const filteredMts = allMts.filter((x) => x.meeting_name);
       const mt = filteredMts.find((x) => x.meeting_name && x.meeting_name.toLowerCase().includes(pr.meeting.toLowerCase().replace(" grand prix", "").trim()));
       if (!mt) throw new Error(`Meeting "${pr.meeting}" not found for ${pr.year}`);
       setLdPct(10);
-
-      // 2. Fetch sessions
       const allSess = await fetchSessions(mt.meeting_key);
       const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
       const se = filteredSess.find((s) => s.session_name === pr.session);
       if (!se) throw new Error(`Session "${pr.session}" not found`);
       setLdPct(20);
-
-      // 3. Fetch drivers
       const allDrvs = await fetchDrivers(se.session_key);
       const seen = new Set();
       const uniqueDrvs = allDrvs.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; });
       setLdPct(30);
-
-      // 4. Fetch laps for both drivers
       const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1), fetchLaps(se.session_key, pr.d2)]);
       const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data);
       if (!fast1 || !fast2) throw new Error("No valid laps found for these drivers");
       setLdPct(45);
-
-      // 5. Fetch stints
       const [st1Data, st2Data] = await Promise.all([
         fetchStints(se.session_key, pr.d1).catch(() => []),
         fetchStints(se.session_key, pr.d2).catch(() => [])
       ]);
-
-      // 6. Set ALL state at once
       setYear(pr.year); setMts(filteredMts); setSelMt(mt);
       setSess(filteredSess); setSelSe(se);
       setDrvs(uniqueDrvs); setD1(pr.d1); setD2(pr.d2);
@@ -843,20 +770,15 @@ export default function App({ embed }) {
       setSl1(fast1.lap_number); setSl2(fast2.lap_number);
       setSt1(st1Data); setSt2(st2Data);
       setLdPct(50);
-
-      // 7. Fetch location + telemetry directly
       setLoading("Fetching telemetry...");
       const sk = se.session_key;
       const end1 = new Date(new Date(fast1.date_start).getTime() + (fast1.lap_duration || 120) * 1000).toISOString();
       const end2 = new Date(new Date(fast2.date_start).getTime() + (fast2.lap_duration || 120) * 1000).toISOString();
-
       setLdPct(60);
       const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1), fetchLocation(sk, pr.d2, fast2.date_start, end2)]);
       setLdPct(80);
       const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1), fetchCarData(sk, pr.d2, fast2.date_start, end2)]);
-
       if (lo1.length < 5 || lo2.length < 5) throw new Error("Insufficient location data for these laps");
-
       setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2);
       setTp(norm(lo1)); setProg(0); setPlay(false);
       setLdPct(100);
@@ -871,9 +793,13 @@ export default function App({ embed }) {
 
   useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "");
 
-  // Playback with countdown
+  // Playback with countdown — skip countdown in embed mode
   const startWithCountdown = useCallback(() => {
     if (prog < 0.01 && tp && !play) {
+      if (embed) {
+        setPlay(true);
+        return;
+      }
       setCountdown(5);
       let c = 5;
       const iv = setInterval(() => {
@@ -884,14 +810,12 @@ export default function App({ embed }) {
     } else {
       setPlay(!play);
     }
-  }, [prog, tp, play]);
+  }, [prog, tp, play, embed]);
   useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
 
-  // Keys
   const lastLeftRef = useRef(0);
   useEffect(() => { const h = (e) => { if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return; if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; } if (e.code === "Escape") { setShowKeys(false); setShowTour(false); return; } if (e.code === "Space") { e.preventDefault(); if (tp) startWithCountdown(); } if (e.code === "KeyR") { setProg(0); setPlay(false); } if (e.code === "KeyT") setShowTel((s) => !s); if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]); if (e.code === "KeyL") setLoop((l) => !l); if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01)); if (e.code === "ArrowLeft") { const now = Date.now(); if (now - lastLeftRef.current < 300) { setProg((p) => Math.max(0, p - 0.05)); } else { setProg((p) => Math.max(0, p - 0.01)); } lastLeftRef.current = now; } }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [tp, startWithCountdown]);
 
-  // Mobile swipe gestures — left/right = scrub, up/down = toggle map
   useEffect(() => {
     if (!mob || !tp) return;
     let sx = 0, sy = 0;
@@ -906,7 +830,6 @@ export default function App({ embed }) {
     return () => { document.removeEventListener("touchstart", onTS); document.removeEventListener("touchend", onTE); };
   }, [mob, tp]);
 
-  // Save comparison to gallery
   const saveToGallery = useCallback(() => {
     if (!di1 || !di2 || !selMt || !li1 || !li2) return;
     const entry = { id: Date.now(), d1n: di1.name_acronym, d2n: di2.name_acronym, gp: selMt.meeting_name, year, delta: delta?.toFixed(3), t1: fmt(li1.lap_duration), t2: fmt(li2.lap_duration), c1: co1, c2: co2, url: encodeURL({ year, mk: selMt.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 }) };
@@ -915,47 +838,37 @@ export default function App({ embed }) {
     try { localStorage.setItem("f1s-gallery", JSON.stringify(newG)); } catch {}
   }, [di1, di2, selMt, selSe, li1, li2, delta, co1, co2, year, d1, d2, sl1, sl2, gallery]);
 
-  // Social card generator
   const generateSocialCard = useCallback(() => {
     const cv = document.createElement("canvas"); cv.width = 1200; cv.height = 630;
     const ctx = cv.getContext("2d");
-    // Background
     ctx.fillStyle = "#15151e"; ctx.fillRect(0, 0, 1200, 630);
     ctx.fillStyle = "#E10600"; ctx.fillRect(0, 0, 1200, 6);
-    // Title
     ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center";
     ctx.fillText("GHOST CAR LAB", 600, 80);
     ctx.fillStyle = "#E10600"; ctx.font = "bold 20px sans-serif";
     ctx.fillText("f1stories.gr", 600, 115);
-    // GP name
     ctx.fillStyle = "#888"; ctx.font = "24px sans-serif";
     ctx.fillText(selMt?.meeting_name || "", 600, 160);
-    // VS
     ctx.fillStyle = co1; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "right";
     ctx.fillText(di1?.name_acronym || "D1", 530, 310);
     ctx.fillStyle = "#E10600"; ctx.font = "bold 36px sans-serif"; ctx.textAlign = "center";
     ctx.fillText("VS", 600, 310);
     ctx.fillStyle = co2; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "left";
     ctx.fillText(di2?.name_acronym || "D2", 670, 310);
-    // Times
     ctx.fillStyle = co1; ctx.font = "bold 32px sans-serif"; ctx.textAlign = "right";
     ctx.fillText(fmt(li1?.lap_duration), 530, 380);
     ctx.fillStyle = co2; ctx.font = "bold 32px sans-serif"; ctx.textAlign = "left";
     ctx.fillText(fmt(li2?.lap_duration), 670, 380);
-    // Delta
     if (delta !== null) {
       ctx.fillStyle = delta > 0 ? "#E10600" : "#00d26a"; ctx.font = "bold 48px sans-serif"; ctx.textAlign = "center";
       ctx.fillText((delta > 0 ? "+" : "") + delta.toFixed(3) + "s", 600, 470);
     }
-    // Footer
     ctx.fillStyle = "#333"; ctx.fillRect(0, 570, 1200, 60);
     ctx.fillStyle = "#888"; ctx.font = "16px sans-serif"; ctx.textAlign = "center";
     ctx.fillText("Powered by F1 Stories • f1stories.gr/ghostcar", 600, 600);
-    // Download
     const a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = `f1stories-${di1?.name_acronym}-vs-${di2?.name_acronym}.png`; a.click();
   }, [di1, di2, selMt, li1, li2, delta, co1, co2]);
 
-  // Backdrop + modals
   const modBg = (showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash) && <div onClick={() => { setShowPresets(false); setShowStats(false); setShowLaps(false); setShowKeys(false); setShowH2H(false); setShowGallery(false); setShowEmbed(false); setShowDash(false); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />;
 
   const presetsModal = showPresets && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 460, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
@@ -982,7 +895,6 @@ export default function App({ embed }) {
     </div>
   </div>);
 
-  // Extra computed stats
   const minSpd1 = useMemo(() => tel1?.length ? Math.min(...tel1.filter(t => t.speed > 5).map(t => t.speed)) : 0, [tel1]);
   const minSpd2 = useMemo(() => tel2?.length ? Math.min(...tel2.filter(t => t.speed > 5).map(t => t.speed)) : 0, [tel2]);
   const fullThr1 = useMemo(() => tel1?.length ? (tel1.filter(t => t.throttle >= 95).length / tel1.length * 100) : 0, [tel1]);
@@ -991,10 +903,6 @@ export default function App({ embed }) {
   const brkPct2 = useMemo(() => tel2?.length ? (tel2.filter(t => t.brake > 0).length / tel2.length * 100) : 0, [tel2]);
   const coastPct1 = useMemo(() => tel1?.length ? (tel1.filter(t => t.throttle < 5 && t.brake === 0).length / tel1.length * 100) : 0, [tel1]);
   const coastPct2 = useMemo(() => tel2?.length ? (tel2.filter(t => t.throttle < 5 && t.brake === 0).length / tel2.length * 100) : 0, [tel2]);
-  const drsCnt1 = useMemo(() => { if (!tel1?.length) return 0; let c = 0; for (let i = 1; i < tel1.length; i++) if (tel1[i].drs >= 10 && tel1[i-1].drs < 10) c++; return c; }, [tel1]);
-  const drsCnt2 = useMemo(() => { if (!tel2?.length) return 0; let c = 0; for (let i = 1; i < tel2.length; i++) if (tel2[i].drs >= 10 && tel2[i-1].drs < 10) c++; return c; }, [tel2]);
-  const maxRpm1 = useMemo(() => tel1?.length ? Math.max(...tel1.map(t => t.rpm || 0)) : 0, [tel1]);
-  const maxRpm2 = useMemo(() => tel2?.length ? Math.max(...tel2.map(t => t.rpm || 0)) : 0, [tel2]);
 
   const statsModal = showStats && tp && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
     <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
@@ -1002,30 +910,6 @@ export default function App({ embed }) {
         <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP ANALYSIS</div>
         <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Detailed telemetry comparison</div>
       </div>
-      <button onClick={() => {
-        // Generate a text-based report and download
-        const rows = [
-          `F1 STORIES — GHOST CAR LAB REPORT`,
-          `${selMt?.meeting_name || ""} ${year} — ${selSe?.session_name || ""}`,
-          `${di1?.name_acronym || "D1"} vs ${di2?.name_acronym || "D2"}`,
-          ``,
-          `LAP TIME:    ${li1?.lap_duration ? fmt(li1.lap_duration) : "—"}  vs  ${li2?.lap_duration ? fmt(li2.lap_duration) : "—"}  Δ ${li1?.lap_duration && li2?.lap_duration ? (li1.lap_duration - li2.lap_duration > 0 ? "+" : "") + (li1.lap_duration - li2.lap_duration).toFixed(3) + "s" : "—"}`,
-          `TOP SPEED:   ${Math.round(topS1)} km/h  vs  ${Math.round(topS2)} km/h`,
-          `AVG SPEED:   ${Math.round(avgS1)} km/h  vs  ${Math.round(avgS2)} km/h`,
-          `SECTOR 1:    ${li1?.duration_sector_1?.toFixed(3) || "—"}  vs  ${li2?.duration_sector_1?.toFixed(3) || "—"}`,
-          `SECTOR 2:    ${li1?.duration_sector_2?.toFixed(3) || "—"}  vs  ${li2?.duration_sector_2?.toFixed(3) || "—"}`,
-          `SECTOR 3:    ${li1?.duration_sector_3?.toFixed(3) || "—"}  vs  ${li2?.duration_sector_3?.toFixed(3) || "—"}`,
-          `FULL THROTTLE: ${fullThr1.toFixed(1)}%  vs  ${fullThr2.toFixed(1)}%`,
-          `BRAKING:     ${brkPct1.toFixed(1)}%  vs  ${brkPct2.toFixed(1)}%`,
-          `COASTING:    ${coastPct1.toFixed(1)}%  vs  ${coastPct2.toFixed(1)}%`,
-          `TYRE:        ${tire1 || "—"}  vs  ${tire2 || "—"}`,
-          ``,
-          `Generated by f1stories.gr/ghostcar`,
-        ];
-        const blob = new Blob([rows.join("\n")], { type: "text/plain" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-        a.download = `f1stories-report-${di1?.name_acronym || "D1"}-vs-${di2?.name_acronym || "D2"}.txt`; a.click();
-      }} style={{ padding: "4px 10px", fontSize: 10 }}>📄 EXPORT</button>
       <button onClick={() => setShowStats(false)} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
     </div>
     <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
@@ -1035,7 +919,6 @@ export default function App({ embed }) {
         {allDrivers.map((d, i) => <th key={i} style={{ textAlign: "center", padding: "8px 4px", color: d.co, borderBottom: `2px solid ${d.co}44`, fontSize: 10 }}>{d.di?.name_acronym || `D${i+1}`}</th>)}
       </tr></thead>
       <tbody>{(() => {
-        // Compute stats for each driver
         const stats = allDrivers.map((d) => {
           const topSpd = d.tel?.length ? Math.max(...d.tel.map((t) => t.speed || 0)) : 0;
           const avgSpd = d.tel?.length ? d.tel.reduce((a, t) => a + (t.speed || 0), 0) / d.tel.length : 0;
@@ -1085,7 +968,6 @@ export default function App({ embed }) {
     </div>
   </div>);
 
-  // ─── Screenshot ───
   const takeScreenshot = useCallback(() => {
     const el = cRef.current; if (!el) return;
     const canvas = el.querySelector("canvas"); if (!canvas) return;
@@ -1093,7 +975,6 @@ export default function App({ embed }) {
     const a = document.createElement("a"); a.href = url; a.download = `f1stories-ghost-${Date.now()}.png`; a.click();
   }, []);
 
-  // ─── Head-to-Head fetch ───
   const loadH2H = useCallback(async () => {
     if (!d1 || !d2) return;
     setShowH2H(true); setH2hData(null);
@@ -1101,24 +982,21 @@ export default function App({ embed }) {
       const allMts = await fetchMeetings(year);
       const validMts = allMts.filter((m) => m.meeting_name);
       const results = [];
-      // Process in small batches with delays to avoid rate limits
       for (let i = 0; i < validMts.length && results.length < 12; i++) {
         const mt = validMts[i];
         try {
-          // Add delay every 3 requests to stay under rate limit
           if (i > 0 && i % 3 === 0) await new Promise((r) => setTimeout(r, 1200));
           const ss = await fetchSessions(mt.meeting_key);
           const q = ss.find((s) => s.session_name === "Qualifying");
           if (!q) continue;
-          await new Promise((r) => setTimeout(r, 400)); // small delay between session + lap calls
+          await new Promise((r) => setTimeout(r, 400));
           const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]);
           const b1 = bestLap(l1d), b2 = bestLap(l2d);
           if (b1 && b2) {
             results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration });
-            setH2hData([...results]); // Update progressively
+            setH2hData([...results]);
           }
         } catch (e) {
-          // If rate limited, wait longer and continue
           if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 3000));
         }
       }
@@ -1126,7 +1004,6 @@ export default function App({ embed }) {
     } catch (e) { setH2hData([]); }
   }, [year, d1, d2]);
 
-  // ─── Showreel auto-play ───
   useEffect(() => {
     if (!showreel) { showreelRef.current = false; return; }
     showreelRef.current = true;
@@ -1142,7 +1019,6 @@ export default function App({ embed }) {
     return () => { showreelRef.current = false; };
   }, [showreel, loadPreset]);
 
-  // ─── Keyboard shortcuts modal ───
   const keysModal = showKeys && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 24, zIndex: 100, width: mob ? "92%" : 380, animation: "fadeIn .2s" }}>
     <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
       <span style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>KEYBOARD SHORTCUTS</span>
@@ -1156,7 +1032,6 @@ export default function App({ embed }) {
     ))}
   </div>);
 
-  // ─── Onboarding tour ───
   const TOUR = [
     { text: "Welcome to Ghost Car Lab! Compare F1 laps in 3D with real telemetry.", pos: "center" },
     { text: "Select a year, Grand Prix, session, and two drivers to compare.", pos: "top" },
@@ -1166,7 +1041,7 @@ export default function App({ embed }) {
     { text: "Open STATS for detailed analysis, LAPS to browse all lap times.", pos: "top-right" },
     { text: "Press ? anytime to see keyboard shortcuts. Enjoy! 🏁", pos: "center" },
   ];
-  const tourOverlay = showTour && (<div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+  const tourOverlay = showTour && !embed && (<div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
     <div style={{ background: F1.carbon, border: `1px solid ${F1.red}44`, borderRadius: 12, padding: 28, maxWidth: 420, width: "90%", textAlign: "center", animation: "fadeIn .3s" }}>
       <div style={{ fontSize: 11, color: F1.red, fontWeight: 900, letterSpacing: "0.15em", marginBottom: 12 }}>STEP {tourStep + 1} OF {TOUR.length}</div>
       <div style={{ fontSize: 15, color: F1.text, lineHeight: 1.6, marginBottom: 20 }}>{TOUR[tourStep].text}</div>
@@ -1182,7 +1057,6 @@ export default function App({ embed }) {
     </div>
   </div>);
 
-  // ─── Head-to-Head modal ───
   const h2hModal = showH2H && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
     <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
       <div>
@@ -1192,7 +1066,7 @@ export default function App({ embed }) {
       <button onClick={() => setShowH2H(false)} style={{ marginLeft: "auto" }}>✕</button>
     </div>
     <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
-      {!h2hData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching qualifying data across GPs<span style={{ animation: "pulse 1s infinite" }}>...</span><br/><span style={{ fontSize: 10, color: F1.textMuted, marginTop: 4, display: "block" }}>This may take 15-30 seconds (API rate limits)</span></div> : h2hData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No qualifying data found for these drivers in {year}</div> : (<>
+      {!h2hData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching qualifying data across GPs<span style={{ animation: "pulse 1s infinite" }}>...</span></div> : h2hData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No qualifying data found</div> : (<>
         <svg width="100%" height={h2hData.length * 32 + 20} viewBox={`0 0 300 ${h2hData.length * 32 + 20}`} style={{ display: "block" }}>
           {h2hData.map((r, i) => {
             const d = r.t1 - r.t2; const maxD = Math.max(...h2hData.map((x) => Math.abs(x.t1 - x.t2))) || 1;
@@ -1215,7 +1089,6 @@ export default function App({ embed }) {
     </div>
   </div>);
 
-  // ─── Season Dashboard ───
   const loadSeasonDash = useCallback(async () => {
     if (!d1 || !d2) return;
     setShowDash(true); setDashData(null);
@@ -1255,7 +1128,6 @@ export default function App({ embed }) {
       {!dashData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching season data<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
       : dashData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No data found</div>
       : (<>
-        {/* Summary bar */}
         {(() => {
           const w1 = dashData.filter((r) => r.d < 0).length, w2 = dashData.filter((r) => r.d > 0).length;
           const pct1 = dashData.length ? (w1 / dashData.length * 100) : 50;
@@ -1271,7 +1143,6 @@ export default function App({ embed }) {
             </div>
           </div>);
         })()}
-        {/* Results table */}
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: F1.mono }}>
           <thead><tr style={{ color: F1.textMuted, fontSize: 9, letterSpacing: "0.1em" }}>
             <th style={{ textAlign: "left", padding: "6px 4px" }}>GP</th>
@@ -1293,14 +1164,12 @@ export default function App({ embed }) {
             </tr>);
           })}</tbody>
         </table>
-        {/* Momentum chart */}
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 6, fontWeight: 700 }}>MOMENTUM</div>
           <svg width="100%" height="60" viewBox="0 0 400 60" preserveAspectRatio="none" style={{ borderRadius: 4, background: F1.cardBg }}>
             <line x1="0" y1="30" x2="400" y2="30" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
             {dashData.map((r, i) => {
               const x = dashData.length > 1 ? (i / (dashData.length - 1)) * 380 + 10 : 200;
-              // Cumulative score: +1 for D1 win, -1 for D2 win
               let cum = 0;
               for (let j = 0; j <= i; j++) cum += dashData[j].d < 0 ? 1 : -1;
               const maxCum = Math.max(3, ...dashData.map((_, idx) => { let c = 0; for (let j = 0; j <= idx; j++) c += dashData[j].d < 0 ? 1 : -1; return Math.abs(c); }));
@@ -1346,7 +1215,6 @@ export default function App({ embed }) {
 
       {modBg}{presetsModal}{statsModal}{lapsModal}{keysModal}{h2hModal}{dashModal}{tourOverlay}
 
-      {/* ─── F1 Lights Countdown Overlay ─── */}
       {countdown !== null && (<div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", gap: 16, marginBottom: 32 }}>
           {[1, 2, 3, 4, 5].map((n) => (
@@ -1358,14 +1226,13 @@ export default function App({ embed }) {
         </div>
       </div>)}
 
-      {/* ─── Gallery Modal ─── */}
       {showGallery && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 500, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
           <span style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>COMPARISON GALLERY</span>
           <button onClick={() => setShowGallery(false)} style={{ marginLeft: "auto" }}>✕</button>
         </div>
         <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
-          {gallery.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>No saved comparisons yet. Click 💾 SAVE after loading a comparison.</div> : gallery.map((g) => (
+          {gallery.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>No saved comparisons yet.</div> : gallery.map((g) => (
             <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4, background: F1.cardBg, borderRadius: 6, cursor: "pointer", borderLeft: `3px solid ${g.c1}` }} onClick={() => { window.location.href = g.url; setShowGallery(false); }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, fontFamily: F1.mono }}>
@@ -1383,153 +1250,23 @@ export default function App({ embed }) {
         </div>
       </div>)}
 
-      {/* ─── Integration Hub Modal ─── */}
       {showEmbed && (<div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
-          <div><div style={{ fontWeight: 900, fontSize: 16 }}>INTEGRATION HUB</div><div style={{ fontSize: 10, color: F1.textMuted }}>Embed, share & publish on f1stories.gr</div></div>
+          <div><div style={{ fontWeight: 900, fontSize: 16 }}>INTEGRATION HUB</div><div style={{ fontSize: 10, color: F1.textMuted }}>Embed, share & publish</div></div>
           <button onClick={() => setShowEmbed(false)} style={{ marginLeft: "auto" }}>✕</button>
         </div>
         <div style={{ overflowY: "auto", padding: "16px 20px 20px" }}>
-          {/* 1. Embed iframe */}
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: F1.red, letterSpacing: "0.08em", marginBottom: 6 }}>EMBED IFRAME</div>
-            <div style={{ fontSize: 10, color: F1.textDim, marginBottom: 6 }}>Paste in any HTML page or CMS. Shows the full 3D viewer with minimal chrome.</div>
             <textarea id="ta-embed" readOnly value={`<iframe src="${encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })}&embed=1" width="100%" height="650" frameborder="0" style="border-radius:12px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>`} style={{ width: "100%", height: 70, background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 6, padding: 8, fontFamily: F1.mono, fontSize: 10, resize: "none" }} onClick={(e) => e.target.select()} />
             <button onClick={() => { document.getElementById("ta-embed")?.select(); document.execCommand("copy"); }} className="f1-btn" style={{ marginTop: 6, padding: "5px 14px", fontSize: 10 }}>COPY</button>
-          </div>
-
-          {/* 2. Blog widget */}
-          <div style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: F1.red, letterSpacing: "0.08em", marginBottom: 6 }}>BLOG WIDGET</div>
-            <div style={{ fontSize: 10, color: F1.textDim, marginBottom: 6 }}>A compact card for f1stories.gr blog posts. Shows drivers, delta, and a CTA button.</div>
-            {(() => {
-              const widgetUrl = encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 });
-              const widgetHtml = `<div style="max-width:480px;margin:20px auto;background:#15151e;border-radius:12px;border:1px solid #E1060033;overflow:hidden;font-family:'Titillium Web',sans-serif;color:#e8e8f0">
-  <div style="padding:4px 16px;background:#E10600;display:flex;align-items:center;gap:8px">
-    <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;color:#fff">🏎️ GHOST CAR LAB</span>
-    <span style="margin-left:auto;font-size:9px;color:#fffa">f1stories.gr</span>
-  </div>
-  <div style="padding:16px 20px">
-    <div style="font-size:13px;color:#888;margin-bottom:8px">${selMt?.meeting_name || "Grand Prix"} ${year}</div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 0">
-      <div style="text-align:center">
-        <div style="font-size:28px;font-weight:900;color:${co1}">${di1?.name_acronym || "D1"}</div>
-        <div style="font-size:14px;color:#aaa">${fmt(li1?.lap_duration)}</div>
-      </div>
-      <div style="font-size:14px;font-weight:900;color:#E10600;letter-spacing:0.1em">VS</div>
-      <div style="text-align:center">
-        <div style="font-size:28px;font-weight:900;color:${co2}">${di2?.name_acronym || "D2"}</div>
-        <div style="font-size:14px;color:#aaa">${fmt(li2?.lap_duration)}</div>
-      </div>
-    </div>
-    ${delta !== null ? `<div style="text-align:center;font-size:24px;font-weight:900;color:${delta > 0 ? "#E10600" : "#00d26a"};margin:8px 0">${delta > 0 ? "+" : ""}${delta.toFixed(3)}s</div>` : ""}
-    <a href="${widgetUrl}" target="_blank" style="display:block;text-align:center;background:#E10600;color:#fff;padding:10px;border-radius:6px;font-weight:700;font-size:12px;text-decoration:none;letter-spacing:0.08em;margin-top:12px">VIEW IN 3D →</a>
-  </div>
-</div>`;
-              return (<>
-                {/* Preview */}
-                <div style={{ border: `1px solid ${F1.borderLight}`, borderRadius: 8, padding: 8, marginBottom: 6 }} dangerouslySetInnerHTML={{ __html: widgetHtml }} />
-                <textarea id="ta-widget" readOnly value={widgetHtml} style={{ width: "100%", height: 60, background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 6, padding: 8, fontFamily: F1.mono, fontSize: 9, resize: "none" }} onClick={(e) => e.target.select()} />
-                <button onClick={() => { document.getElementById("ta-widget")?.select(); document.execCommand("copy"); }} className="f1-btn" style={{ marginTop: 6, padding: "5px 14px", fontSize: 10 }}>COPY WIDGET HTML</button>
-              </>);
-            })()}
-          </div>
-
-          {/* 3. Full article generator */}
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: F1.red, letterSpacing: "0.08em", marginBottom: 6 }}>GENERATE BLOG ARTICLE</div>
-            <div style={{ fontSize: 10, color: F1.textDim, marginBottom: 8 }}>Download a complete blog-ready HTML page with stats, analysis text, and embedded 3D viewer.</div>
-            <button onClick={() => {
-              const url = encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 });
-              const d1n = di1?.name_acronym || "D1", d2n = di2?.name_acronym || "D2";
-              const gpName = selMt?.meeting_name || "Grand Prix";
-              const sessName = selSe?.session_name || "Session";
-              const winner = delta !== null ? (delta < 0 ? d1n : d2n) : "N/A";
-              const loser = delta !== null ? (delta < 0 ? d2n : d1n) : "N/A";
-              const gap = delta !== null ? Math.abs(delta).toFixed(3) : "0.000";
-              const article = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${d1n} vs ${d2n} — ${gpName} ${year} | F1 Stories Ghost Car Lab</title>
-  <meta name="description" content="${d1n} vs ${d2n} qualifying lap comparison at the ${gpName} ${year}. ${winner} was ${gap}s faster. Full 3D analysis with telemetry data.">
-  <meta property="og:title" content="${d1n} vs ${d2n} — ${gpName} ${year}">
-  <meta property="og:description" content="${winner} beat ${loser} by ${gap}s in ${sessName}. Interactive 3D ghost car comparison.">
-  <meta property="og:image" content="https://f1stories.gr/images/logo.png">
-  <meta property="og:url" content="${url}">
-  <meta name="twitter:card" content="summary_large_image">
-  <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Titillium Web',sans-serif;background:#0e0e16;color:#e8e8f0;max-width:800px;margin:0 auto;padding:20px}
-    h1{font-size:32px;font-weight:900;margin-bottom:4px}
-    .meta{font-size:14px;color:#8b8ba0;margin-bottom:24px}
-    .delta{font-size:48px;font-weight:900;text-align:center;margin:24px 0}
-    .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:24px 0}
-    .stat{background:rgba(25,25,38,0.85);border-radius:8px;padding:14px;text-align:center}
-    .stat-label{font-size:10px;color:#8b8ba0;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px}
-    .stat-val{font-size:20px;font-weight:900}
-    .analysis{line-height:1.8;font-size:15px;color:#bbb;margin:24px 0}
-    .cta{display:block;background:#E10600;color:#fff;text-align:center;padding:16px;border-radius:8px;font-weight:700;font-size:14px;text-decoration:none;letter-spacing:0.05em;margin:24px 0}
-    .cta:hover{background:#B30500}
-    .footer{text-align:center;padding:20px;color:#505068;font-size:12px;border-top:1px solid #222}
-    .footer a{color:#E10600;text-decoration:none}
-  </style>
-</head>
-<body>
-  <a href="https://f1stories.gr" style="display:flex;align-items:center;gap:8px;text-decoration:none;margin-bottom:24px">
-    <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style="height:36px">
-    <div><div style="font-size:18px;font-weight:900;color:#fff">F1 STORIES</div><div style="font-size:9px;color:#8b8ba0;letter-spacing:0.12em">GHOST CAR LAB</div></div>
-  </a>
-
-  <h1><span style="color:${co1}">${d1n}</span> vs <span style="color:${co2}">${d2n}</span></h1>
-  <div class="meta">${gpName} ${year} — ${sessName}</div>
-
-  <div class="delta" style="color:${delta > 0 ? "#E10600" : "#00d26a"}">${delta > 0 ? "+" : ""}${delta?.toFixed(3) || "0.000"}s</div>
-
-  <div class="stats">
-    <div class="stat"><div class="stat-label">${d1n} Lap</div><div class="stat-val" style="color:${co1}">${fmt(li1?.lap_duration)}</div></div>
-    <div class="stat"><div class="stat-label">Gap</div><div class="stat-val" style="color:${delta > 0 ? "#E10600" : "#00d26a"}">${gap}s</div></div>
-    <div class="stat"><div class="stat-label">${d2n} Lap</div><div class="stat-val" style="color:${co2}">${fmt(li2?.lap_duration)}</div></div>
-    <div class="stat"><div class="stat-label">${d1n} Top Speed</div><div class="stat-val">${Math.round(topS1)} km/h</div></div>
-    <div class="stat"><div class="stat-label">Avg Δ</div><div class="stat-val">${Math.round(Math.abs(avgS1 - avgS2))} km/h</div></div>
-    <div class="stat"><div class="stat-label">${d2n} Top Speed</div><div class="stat-val">${Math.round(topS2)} km/h</div></div>
-    ${li1?.duration_sector_1 ? `<div class="stat"><div class="stat-label">S1</div><div class="stat-val">${li1.duration_sector_1.toFixed(3)}</div></div>` : ""}
-    ${li1?.duration_sector_2 ? `<div class="stat"><div class="stat-label">S2</div><div class="stat-val">${li1.duration_sector_2.toFixed(3)}</div></div>` : ""}
-    ${li1?.duration_sector_3 ? `<div class="stat"><div class="stat-label">S3</div><div class="stat-val">${li1.duration_sector_3.toFixed(3)}</div></div>` : ""}
-  </div>
-
-  <div class="analysis">
-    <p><strong>${winner}</strong> took ${sessName === "Race" ? "the faster race lap" : "pole position"} at the <strong>${gpName} ${year}</strong>, beating <strong>${loser}</strong> by just <strong>${gap} seconds</strong>.</p>
-    <p style="margin-top:12px">${d1n} posted a best time of <strong>${fmt(li1?.lap_duration)}</strong> while ${d2n} managed <strong>${fmt(li2?.lap_duration)}</strong>. ${Math.round(topS1) > Math.round(topS2) ? d1n + " had the higher top speed at " + Math.round(topS1) + " km/h versus " + Math.round(topS2) + " km/h" : d2n + " had the edge on top speed with " + Math.round(topS2) + " km/h compared to " + Math.round(topS1) + " km/h"}.</p>
-    <p style="margin-top:12px">Use the interactive 3D comparison below to see exactly where the time was gained and lost around the circuit.</p>
-  </div>
-
-  <iframe src="${url}&embed=1" width="100%" height="600" frameborder="0" style="border-radius:12px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>
-
-  <a href="${url}" class="cta" target="_blank">OPEN FULL GHOST CAR LAB →</a>
-
-  <div class="footer">
-    <p>Powered by <a href="https://f1stories.gr">F1 Stories</a> • Data from OpenF1 API</p>
-    <p style="margin-top:4px">© ${new Date().getFullYear()} F1 Stories. All rights reserved.</p>
-  </div>
-</body>
-</html>`;
-              const blob = new Blob([article], { type: "text/html" });
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = `f1stories-${d1n}-vs-${d2n}-${gpName.replace(/\s+/g, "-")}-${year}.html`;
-              a.click();
-            }} className="f1-btn" style={{ padding: "8px 20px", fontSize: 11 }}>📄 DOWNLOAD ARTICLE HTML</button>
           </div>
         </div>
       </div>)}
 
-      {/* ─── HEADER — F1 Stories branded ─── */}
       {!embed && <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, ${F1.carbonLight} 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
         <div style={{ width: mob ? 4 : 5, background: F1.red, flexShrink: 0 }} />
         <div style={{ display: "flex", alignItems: "center", gap: mob ? 8 : 16, padding: mob ? "8px 10px" : "0 20px", flex: 1, flexWrap: "wrap", minHeight: mob ? "auto" : 48 }}>
-          {/* Logo + brand */}
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
             <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 28 : 34, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
@@ -1537,16 +1274,13 @@ export default function App({ embed }) {
               <span style={{ fontSize: mob ? 8 : 9, fontWeight: 400, color: F1.textMuted, letterSpacing: "0.12em", textTransform: "uppercase" }}>Ghost Car Lab</span>
             </div>
           </a>
-          {/* Nav links */}
           {!mob && <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
             {[{ label: "Blog", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Standings", href: "https://f1stories.gr/standings/" }].map((l) => (
               <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: F1.textDim, textDecoration: "none", padding: "3px 8px", borderRadius: 3, fontWeight: 600, letterSpacing: "0.05em", transition: "color 0.15s" }}
                 onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = F1.textDim}>{l.label.toUpperCase()}</a>
             ))}
           </div>}
-          {/* GP name */}
           {selMt && <span style={{ fontSize: 11, color: F1.textDim, fontWeight: 600, letterSpacing: "0.05em", marginLeft: mob ? 0 : 8 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
-          {/* Actions */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
             <button onClick={() => setShowPresets(true)} style={{ fontSize: 10, padding: "4px 10px", letterSpacing: "0.05em" }}>⚡ PRESETS</button>
             {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
@@ -1554,19 +1288,18 @@ export default function App({ embed }) {
             {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
             {tp && d1 && d2 && <button onClick={loadH2H} style={{ fontSize: 10, padding: "4px 10px" }}>H2H</button>}
             {d1 && d2 && selSe && <button onClick={loadSeasonDash} style={{ fontSize: 10, padding: "4px 10px" }}>SEASON</button>}
-            {tp && <button onClick={saveToGallery} style={{ fontSize: 10, padding: "4px 10px" }} title="Save to gallery">💾</button>}
+            {tp && <button onClick={saveToGallery} style={{ fontSize: 10, padding: "4px 10px" }} title="Save">💾</button>}
             <button onClick={() => setShowGallery(true)} style={{ fontSize: 10, padding: "4px 10px" }} title="Gallery">📂</button>
             {tp && <button onClick={generateSocialCard} style={{ fontSize: 10, padding: "4px 10px" }} title="Social card">🖼️</button>}
             {tp && selSe && <button onClick={() => setShowEmbed(true)} style={{ fontSize: 10, padding: "4px 10px" }} title="Embed">{"</>"}</button>}
             {tp && <button onClick={takeScreenshot} style={{ fontSize: 10, padding: "4px 10px" }} title="Screenshot">📸</button>}
-            {!mob && <button onClick={() => setShowreel((s) => !s)} style={{ fontSize: 10, padding: "4px 10px", background: showreel ? `${F1.red}33` : F1.cardBg, borderColor: showreel ? F1.red : F1.border }} title="Auto-play showreel">{showreel ? "⏹" : "🎬"}</button>}
+            {!mob && <button onClick={() => setShowreel((s) => !s)} style={{ fontSize: 10, padding: "4px 10px", background: showreel ? `${F1.red}33` : F1.cardBg, borderColor: showreel ? F1.red : F1.border }} title="Showreel">{showreel ? "⏹" : "🎬"}</button>}
             <button onClick={toggleTheme} style={{ fontSize: 10, padding: "4px 10px", letterSpacing: "0.05em" }}>{isDark ? "☀️" : "🌙"}</button>
             {!mob && <button onClick={() => setShowKeys(true)} style={{ fontSize: 10, padding: "4px 8px", fontFamily: F1.mono, fontWeight: 900 }}>?</button>}
           </div>
         </div>
       </div>}
 
-      {/* ─── SELECTORS ─── */}
       {!embed && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: mob ? "8px 10px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
         <select value={year} onChange={(e) => setYear(Number(e.target.value))}>{[2026,2025,2024,2023].map((y) => <option key={y} value={y}>{y}</option>)}</select>
         <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 110 : 155 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
@@ -1583,7 +1316,6 @@ export default function App({ embed }) {
           <select value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 100 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
           {laps2.length > 0 && <select value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 56 : 72 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
         </div>
-        {/* Driver 3 */}
         {numDrivers >= 3 && (<>
           <span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -1592,7 +1324,6 @@ export default function App({ embed }) {
             {laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 50 : 62 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
           </div>
         </>)}
-        {/* Driver 4 */}
         {numDrivers >= 4 && (<>
           <span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -1601,7 +1332,6 @@ export default function App({ embed }) {
             {laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 50 : 62 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
           </div>
         </>)}
-        {/* Add/remove driver buttons */}
         {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 8px", fontSize: 10, color: F1.green }} title="Add driver">+D{numDrivers + 1}</button>}
         {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 8px", fontSize: 10, color: F1.red }} title="Remove driver">−</button>}
         <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading}>{loading ? "..." : "COMPARE"}</button>
@@ -1612,13 +1342,11 @@ export default function App({ embed }) {
 
       {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}` }}>{["3d","telemetry"].map((tab) => <button key={tab} onClick={() => setMobTab(tab)} style={{ flex: 1, borderRadius: 0, borderBottom: mobTab === tab ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab ? F1.cardBg : "transparent", fontWeight: mobTab === tab ? 700 : 400, fontSize: 11, padding: "7px 0", letterSpacing: "0.08em", textTransform: "uppercase" }}>{tab === "3d" ? "Track" : "Telemetry"}</button>)}</div>}
 
-      {/* ─── MAIN ─── */}
       <div style={{ display: "flex", flexDirection: mob ? "column" : "row", height: embed ? "100vh" : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`) }}>
         {(!mob || mobTab === "3d") && (
           <div style={{ flex: 1, position: "relative", minHeight: mob ? "50vh" : "auto" }}>
             <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: mob ? "50vh" : "auto" }} />
 
-            {/* Camera mode */}
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => { setCam(m); setShowMap(false); }} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: cam === m && !showMap ? F1.red : F1.overlay, color: cam === m && !showMap ? "#fff" : F1.textDim, borderColor: cam === m && !showMap ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <button onClick={() => setShowMap((m) => !m)} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: showMap ? "#0088ff" : F1.overlay, color: showMap ? "#fff" : F1.textDim, borderColor: showMap ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>📡 MAP</button>
@@ -1626,17 +1354,14 @@ export default function App({ embed }) {
               <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : "normal")} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.05em", textTransform: "uppercase", background: vizMode === "heatmap" ? "#0088ff" : F1.overlay, color: vizMode === "heatmap" ? "#fff" : F1.textDim, borderColor: vizMode === "heatmap" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>🌡 Speed</button>
             </div>}
 
-            {/* Mini-map */}
             {tp && !mob && !showMap && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
 
-            {/* F1 TV Live Map overlay */}
             {showMap && tp && (
               <div style={{ position: "absolute", inset: 0, zIndex: 4, background: F1.carbon }}>
                 <LiveMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} di1={di1} di2={di2} li1={li1} li2={li2} ct1={ct1} ct2={ct2} delta={delta} tel1={tel1} tel2={tel2} />
               </div>
             )}
 
-            {/* Delta badge — F1 broadcast style */}
             {delta !== null && tp && (
               <div style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", zIndex: 2, animation: "fadeIn .4s" }}>
                 <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: mob ? "6px 16px" : "8px 24px", border: `1px solid ${F1.red}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -1652,14 +1377,14 @@ export default function App({ embed }) {
               </div>
             )}
 
-            {/* Sectors */}
             {tp && li1 && li2 && <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 4, zIndex: 2, maxWidth: "95%" }}>
               <SD s={1} t1={li1.duration_sector_1} t2={li2.duration_sector_1} c1={co1} c2={co2} />
               <SD s={2} t1={li1.duration_sector_2} t2={li2.duration_sector_2} c1={co1} c2={co2} />
               <SD s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
             </div>}
 
-            {!tp && !loading && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
+            {/* ─── Empty state: NON-EMBED only ─── */}
+            {!tp && !loading && !embed && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
               <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
               <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4, letterSpacing: "0.04em" }}>GHOST CAR LAB</div>
               <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>by F1 STORIES</div>
@@ -1669,14 +1394,39 @@ export default function App({ embed }) {
                 <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: F1.textDim, textDecoration: "none", padding: "8px 14px", border: `1px solid ${F1.border}`, borderRadius: 4, fontWeight: 600 }}>f1stories.gr →</a>
               </div>
             </div>}
+
+            {/* ─── Empty state: EMBED — clean loading UI ─── */}
+            {embed && !tp && (
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .4s" }}>
+                {loading ? (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, letterSpacing: "0.05em", marginBottom: 6 }}>{loading}</div>
+                    {ldPct !== undefined && (
+                      <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto" }}>
+                        <div style={{ height: "100%", width: `${ldPct}%`, background: F1.red, borderRadius: 2, transition: "width .3s" }} />
+                      </div>
+                    )}
+                    <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 8, fontFamily: F1.mono }}>
+                      {ldPct !== undefined && ldPct < 100 ? `${Math.round(ldPct)}%` : ""}
+                    </div>
+                  </>
+                ) : err ? (
+                  <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{err}</div>
+                ) : (
+                  <>
+                    <div style={{ width: 28, height: 28, border: `3px solid ${F1.red}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} />
+                    <div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono, letterSpacing: "0.05em" }}>LOADING COMPARISON</div>
+                    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Telemetry */}
         {((!mob && showTel && tp) || (mob && mobTab === "telemetry" && tp)) && (
           <div style={{ width: mob ? "100%" : 310, borderLeft: mob ? "none" : `1px solid ${F1.borderLight}`, background: F1.panelBg, display: "flex", flexDirection: "column", maxHeight: mob ? "55vh" : "auto", animation: "fadeIn .2s" }}>
             <div style={{ padding: mob ? 10 : 14, overflowY: "auto", flex: 1 }}>
-              {/* ─── Speedometer gauges ─── */}
               <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
                 {allDrivers.map((x, i) => (
                   <div key={i} style={{ flex: 1, minWidth: numDrivers > 2 ? 120 : "auto", background: F1.cardBg, borderRadius: 6, padding: numDrivers > 2 ? "6px 6px 4px" : "8px 8px 6px", borderTop: `3px solid ${x.co}`, position: "relative", textAlign: "center" }}>
@@ -1711,7 +1461,6 @@ export default function App({ embed }) {
                   </div>
                 ))}
               </div>
-              {/* ─── Elevation profile ─── */}
               {tp && (
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ELEVATION</div>
@@ -1726,7 +1475,6 @@ export default function App({ embed }) {
                   </svg>
                 </div>
               )}
-              {/* ─── Cumulative sector delta (F1 TV style) ─── */}
               {li1 && li2 && li1.duration_sector_1 && li2.duration_sector_1 && (() => {
                 const s1d = li1.duration_sector_1, s2d = li1.duration_sector_2, s3d = li1.duration_sector_3;
                 const s1d2 = li2.duration_sector_1, s2d2 = li2.duration_sector_2, s3d2 = li2.duration_sector_3;
@@ -1756,7 +1504,6 @@ export default function App({ embed }) {
                   </svg>
                 </div>);
               })()}
-              {/* ─── Speed trap comparison ─── */}
               {s1?.length > 10 && s2?.length > 10 && (() => {
                 const traps = [0.1, 0.25, 0.5, 0.75, 0.9];
                 const labels = ["T1 10%", "T2 25%", "T3 50%", "T4 75%", "T5 90%"];
@@ -1776,77 +1523,6 @@ export default function App({ embed }) {
                   </div>
                 </div>);
               })()}
-              {tp && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 4, fontWeight: 700 }}>G-FORCE</div>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {allDrivers.map((x, idx) => {
-                      const telArr = x.tel || [];
-                      const ti = Math.min(Math.floor(prog * (telArr.length - 1)), telArr.length - 1);
-                      const prev2 = telArr[Math.max(0, ti - 2)] || {};
-                      const prev1 = telArr[Math.max(0, ti - 1)] || {};
-                      const curr = telArr[ti] || {};
-                      const next1 = telArr[Math.min(ti + 1, telArr.length - 1)] || {};
-                      // Longitudinal G from speed delta (dv/dt, ~3.7Hz sample rate → dt≈0.27s)
-                      const dv = ((curr.speed || 0) - (prev2.speed || 0)) / 3.6; // km/h to m/s
-                      const longG = dv / (0.54 * 9.81); // 2 samples ≈ 0.54s
-                      // Lateral G approximation from heading change × speed
-                      const p0 = ti > 2 ? lerp(x.tel ? norm(telArr.map((t,i2) => ({ x: i2, y: 0, z: 0 }))) : tp, Math.max(0, prog - 0.01)) : { x: 0, z: 0 };
-                      const p1 = lerp(tp, prog);
-                      const p2 = lerp(tp, Math.min(1, prog + 0.01));
-                      const dx1 = p1.x - p0.x, dz1 = p1.z - p0.z;
-                      const dx2 = p2.x - p1.x, dz2 = p2.z - p1.z;
-                      const cross = dx1 * dz2 - dz1 * dx2;
-                      const latG = cross * (curr.speed || 0) * 0.0004;
-                      const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
-                      const gx = clamp(latG, -5, 5), gy = clamp(longG, -5, 5);
-                      const totalG = Math.sqrt(gx * gx + gy * gy);
-                      return (
-                        <div key={idx} style={{ flex: 1, background: F1.cardBg, borderRadius: 6, padding: "6px 4px 4px", textAlign: "center" }}>
-                          <svg width="100%" height="90" viewBox="-6 -6 12 12" style={{ display: "block" }}>
-                            <defs>
-                              <radialGradient id={`gGrad${idx}`}><stop offset="0%" stopColor={x.co} stopOpacity="0.06" /><stop offset="100%" stopColor={x.co} stopOpacity="0" /></radialGradient>
-                            </defs>
-                            {/* Background glow */}
-                            <circle cx="0" cy="0" r="5.5" fill={`url(#gGrad${idx})`} />
-                            {/* G rings */}
-                            {[1, 2, 3, 4, 5].map((r) => (
-                              <circle key={r} cx="0" cy="0" r={r} fill="none" stroke={r <= 2 ? `${F1.textMuted}33` : `${F1.textMuted}18`} strokeWidth="0.06" />
-                            ))}
-                            {/* Axis lines */}
-                            <line x1="-5.5" y1="0" x2="5.5" y2="0" stroke={F1.textMuted} strokeWidth="0.04" opacity="0.4" />
-                            <line x1="0" y1="-5.5" x2="0" y2="5.5" stroke={F1.textMuted} strokeWidth="0.04" opacity="0.4" />
-                            {/* Axis labels */}
-                            <text x="5.3" y="-0.3" textAnchor="end" fill={F1.textMuted} fontSize="0.7" fontFamily="sans-serif" opacity="0.6">LAT</text>
-                            <text x="0.3" y="-5" textAnchor="start" fill={F1.textMuted} fontSize="0.7" fontFamily="sans-serif" opacity="0.6">ACC</text>
-                            <text x="0.3" y="5.5" textAnchor="start" fill={F1.textMuted} fontSize="0.7" fontFamily="sans-serif" opacity="0.6">BRK</text>
-                            {/* G-ring at current magnitude */}
-                            {totalG > 0.2 && <circle cx="0" cy="0" r={Math.min(totalG, 5)} fill="none" stroke={x.co} strokeWidth="0.08" opacity="0.25" />}
-                            {/* Dot trail (fade) */}
-                            {[0.92, 0.84, 0.76, 0.68].map((fade, ti2) => {
-                              const pi = Math.max(0, Math.floor((prog - (ti2 + 1) * 0.003) * (telArr.length - 1)));
-                              const pp = telArr[pi] || {};
-                              const pPrev = telArr[Math.max(0, pi - 2)] || {};
-                              const pdv = ((pp.speed || 0) - (pPrev.speed || 0)) / 3.6;
-                              const plg = pdv / (0.54 * 9.81);
-                              return <circle key={ti2} cx={clamp(latG * fade, -5, 5)} cy={clamp(-plg, -5, 5)} r={0.25 - ti2 * 0.04} fill={x.co} opacity={0.15 + ti2 * -0.03} />;
-                            })}
-                            {/* Main G dot */}
-                            <circle cx={clamp(gx, -5, 5)} cy={clamp(-gy, -5, 5)} r="0.4" fill={x.co} opacity="0.9" />
-                            <circle cx={clamp(gx, -5, 5)} cy={clamp(-gy, -5, 5)} r="0.6" fill="none" stroke={x.co} strokeWidth="0.08" opacity="0.4" />
-                          </svg>
-                          {/* Readout */}
-                          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 2 }}>
-                            <span style={{ fontSize: 13, fontWeight: 900, color: x.co, fontFamily: F1.mono }}>{totalG.toFixed(1)}<span style={{ fontSize: 8, fontWeight: 400, color: F1.textMuted }}>G</span></span>
-                            <span style={{ fontSize: 9, color: F1.textDim, fontFamily: F1.mono, alignSelf: "center" }}>{x.di?.name_acronym || "—"}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {/* ─── Current sector indicator (green/yellow/purple like F1 TV) ─── */}
               {tp && (() => {
                 const sIdx = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
                 const sColors = ["#00d26a", "#ffd700", "#9b59b6"];
@@ -1860,14 +1536,13 @@ export default function App({ embed }) {
                   ))}
                 </div>);
               })()}
-              {/* ─── Tire degradation estimator ─── */}
               {laps1.length > 3 && (() => {
                 const validLaps = laps1.filter((l) => l.lap_duration > 10 && l.lap_duration < 200).sort((a, b) => a.lap_number - b.lap_number);
                 if (validLaps.length < 3) return null;
                 const best = Math.min(...validLaps.map((l) => l.lap_duration));
                 const maxDeg = Math.max(...validLaps.map((l) => l.lap_duration - best));
                 return (<div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>TIRE DEG <span style={{ fontWeight: 400 }}>(pace drop-off)</span></div>
+                  <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>TIRE DEG</div>
                   <svg width="100%" height="35" viewBox="0 0 300 35" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block" }}>
                     {validLaps.map((l, i) => {
                       const x = (i / (validLaps.length - 1)) * 290 + 5;
@@ -1896,7 +1571,6 @@ export default function App({ embed }) {
         )}
       </div>
 
-      {/* ─── PLAYBACK BAR — F1 broadcast style ─── */}
       {tp && (
         <div style={{ display: "flex", alignItems: "center", gap: mob ? 6 : 10, padding: mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.red}22` }}>
           <button onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>⏮</button>
@@ -1911,11 +1585,10 @@ export default function App({ embed }) {
           <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: 48, padding: "2px 3px", fontSize: 10 }}>
             <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
           </select>
-          {!mob && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
+          {!mob && !embed && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
         </div>
       )}
 
-      {/* ─── Footer ─── */}
       {!embed ? (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
