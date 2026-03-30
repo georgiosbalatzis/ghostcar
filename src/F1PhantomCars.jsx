@@ -352,13 +352,13 @@ export default function App({ embed }) {
 
       {/* Main area */}
       <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: embed ? 1 : undefined, height: embed ? undefined : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`), overflow: "hidden" }}>
-        {((!mob && !embed) || mobTab === "3d") && (
-          <div style={{ flex: 1, position: "relative", minHeight: embed ? 0 : (mob ? "50vh" : "auto"), display: (embed && mobTab !== "3d") ? "none" : undefined }}>
+        {/* 3D Track — always mounted in embed to preserve scene, hidden via display */}
+        <div style={{ flex: (embed && mobTab !== "3d") ? undefined : 1, position: "relative", minHeight: embed ? 0 : (mob ? "50vh" : "auto"), display: (embed && mobTab !== "3d") ? "none" : ((!mob && !embed) || mobTab === "3d") ? undefined : "none" }}>
             <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: embed ? 0 : (mob ? "50vh" : "auto") }} />
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-              <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode === "heatmap" ? "#0088ff" : F1.overlay, color: vizMode === "heatmap" ? "#fff" : F1.textDim, borderColor: vizMode === "heatmap" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>🌡 Speed</button>
+              <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
             </div>}
             {tp && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
             {delta !== null && tp && <div style={{ position: "absolute", bottom: 8, left: 10, zIndex: 3, animation: "fadeIn .4s" }}>
@@ -390,7 +390,6 @@ export default function App({ embed }) {
               {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.red, borderRadius: 2, transition: "width .3s" }} /></div>}</>) : err ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{err}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.red}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>LOADING COMPARISON</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
             </div>}
           </div>
-        )}
 
         {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
         {((!mob && !embed && showTel && tp) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
@@ -445,10 +444,12 @@ export default function App({ embed }) {
         </select>
         {!mob && !embed && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
         {embed && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
+        {embed && <a href={encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })} target="_blank" rel="noopener noreferrer" style={{ padding: "3px 8px", fontSize: 9, color: F1.red, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.red}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>VIEW IN APP ↗</a>}
+        {embed && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Powered by <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.red, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
       </div>}
 
       {/* Footer */}
-      {!embed ? (
+      {!embed && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
             <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
@@ -459,10 +460,6 @@ export default function App({ embed }) {
           <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
           <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
         </div>
-      ) : (
-        <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ position: "fixed", bottom: 6, right: 8, zIndex: 10, background: "rgba(0,0,0,0.7)", padding: "3px 10px", borderRadius: 4, fontSize: 9, color: "#888", textDecoration: "none", fontFamily: F1.sans, backdropFilter: "blur(4px)" }}>
-          Powered by <span style={{ color: "#E10600", fontWeight: 700 }}>F1 Stories</span>
-        </a>
       )}
     </div>
   );
