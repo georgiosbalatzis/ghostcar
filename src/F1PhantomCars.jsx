@@ -208,14 +208,33 @@ export default function App({ embed }) {
     } catch { setDashData([]); }
   }, [year, d1, d2]);
 
-  // ─── Scene ───
-  useScene(cRef, tp, loc1, loc2, prog, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "");
+  // ─── Scene — pass progRef for direct 60fps reads ───
+  const progRef = useRef(0);
+  progRef.current = prog;
+  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "");
 
-  // ─── Playback ───
+  // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
+  const spdRef = useRef(spd); spdRef.current = spd;
+  const loopRef = useRef(loop); loopRef.current = loop;
+  const uiSyncRef = useRef(0);
   const startWithCountdown = useCallback(() => {
     if (prog < 0.01 && tp && !play) { if (embed) { setPlay(true); return; } setCountdown(5); let c = 5; const iv = setInterval(() => { c--; setCountdown(c); if (c <= 0) { clearInterval(iv); setCountdown(null); setPlay(true); } }, 600); } else { setPlay(!play); }
   }, [prog, tp, play, embed]);
-  useEffect(() => { if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; } function tick(ts) { if (!ltRef.current) ltRef.current = ts; const dt = (ts - ltRef.current) / 1000; ltRef.current = ts; setProg((p) => { const n = p + dt * 0.015 * spd; if (n >= 1) { if (loop) return 0; setPlay(false); return 1; } return n; }); rafRef.current = requestAnimationFrame(tick); } rafRef.current = requestAnimationFrame(tick); return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }; }, [play, spd, loop]);
+  useEffect(() => {
+    if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; }
+    function tick(ts) {
+      if (!ltRef.current) ltRef.current = ts;
+      const dt = (ts - ltRef.current) / 1000; ltRef.current = ts;
+      let n = progRef.current + dt * 0.015 * spdRef.current;
+      if (n >= 1) { if (loopRef.current) { n = 0; } else { n = 1; setPlay(false); } }
+      progRef.current = n;
+      // Sync to React state at ~12fps for slider/time display
+      if (ts - uiSyncRef.current > 80) { uiSyncRef.current = ts; setProg(n); }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [play]);
 
   // ─── Keyboard ───
   const lastLeftRef = useRef(0);
@@ -322,17 +341,33 @@ export default function App({ embed }) {
         </div>
       </div>}
 
-      {/* Mobile hamburger dropdown menu */}
-      {mob && showMobMenu && !embed && <div style={{ background: F1.carbonLight, borderBottom: `1px solid ${F1.borderLight}`, padding: "8px 10px", display: "flex", flexWrap: "wrap", gap: 4, animation: "fadeIn .15s", zIndex: 10, position: "relative" }}>
-        {tp && <button onClick={() => { setShowStats(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>📈 Stats</button>}
-        {tp && <button onClick={() => { setShowLaps(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>⏱ Laps</button>}
-        {tp && d1 && d2 && <button onClick={() => { loadH2H(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>⚔️ H2H</button>}
-        {d1 && d2 && selSe && <button onClick={() => { loadSeasonDash(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>🏆 Season</button>}
-        <button onClick={() => { setShowGallery(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>📂 Gallery</button>
-        {tp && <button onClick={() => { generateSocialCard(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>🖼️ Social Card</button>}
-        {tp && selSe && <button onClick={() => { setShowEmbed(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>{"</>"} Embed</button>}
-        {tp && <button onClick={() => { takeScreenshot(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>📸 Screenshot</button>}
-      </div>}
+      {/* Mobile menu panel */}
+      {mob && showMobMenu && !embed && (<>
+        <div onClick={() => setShowMobMenu(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 49 }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, background: F1.carbon, borderBottom: `2px solid ${F1.red}`, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: F1.text, letterSpacing: "0.08em" }}>TOOLS</span>
+            <button onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+            {[
+              { icon: "📈", label: "Stats", action: () => { setShowStats(true); setShowMobMenu(false); }, show: !!tp },
+              { icon: "⏱", label: "Laps", action: () => { setShowLaps(true); setShowMobMenu(false); }, show: !!tp },
+              { icon: "⚔️", label: "H2H", action: () => { loadH2H(); setShowMobMenu(false); }, show: !!(tp && d1 && d2) },
+              { icon: "🏆", label: "Season", action: () => { loadSeasonDash(); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
+              { icon: "📂", label: "Gallery", action: () => { setShowGallery(true); setShowMobMenu(false); }, show: true },
+              { icon: "🖼️", label: "Social", action: () => { generateSocialCard(); setShowMobMenu(false); }, show: !!tp },
+              { icon: "</>", label: "Embed", action: () => { setShowEmbed(true); setShowMobMenu(false); }, show: !!(tp && selSe) },
+              { icon: "📸", label: "Screenshot", action: () => { takeScreenshot(); setShowMobMenu(false); }, show: !!tp },
+            ].filter((a) => a.show).map((a) => (
+              <button key={a.label} onClick={a.action} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 4px", borderRadius: 8, background: F1.cardBg, border: `1px solid ${F1.borderLight}`, fontSize: 9, color: F1.textDim, fontWeight: 600, letterSpacing: "0.02em" }}>
+                <span style={{ fontSize: 18 }}>{a.icon}</span>
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </>)}
 
       {/* Selectors */}
       {!embed && <div style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
@@ -474,7 +509,7 @@ export default function App({ embed }) {
         <button onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>⏮</button>
         <button onClick={startWithCountdown} style={{ padding: "3px 9px", fontSize: 13, background: play ? `${F1.red}33` : F1.cardBg, borderColor: play ? F1.red : F1.border }}>{play ? "⏸" : "▶"}</button>
         <button onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>🔁</button>
-        <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => setProg(parseFloat(e.target.value))} style={{ flex: 1, height: 4, accentColor: F1.red }} />
+        <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => { const v = parseFloat(e.target.value); progRef.current = v; setProg(v); }} style={{ flex: 1, height: 4, accentColor: F1.red }} />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: mob ? 55 : 70 }}>
           {allDrivers.map((d, i) => <span key={i} style={{ fontSize: 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
         </div>

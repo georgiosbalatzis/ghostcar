@@ -62,6 +62,7 @@ export default function App({ embed }) {
   const [showTel, setShowTel] = useState(!embed); const [mobTab, setMobTab] = useState("3d");
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [showMobMenu, setShowMobMenu] = useState(false);
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
 
@@ -112,8 +113,8 @@ export default function App({ embed }) {
   useEffect(() => { const u = decodeURL(); if (u.l1 && laps1.length && !sl1) setSl1(Number(u.l1)); }, [laps1]);
   useEffect(() => { const u = decodeURL(); if (u.l2 && laps2.length && !sl2) setSl2(Number(u.l2)); }, [laps2]);
 
-  // Embed auto-load
-  useEffect(() => { if (!embed || autoLoadRef.current) return; if (selSe && d1 && d2 && sl1 && sl2) { autoLoadRef.current = true; setTimeout(() => loadData(), 300); } }, [embed, selSe, d1, d2, sl1, sl2]);
+  // Auto-load when URL params are fully restored (shared links + embed)
+  useEffect(() => { if (!urlLoaded.current || autoLoadRef.current) return; if (selSe && d1 && d2 && sl1 && sl2) { autoLoadRef.current = true; setTimeout(() => loadData(), 300); } }, [selSe, d1, d2, sl1, sl2]);
 
   // ─── Actions ───
   const loadData = useCallback(async () => {
@@ -232,7 +233,7 @@ export default function App({ embed }) {
 
   // ─── RENDER ───
   return (
-    <div style={{ width: "100%", minHeight: embed ? "auto" : "100vh", height: embed ? "100vh" : "auto", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden", display: embed ? "flex" : "block", flexDirection: embed ? "column" : undefined }}>
+    <div style={{ width: "100%", minHeight: (embed || mob) ? "auto" : "100vh", height: (embed || mob) ? "100vh" : "auto", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden", display: (embed || mob) ? "flex" : "block", flexDirection: (embed || mob) ? "column" : undefined }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -277,66 +278,104 @@ export default function App({ embed }) {
       {/* Header */}
       {!embed && <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, ${F1.carbonLight} 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
         <div style={{ width: mob ? 4 : 5, background: F1.red, flexShrink: 0 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: mob ? 8 : 16, padding: mob ? "8px 10px" : "0 20px", flex: 1, flexWrap: "wrap", minHeight: mob ? "auto" : 48 }}>
-          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-            <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 28 : 34, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
-              <span style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: F1.text, letterSpacing: "0.03em" }}>F1 STORIES</span>
-              <span style={{ fontSize: mob ? 8 : 9, fontWeight: 400, color: F1.textMuted, letterSpacing: "0.12em", textTransform: "uppercase" }}>Ghost Car Lab</span>
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: mob ? 6 : 16, padding: mob ? "6px 8px" : "0 20px", flex: 1, flexWrap: mob ? "nowrap" : "wrap", minHeight: mob ? 40 : 48, overflow: "hidden" }}>
+          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none", flexShrink: 0 }}>
+            <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 24 : 34, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
+            {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+              <span style={{ fontSize: 18, fontWeight: 900, color: F1.text, letterSpacing: "0.03em" }}>F1 STORIES</span>
+              <span style={{ fontSize: 9, fontWeight: 400, color: F1.textMuted, letterSpacing: "0.12em", textTransform: "uppercase" }}>Ghost Car Lab</span>
+            </div>}
           </a>
+          {mob && <span style={{ fontSize: 11, fontWeight: 700, color: F1.text, letterSpacing: "0.03em", whiteSpace: "nowrap" }}>Ghost Car Lab</span>}
+          {mob && selMt && <span style={{ fontSize: 9, color: F1.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")}</span>}
           {!mob && <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
             {[{ label: "Blog", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Standings", href: "https://f1stories.gr/standings/" }].map((l) => (
               <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: F1.textDim, textDecoration: "none", padding: "3px 8px", borderRadius: 3, fontWeight: 600, letterSpacing: "0.05em" }}>{l.label.toUpperCase()}</a>
             ))}
           </div>}
-          {selMt && <span style={{ fontSize: 11, color: F1.textDim, fontWeight: 600, letterSpacing: "0.05em", marginLeft: mob ? 0 : 8 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 }}>
-            <button onClick={() => setShowPresets(true)} style={{ fontSize: 10, padding: "4px 10px" }}>⚡ PRESETS</button>
-            {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
-            {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
-            {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
-            {tp && d1 && d2 && <button onClick={loadH2H} style={{ fontSize: 10, padding: "4px 10px" }}>H2H</button>}
-            {d1 && d2 && selSe && <button onClick={loadSeasonDash} style={{ fontSize: 10, padding: "4px 10px" }}>SEASON</button>}
-            {tp && <button onClick={saveToGallery} style={{ fontSize: 10, padding: "4px 10px" }}>💾</button>}
-            <button onClick={() => setShowGallery(true)} style={{ fontSize: 10, padding: "4px 10px" }}>📂</button>
-            {tp && <button onClick={generateSocialCard} style={{ fontSize: 10, padding: "4px 10px" }}>🖼️</button>}
-            {tp && selSe && <button onClick={() => setShowEmbed(true)} style={{ fontSize: 10, padding: "4px 10px" }}>{"</>"}</button>}
-            {tp && <button onClick={takeScreenshot} style={{ fontSize: 10, padding: "4px 10px" }}>📸</button>}
-            {!mob && <button onClick={() => setShowreel((s) => !s)} style={{ fontSize: 10, padding: "4px 10px", background: showreel ? `${F1.red}33` : F1.cardBg, borderColor: showreel ? F1.red : F1.border }}>{showreel ? "⏹" : "🎬"}</button>}
-            <button onClick={toggleTheme} style={{ fontSize: 10, padding: "4px 10px" }}>{isDark ? "☀️" : "🌙"}</button>
-            {!mob && <button onClick={() => setShowKeys(true)} style={{ fontSize: 10, padding: "4px 8px", fontFamily: F1.mono, fontWeight: 900 }}>?</button>}
+          {!mob && selMt && <span style={{ fontSize: 11, color: F1.textDim, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 8 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: mob ? 3 : 5, flexShrink: 0 }}>
+            {/* Mobile: compact action row */}
+            {mob ? (<>
+              <button onClick={() => setShowPresets(true)} style={{ fontSize: 9, padding: "3px 6px" }}>⚡</button>
+              {selSe && <button onClick={share} style={{ fontSize: 9, padding: "3px 6px" }}>{shareMsg ? "✓" : "↗"}</button>}
+              {tp && <button onClick={saveToGallery} style={{ fontSize: 9, padding: "3px 6px" }}>💾</button>}
+              <button onClick={toggleTheme} style={{ fontSize: 9, padding: "3px 6px" }}>{isDark ? "☀️" : "🌙"}</button>
+              <button onClick={() => setShowMobMenu((v) => !v)} style={{ fontSize: 12, padding: "3px 6px", background: showMobMenu ? `${F1.red}33` : F1.cardBg }}>☰</button>
+            </>) : (<>
+              <button onClick={() => setShowPresets(true)} style={{ fontSize: 10, padding: "4px 10px" }}>⚡ PRESETS</button>
+              {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
+              {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
+              {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
+              {tp && d1 && d2 && <button onClick={loadH2H} style={{ fontSize: 10, padding: "4px 10px" }}>H2H</button>}
+              {d1 && d2 && selSe && <button onClick={loadSeasonDash} style={{ fontSize: 10, padding: "4px 10px" }}>SEASON</button>}
+              {tp && <button onClick={saveToGallery} style={{ fontSize: 10, padding: "4px 10px" }}>💾</button>}
+              <button onClick={() => setShowGallery(true)} style={{ fontSize: 10, padding: "4px 10px" }}>📂</button>
+              {tp && <button onClick={generateSocialCard} style={{ fontSize: 10, padding: "4px 10px" }}>🖼️</button>}
+              {tp && selSe && <button onClick={() => setShowEmbed(true)} style={{ fontSize: 10, padding: "4px 10px" }}>{"</>"}</button>}
+              {tp && <button onClick={takeScreenshot} style={{ fontSize: 10, padding: "4px 10px" }}>📸</button>}
+              <button onClick={() => setShowreel((s) => !s)} style={{ fontSize: 10, padding: "4px 10px", background: showreel ? `${F1.red}33` : F1.cardBg, borderColor: showreel ? F1.red : F1.border }}>{showreel ? "⏹" : "🎬"}</button>
+              <button onClick={toggleTheme} style={{ fontSize: 10, padding: "4px 10px" }}>{isDark ? "☀️" : "🌙"}</button>
+              <button onClick={() => setShowKeys(true)} style={{ fontSize: 10, padding: "4px 8px", fontFamily: F1.mono, fontWeight: 900 }}>?</button>
+            </>)}
           </div>
         </div>
       </div>}
 
+      {/* Mobile hamburger dropdown menu */}
+      {mob && showMobMenu && !embed && <div style={{ background: F1.carbonLight, borderBottom: `1px solid ${F1.borderLight}`, padding: "8px 10px", display: "flex", flexWrap: "wrap", gap: 4, animation: "fadeIn .15s", zIndex: 10, position: "relative" }}>
+        {tp && <button onClick={() => { setShowStats(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>📈 Stats</button>}
+        {tp && <button onClick={() => { setShowLaps(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>⏱ Laps</button>}
+        {tp && d1 && d2 && <button onClick={() => { loadH2H(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>⚔️ H2H</button>}
+        {d1 && d2 && selSe && <button onClick={() => { loadSeasonDash(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>🏆 Season</button>}
+        <button onClick={() => { setShowGallery(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>📂 Gallery</button>
+        {tp && <button onClick={() => { generateSocialCard(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>🖼️ Social Card</button>}
+        {tp && selSe && <button onClick={() => { setShowEmbed(true); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>{"</>"} Embed</button>}
+        {tp && <button onClick={() => { takeScreenshot(); setShowMobMenu(false); }} style={{ fontSize: 9, padding: "4px 8px" }}>📸 Screenshot</button>}
+      </div>}
+
       {/* Selectors */}
-      {!embed && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: mob ? "8px 10px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))}>{[2026,2025,2024,2023].map((y) => <option key={y} value={y}>{y}</option>)}</select>
-        <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 110 : 155 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
-        <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 85 : 115 }}><option value="">Session</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{s.session_name}</option>)}</select>
-        {!mob && <div style={{ width: 1, height: 20, background: `${F1.red}33` }} />}
-        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <div style={{ width: 3, height: 18, background: co1, borderRadius: 1 }} />
-          <select value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 100 }}><option value="">Driver 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
-          {laps1.length > 0 && <select value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 56 : 72 }}><option value="">Lap</option>{laps1.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+      {!embed && <div style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
+        {/* Row 1: Event selectors */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 60 : "auto", fontSize: mob ? 11 : 12 }}>{[2026,2025,2024,2023].map((y) => <option key={y} value={y}>{y}</option>)}</select>
+          <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 100 : 155, flex: mob ? 1 : undefined, fontSize: mob ? 11 : 12 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
+          <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 75 : 115, fontSize: mob ? 11 : 12 }}><option value="">Session</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{s.session_name}</option>)}</select>
         </div>
-        <span style={{ color: F1.red, fontSize: 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-          <div style={{ width: 3, height: 18, background: co2, borderRadius: 1 }} />
-          <select value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 100 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
-          {laps2.length > 0 && <select value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 56 : 72 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+        {/* Row 2: Driver selectors */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center" }}>
+          {!mob && <div style={{ width: 1, height: 20, background: `${F1.red}33` }} />}
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <div style={{ width: 3, height: 16, background: co1, borderRadius: 1 }} />
+            <select value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 100, fontSize: mob ? 11 : 12 }}><option value="">Driver 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
+            {laps1.length > 0 && <select value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 50 : 72, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps1.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+          </div>
+          <span style={{ color: F1.red, fontSize: mob ? 9 : 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <div style={{ width: 3, height: 16, background: co2, borderRadius: 1 }} />
+            <select value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 100, fontSize: mob ? 11 : 12 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
+            {laps2.length > 0 && <select value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 50 : 72, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+          </div>
+          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 90, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>{laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 46 : 62, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}</div></>}
+          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 90, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>{laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 46 : 62, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}</div></>}
+          {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+D{numDrivers + 1}</button>}
+          {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
+          <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "COMPARE"}</button>
         </div>
-        {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 18, background: co3, borderRadius: 1 }} /><select value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 90 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>{laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 50 : 62 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}</div></>}
-        {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 18, background: co4, borderRadius: 1 }} /><select value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 68 : 90 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>{laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 50 : 62 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}</div></>}
-        {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 8px", fontSize: 10, color: F1.green }}>+D{numDrivers + 1}</button>}
-        {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 8px", fontSize: 10, color: F1.red }}>−</button>}
-        <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading}>{loading ? "..." : "COMPARE"}</button>
       </div>}
 
       {!embed && err && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{err}</span><button onClick={() => setErr("")} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
       {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}><div style={{ fontSize: 11, color: F1.textDim, fontFamily: F1.mono, marginBottom: 4 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.red, borderRadius: 1, transition: "width .3s" }} /></div>}</div>}
-      {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}` }}>{["3d","telemetry"].map((tab) => <button key={tab} onClick={() => { setMobTab(tab); if (tab === "3d") setTimeout(() => window.dispatchEvent(new Event("resize")), 50); }} style={{ flex: 1, borderRadius: 0, borderBottom: mobTab === tab ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab ? F1.cardBg : "transparent", fontWeight: mobTab === tab ? 700 : 400, fontSize: 11, padding: "7px 0", textTransform: "uppercase" }}>{tab === "3d" ? "Track" : "Telemetry"}</button>)}</div>}
+      {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, overflowX: "auto", flexShrink: 0 }}>
+        {[
+          { id: "3d", label: "🏎️ Track" },
+          { id: "telemetry", label: "📊 Telemetry" },
+          { id: "stats", label: "📈 Stats" },
+          { id: "laps", label: "⏱ Laps" },
+          { id: "h2h", label: "⚔️ H2H" },
+          { id: "season", label: "🏆 Season" },
+        ].map((tab) => <button key={tab.id} onClick={() => { setMobTab(tab.id); if (tab.id === "h2h" && !h2hData) loadH2H(); if (tab.id === "season" && !dashData) loadSeasonDash(); if (tab.id === "3d") setTimeout(() => window.dispatchEvent(new Event("resize")), 50); }} style={{ flex: "0 0 auto", borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.red}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 10px", textTransform: "none", whiteSpace: "nowrap" }}>{tab.label}</button>)}
+      </div>}
 
       {/* Embed tab bar */}
       {embed && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, flexShrink: 0, overflowX: "auto" }}>
@@ -351,10 +390,10 @@ export default function App({ embed }) {
       </div>}
 
       {/* Main area */}
-      <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: embed ? 1 : undefined, height: embed ? undefined : (mob ? "auto" : `calc(100vh - ${tp ? 175 : 130}px)`), overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
         {/* 3D Track — always mounted to preserve WebGL context, hidden via display:none */}
-        <div style={{ flex: 1, position: "relative", minHeight: embed ? 0 : (mob ? "50vh" : "auto"), display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
-            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: embed ? 0 : (mob ? "50vh" : "auto") }} />
+        <div style={{ flex: 1, position: "relative", minHeight: (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
+            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: (embed || mob) ? 0 : "auto" }} />
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
@@ -393,20 +432,20 @@ export default function App({ embed }) {
 
         {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
         {((!mob && !embed && showTel && tp) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
-          <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: embed ? 1 : undefined, maxHeight: (!mob && !embed) ? "auto" : (embed ? undefined : "55vh"), overflow: "auto", animation: "fadeIn .2s" }}>
+          <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: (embed || mob) ? 1 : undefined, maxHeight: (!mob && !embed) ? "auto" : undefined, overflow: "auto", animation: "fadeIn .2s" }}>
             <TelemetryPanel mob={mob || embed} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
           </div>
         )}
 
-        {/* Embed inline Stats tab */}
-        {embed && mobTab === "stats" && tp && (
+        {/* Inline Stats tab (embed + mobile) */}
+        {(embed || mob) && mobTab === "stats" && tp && (
           <div style={{ flex: 1, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
             <StatsModal mob={true} allDrivers={allDrivers} onClose={() => setMobTab("3d")} inline />
           </div>
         )}
 
-        {/* Embed inline Laps tab */}
-        {embed && mobTab === "laps" && tp && (
+        {/* Inline Laps tab */}
+        {(embed || mob) && mobTab === "laps" && tp && (
           <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
             <LapsModal mob={true} onClose={() => setMobTab("3d")} inline drivers={[
               { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
@@ -415,15 +454,15 @@ export default function App({ embed }) {
           </div>
         )}
 
-        {/* Embed inline H2H tab */}
-        {embed && mobTab === "h2h" && tp && (
+        {/* Inline H2H tab */}
+        {(embed || mob) && mobTab === "h2h" && tp && (
           <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
             <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} onClose={() => setMobTab("3d")} inline />
           </div>
         )}
 
-        {/* Embed inline Season tab */}
-        {embed && mobTab === "season" && tp && (
+        {/* Inline Season tab */}
+        {(embed || mob) && mobTab === "season" && tp && (
           <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
             <DashModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={() => setMobTab("3d")} inline />
           </div>

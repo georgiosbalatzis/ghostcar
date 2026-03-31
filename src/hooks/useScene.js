@@ -4,7 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { F1_DARK, F1_LIGHT } from "../constants.js";
 import { lerp, norm } from "../helpers.js";
 
-export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4) {
+export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
@@ -417,10 +417,78 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     de.addEventListener("mousedown", onDown); de.addEventListener("mousemove", onMove); de.addEventListener("mouseup", onUp); de.addEventListener("mouseleave", onUp);
     de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: true }); de.addEventListener("touchmove", onMove, { passive: true }); de.addEventListener("touchend", onUp);
 
+    // Store progRef for render loop access
+    R.current._progRef = progRef;
+    R.current._telData1 = telData1;
+
     function animate() {
       R.current.fr = requestAnimationFrame(animate); cs.cinT += 0.0003;
-      // Star twinkle
       if (R.current._starMat) R.current._starMat.uniforms.uTime.value = performance.now() * 0.001;
+
+      // ─── Car updates (60fps, no React) ───
+      const prog = R.current._progRef?.current ?? 0;
+      const { car1, car2, tr1, tr2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP, sectorMarkers, _telData1: td1 } = R.current;
+      if (car1 && car2 && tp && tp.length >= 2) {
+        function updCar(car, trail, data, t, lateralOff) {
+          const pts = data?.length >= 2 ? data : tp;
+          const p = lerp(pts, t); if (isNaN(p.x)) return { x: 0, y: 0, z: 0 };
+          const p2 = lerp(pts, Math.min(1, t + 0.005));
+          // Lateral offset for overtaking visualization
+          let ox = 0, oz = 0;
+          if (lateralOff !== 0) {
+            const dx = p2.x - p.x, dz = p2.z - p.z;
+            const len = Math.sqrt(dx * dx + dz * dz) || 1;
+            ox = (-dz / len) * lateralOff; oz = (dx / len) * lateralOff;
+          }
+          car.position.set(p.x + ox, p.y + 0.2, p.z + oz);
+          if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.001 && !isNaN(p2.x)) car.lookAt(p2.x + ox, p.y + 0.2, p2.z + oz);
+          if (trail) {
+            const c = Math.min(trail.count + 1, trail.max);
+            for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; }
+            trail.positions[0] = p.x + ox; trail.positions[1] = p.y + 0.05; trail.positions[2] = p.z + oz;
+            for (let i = c - 1; i >= 1; i--) trail.alphas[i] = trail.alphas[i - 1] * 0.97; trail.alphas[0] = 1.0; trail.count = c;
+            trail.mesh.geometry.attributes.position.needsUpdate = true; trail.mesh.geometry.attributes.alpha.needsUpdate = true; trail.mesh.geometry.setDrawRange(0, c);
+          }
+          return { x: p.x + ox, y: p.y, z: p.z + oz };
+        }
+
+        // Calculate proximity — if cars are close, offset them laterally
+        const rawP1 = lerp(R.current.n1?.length >= 2 ? R.current.n1 : tp, prog);
+        const rawP2 = lerp(R.current.n2?.length >= 2 ? R.current.n2 : tp, prog);
+        const dist = Math.sqrt((rawP1.x - rawP2.x) ** 2 + (rawP1.z - rawP2.z) ** 2);
+        const closeThreshold = 3.0; // start offsetting when within 3 units
+        const maxOffset = 0.7; // max lateral offset
+        const proximity = Math.max(0, 1 - dist / closeThreshold);
+        const lateralOff = proximity * maxOffset;
+
+        const p1 = updCar(car1, tr1, R.current.n1, prog, lateralOff);
+        const p2 = updCar(car2, tr2, R.current.n2, prog, -lateralOff);
+        if (R.current.car3) updCar(R.current.car3, R.current.tr3, R.current.n3, prog, lateralOff * 0.5);
+        if (R.current.car4) updCar(R.current.car4, R.current.tr4, R.current.n4, prog, -lateralOff * 0.5);
+
+        if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
+        if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
+        if (dL && dP) { dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z; dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z; dL.geometry.attributes.position.needsUpdate = true; const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2); dL.material.opacity = Math.min(0.6, gap * 0.08); }
+        const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
+        if (sectorMarkers) sectorMarkers.forEach((sm) => { sm.mesh.material.opacity = sm.sector === curSector ? 0.9 + Math.sin(Date.now() * 0.006) * 0.1 : 0.4; });
+
+        // Camera follow
+        const cm = cmRef.current;
+        if (cm === "follow1" || cm === "follow2") {
+          const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp);
+          const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1;
+          const telNow = td1?.length ? td1[Math.floor(prog * (td1.length - 1))] : null; const braking = telNow?.brake > 0 ? 1 : 0;
+          const shakeX = braking * (Math.random() - 0.5) * 0.12; const shakeY = braking * (Math.random() - 0.5) * 0.08;
+          camTargetPos.current.set(tgt.x - (dx / len) * 8 + shakeX, tgt.y + 4.5 + shakeY, tgt.z - (dz / len) * 8);
+          camTargetLook.current.set(ah.x + shakeX * 0.5, tgt.y + 0.3, ah.z);
+        } else if (cm === "cinematic" && R.current.curve) {
+          const cinT2 = (cs.cinT + prog * 0.3) % 1; const cp = R.current.curve.getPointAt(cinT2);
+          const telNow2 = td1?.length ? td1[Math.floor(prog * (td1.length - 1))] : null; const shk = telNow2?.brake > 0 ? 0.06 : 0;
+          camTargetPos.current.set(cp.x + 8 + (Math.random() - 0.5) * shk, cp.y + 5, cp.z + 8 + (Math.random() - 0.5) * shk);
+          camTargetLook.current.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
+        }
+      }
+
       const cm = cmRef.current;
       if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camTargetLook.current.set(0, 0, 0); }
       else if (cm === "top") { camTargetPos.current.set(0, 65, 0.01); camTargetLook.current.set(0, 0, 0); }
@@ -436,31 +504,5 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
   useEffect(() => { cmRef.current = cam; }, [cam]);
-
-  useEffect(() => {
-    const { car1, car2, tr1, tr2, camera: cam2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP } = R.current; if (!car1 || !car2 || !tp || tp.length < 2) return; const cs = CS.current;
-    function upd(car, trail, data, t) { const pts = data?.length >= 2 ? data : tp; const p = lerp(pts, t); if (isNaN(p.x) || isNaN(p.y) || isNaN(p.z)) return { x: 0, y: 0, z: 0 }; car.position.set(p.x, p.y + 0.2, p.z); const p2 = lerp(pts, Math.min(1, t + 0.005)); if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.001 && !isNaN(p2.x)) car.lookAt(p2.x, p.y + 0.2, p2.z);
-      if (trail) {
-        const c = Math.min(trail.count + 1, trail.max);
-        for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; }
-        trail.positions[0] = p.x; trail.positions[1] = p.y + 0.05; trail.positions[2] = p.z;
-        for (let i = c - 1; i >= 1; i--) trail.alphas[i] = trail.alphas[i - 1] * 0.97; trail.alphas[0] = 1.0; trail.count = c;
-        trail.mesh.geometry.attributes.position.needsUpdate = true; trail.mesh.geometry.attributes.alpha.needsUpdate = true; trail.mesh.geometry.setDrawRange(0, c);
-      } return p; }
-    const p1 = upd(car1, tr1, R.current.n1, prog); const p2 = upd(car2, tr2, R.current.n2, prog);
-    if (R.current.car3) upd(R.current.car3, R.current.tr3, R.current.n3, prog);
-    if (R.current.car4) upd(R.current.car4, R.current.tr4, R.current.n4, prog);
-    if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
-    if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
-    if (dL && dP) { dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z; dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z; dL.geometry.attributes.position.needsUpdate = true; const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2); dL.material.opacity = Math.min(0.6, gap * 0.08); }
-    const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
-    if (R.current.sectorMarkers) { R.current.sectorMarkers.forEach((sm) => { sm.mesh.material.opacity = sm.sector === curSector ? 0.9 + Math.sin(Date.now() * 0.006) * 0.1 : 0.4; }); }
-    if (cam2) { const cm = cmRef.current; if (cm === "follow1" || cm === "follow2") { const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp); const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1;
-      const telNow = telData1?.length ? telData1[Math.floor(prog * (telData1.length - 1))] : null; const braking = telNow?.brake > 0 ? 1 : 0;
-      const shakeX = braking * (Math.random() - 0.5) * 0.12; const shakeY = braking * (Math.random() - 0.5) * 0.08;
-      camTargetPos.current.set(tgt.x - (dx / len) * 8 + shakeX, tgt.y + 4.5 + shakeY, tgt.z - (dz / len) * 8); camTargetLook.current.set(ah.x + shakeX * 0.5, tgt.y + 0.3, ah.z);
-    } else if (cm === "cinematic" && R.current.curve) { const cinT2 = (cs.cinT + prog * 0.3) % 1; const cp = R.current.curve.getPointAt(cinT2);
-      const telNow2 = telData1?.length ? telData1[Math.floor(prog * (telData1.length - 1))] : null; const shk = telNow2?.brake > 0 ? 0.06 : 0;
-      camTargetPos.current.set(cp.x + 8 + (Math.random() - 0.5) * shk, cp.y + 5, cp.z + 8 + (Math.random() - 0.5) * shk); camTargetLook.current.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2); } }
-  }, [prog, tp, cam]);
+  useEffect(() => { R.current._telData1 = telData1; }, [telData1]);
 }
