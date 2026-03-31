@@ -11,6 +11,7 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
   const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
   const n3 = useMemo(() => l3 ? norm(l3) : null, [l3]); const n4 = useMemo(() => l4 ? norm(l4) : null, [l4]);
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
+  const brakeArr = useMemo(() => telData1?.map((t) => t.brake > 0 ? 1 : 0) || [], [telData1]);
 
   useEffect(() => {
     const el = ref.current; if (!el || !tp || tp.length < 10) return;
@@ -19,29 +20,140 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     const w = el.clientWidth, h = el.clientHeight;
     const scene = new THREE.Scene();
     const T = isDark ? F1_DARK : F1_LIGHT;
-    scene.background = new THREE.Color(T.sceneBg);
-    scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
+
+    if (isDark) {
+      scene.background = new THREE.Color(0x080812);
+      scene.fog = new THREE.FogExp2(0x080812, 0.006);
+    } else {
+      scene.background = new THREE.Color(T.sceneBg);
+      scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
+    }
+
     const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
     const ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    ren.toneMapping = THREE.ACESFilmicToneMapping;
+    ren.toneMappingExposure = isDark ? 1.1 : 1.0;
     el.appendChild(ren.domElement);
 
-    scene.add(new THREE.AmbientLight(0xdddde8, isDark ? 0.7 : 1.2));
-    const sun = new THREE.DirectionalLight(0xffffff, isDark ? 1.0 : 1.4); sun.position.set(40, 80, 30); scene.add(sun);
-    scene.add(new THREE.HemisphereLight(isDark ? 0xbbc4dd : 0xeeeeff, isDark ? 0x333340 : 0x889988, isDark ? 0.4 : 0.6));
+    // Lighting — cinematic night race feel
+    scene.add(new THREE.AmbientLight(isDark ? 0x8899bb : 0xdddde8, isDark ? 0.4 : 1.2));
+    const sun = new THREE.DirectionalLight(isDark ? 0xffeedd : 0xffffff, isDark ? 0.8 : 1.4);
+    sun.position.set(40, 80, 30); scene.add(sun);
+    scene.add(new THREE.HemisphereLight(isDark ? 0x334466 : 0xeeeeff, isDark ? 0x111118 : 0x889988, isDark ? 0.5 : 0.6));
+    // Warm fill light from below-horizon (simulates floodlight bounce)
+    if (isDark) {
+      const fill = new THREE.DirectionalLight(0xff8844, 0.15);
+      fill.position.set(-30, 5, -20); scene.add(fill);
+    }
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({ color: T.groundColor }));
+    // ─── Ground — layered for depth ───
+    // Base ground (dark)
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: isDark ? 0x0a0a14 : T.groundColor,
+      roughness: 0.95, metalness: 0.05
+    });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(ground);
 
-    const skyGeo = new THREE.SphereGeometry(180, 32, 16);
-    const skyColors = new Float32Array(skyGeo.attributes.position.count * 3);
+    // Lit area around track — soft radial glow on the ground
+    if (isDark) {
+      const glowGeo = new THREE.PlaneGeometry(200, 200, 1, 1);
+      const glowTex = (() => {
+        const cv = document.createElement("canvas"); cv.width = 256; cv.height = 256;
+        const ctx = cv.getContext("2d");
+        const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        grad.addColorStop(0, "rgba(30,35,60,0.5)");
+        grad.addColorStop(0.5, "rgba(15,18,35,0.3)");
+        grad.addColorStop(1, "rgba(8,8,18,0)");
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, 256, 256);
+        return new THREE.CanvasTexture(cv);
+      })();
+      const glowPlane = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }));
+      glowPlane.rotation.x = -Math.PI / 2; glowPlane.position.y = -0.18; scene.add(glowPlane);
+
+      // Subtle grid lines on the ground (technical floor feel)
+      const gridTex = (() => {
+        const cv = document.createElement("canvas"); cv.width = 512; cv.height = 512;
+        const ctx = cv.getContext("2d");
+        ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1;
+        for (let i = 0; i <= 512; i += 32) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+        }
+        return new THREE.CanvasTexture(cv);
+      })();
+      gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+      gridTex.repeat.set(12, 12);
+      const gridPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(400, 400),
+        new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, depthWrite: false })
+      );
+      gridPlane.rotation.x = -Math.PI / 2; gridPlane.position.y = -0.15; scene.add(gridPlane);
+    }
+
+    // ─── Sky dome — rich gradient with stars ───
+    const skyGeo = new THREE.SphereGeometry(200, 48, 24);
+    const skyVColors = new Float32Array(skyGeo.attributes.position.count * 3);
     for (let i = 0; i < skyGeo.attributes.position.count; i++) {
       const y = skyGeo.attributes.position.getY(i);
-      const t = Math.max(0, Math.min(1, (y + 10) / 190));
-      skyColors[i * 3] = 0.06 + t * 0.04; skyColors[i * 3 + 1] = 0.06 + t * 0.07; skyColors[i * 3 + 2] = 0.1 + t * 0.12;
+      const t = Math.max(0, Math.min(1, (y + 20) / 220));
+      if (isDark) {
+        // Horizon: warm amber → mid: deep navy → zenith: near-black with blue tint
+        const horizonR = 0.12, horizonG = 0.06, horizonB = 0.04;
+        const midR = 0.04, midG = 0.05, midB = 0.12;
+        const zenithR = 0.02, zenithG = 0.02, zenithB = 0.06;
+        if (t < 0.15) {
+          // Horizon glow band
+          const ht = t / 0.15;
+          skyVColors[i * 3] = horizonR * (1 - ht) + midR * ht;
+          skyVColors[i * 3 + 1] = horizonG * (1 - ht) + midG * ht;
+          skyVColors[i * 3 + 2] = horizonB * (1 - ht) + midB * ht;
+        } else {
+          const mt = (t - 0.15) / 0.85;
+          skyVColors[i * 3] = midR * (1 - mt) + zenithR * mt;
+          skyVColors[i * 3 + 1] = midG * (1 - mt) + zenithG * mt;
+          skyVColors[i * 3 + 2] = midB * (1 - mt) + zenithB * mt;
+        }
+      } else {
+        // Light mode: soft white-blue gradient
+        skyVColors[i * 3] = 0.85 + t * 0.1;
+        skyVColors[i * 3 + 1] = 0.88 + t * 0.08;
+        skyVColors[i * 3 + 2] = 0.95 + t * 0.05;
+      }
     }
-    skyGeo.setAttribute("color", new THREE.Float32BufferAttribute(skyColors, 3));
+    skyGeo.setAttribute("color", new THREE.Float32BufferAttribute(skyVColors, 3));
     scene.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false })));
+
+    // Stars (dark mode only)
+    if (isDark) {
+      const starCount = 600;
+      const starPos = new Float32Array(starCount * 3);
+      const starAlphas = new Float32Array(starCount);
+      for (let i = 0; i < starCount; i++) {
+        // Distribute on upper hemisphere
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI * 0.45 + 0.1; // above horizon
+        const r = 195;
+        starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        starPos[i * 3 + 1] = r * Math.cos(phi);
+        starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+        starAlphas[i] = 0.3 + Math.random() * 0.7;
+      }
+      const starGeo = new THREE.BufferGeometry();
+      starGeo.setAttribute("position", new THREE.Float32BufferAttribute(starPos, 3));
+      starGeo.setAttribute("alpha", new THREE.Float32BufferAttribute(starAlphas, 1));
+      const starMat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, fog: false,
+        uniforms: { uTime: { value: 0 } },
+        vertexShader: `attribute float alpha; varying float vAlpha; uniform float uTime; void main() { vAlpha = alpha * (0.6 + 0.4 * sin(uTime * 0.5 + position.x * 0.1)); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = alpha * 2.5; }`,
+        fragmentShader: `varying float vAlpha; void main() { float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard; gl_FragColor = vec4(0.8, 0.85, 1.0, vAlpha * (1.0 - d * d)); }`,
+      });
+      const stars = new THREE.Points(starGeo, starMat);
+      scene.add(stars);
+      // Store for animation
+      R.current._starMat = starMat;
+    }
 
     const curve = new THREE.CatmullRomCurve3(tp.map((p) => new THREE.Vector3(p.x, p.y, p.z)), true);
     const seg = Math.min(tp.length * 3, 800);
@@ -91,6 +203,33 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
       heatGeo.setAttribute("color", new THREE.Float32BufferAttribute(heatColors, 3));
       const heatMesh = new THREE.Mesh(heatGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
       heatMesh.position.y += 0.01; scene.add(heatMesh);
+    }
+
+    // Brake heatmap overlay
+    if (vizMode === "brake" && brakeArr.length > 10) {
+      const brakeColors = new Float32Array((curvePts.length * 2) * 3);
+      for (let i = 0; i < curvePts.length; i++) {
+        const t = i / (curvePts.length - 1);
+        const si = Math.min(Math.floor(t * (brakeArr.length - 1)), brakeArr.length - 1);
+        // Sample a small window around the point for smoother visualization
+        let brakeVal = 0;
+        for (let w = -2; w <= 2; w++) {
+          const wi = Math.max(0, Math.min(brakeArr.length - 1, si + w));
+          brakeVal += brakeArr[wi];
+        }
+        brakeVal /= 5;
+        // Braking zones: red, non-braking: green/transparent
+        const r = brakeVal > 0.3 ? 0.9 : 0.0;
+        const g = brakeVal > 0.3 ? 0.05 : 0.15;
+        const b = brakeVal > 0.3 ? 0.05 : 0.08;
+        const vi = i * 2;
+        brakeColors[vi * 3] = r; brakeColors[vi * 3 + 1] = g; brakeColors[vi * 3 + 2] = b;
+        brakeColors[(vi + 1) * 3] = r; brakeColors[(vi + 1) * 3 + 1] = g; brakeColors[(vi + 1) * 3 + 2] = b;
+      }
+      const brakeGeo = ribbonGeo.clone();
+      brakeGeo.setAttribute("color", new THREE.Float32BufferAttribute(brakeColors, 3));
+      const brakeMesh = new THREE.Mesh(brakeGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
+      brakeMesh.position.y += 0.01; scene.add(brakeMesh);
     }
 
     // Edge lines colored by sector
@@ -280,6 +419,8 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
 
     function animate() {
       R.current.fr = requestAnimationFrame(animate); cs.cinT += 0.0003;
+      // Star twinkle
+      if (R.current._starMat) R.current._starMat.uniforms.uTime.value = performance.now() * 0.001;
       const cm = cmRef.current;
       if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camTargetLook.current.set(0, 0, 0); }
       else if (cm === "top") { camTargetPos.current.set(0, 65, 0.01); camTargetLook.current.set(0, 0, 0); }
@@ -290,7 +431,7 @@ export default function useScene(ref, tp, l1, l2, prog, c1, c2, cam, lab1, lab2,
     let rt; const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el) return; camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix(); ren.setSize(el.clientWidth, el.clientHeight); }, 100); };
     window.addEventListener("resize", onR);
     return () => { window.removeEventListener("resize", onR); de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp); cancelAnimationFrame(R.current.fr); ren.dispose(); if (el.contains(ren.domElement)) el.removeChild(ren.domElement); };
-  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, isDark]);
+  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, brakeArr, isDark]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
