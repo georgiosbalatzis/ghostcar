@@ -13,7 +13,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset }) {
         <button onClick={onClose} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px", flex: 1 }}>
-        {["2025", "2024", "2023"].map((yr) => {
+        {["2026", "2025", "2024", "2023", "2022", "2021"].map((yr) => {
           const items = PRESETS.filter((p) => p.cat === yr);
           if (!items.length) return null;
           return (
