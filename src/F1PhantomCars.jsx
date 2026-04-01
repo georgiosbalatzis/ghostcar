@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS } from "./constants.js";
+import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
 import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
 import { setThemeMode, getF1 } from "./theme.js";
@@ -23,17 +23,20 @@ import GalleryModal from "./modals/GalleryModal.jsx";
 import EmbedModal from "./modals/EmbedModal.jsx";
 import TourOverlay from "./modals/TourOverlay.jsx";
 
+const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
+const UNAVAILABLE_PRESET_YEARS = [2026];
+const DEFAULT_YEAR = 2025;
+
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
-  const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
   const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; } });
   setThemeMode(isDark);
   const F1 = getF1();
   const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
 
   // ─── State ───
-  const [year, setYear] = useState(() => Number(initialURL.year) || AVAILABLE_YEARS[0]);
+  const [year, setYear] = useState(() => Number(initialURL.year) || DEFAULT_YEAR);
   const [mts, setMts] = useState([]); const [selMt, setSelMt] = useState(null);
   const [sess, setSess] = useState([]); const [selSe, setSelSe] = useState(null);
   const [drvs, setDrvs] = useState([]); const [d1, setD1] = useState(null); const [d2, setD2] = useState(null);
@@ -62,13 +65,16 @@ export default function App({ embed }) {
   const [showGallery, setShowGallery] = useState(false); const [showEmbed, setShowEmbed] = useState(false);
   const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
   const [sceneErr, setSceneErr] = useState("");
+  const [canCancelLoad, setCanCancelLoad] = useState(false);
   const [showTel, setShowTel] = useState(!embed); const [mobTab, setMobTab] = useState("3d");
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [showMobMenu, setShowMobMenu] = useState(false);
+  const selectorsRef = useRef(null);
+  const yearSelectRef = useRef(null);
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
-  const initialYearFallbackRef = useRef(!initialURL.year);
+  const loadAbortRef = useRef(null);
 
   // ─── Derived ───
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
@@ -91,12 +97,31 @@ export default function App({ embed }) {
   const ct1 = telAt(tel1, prog), ct2 = telAt(tel2, prog), ct3 = telAt(tel3, prog), ct4 = telAt(tel4, prog);
   const alertErr = sceneErr || err;
   const noMeetings = !loading && !alertErr && mts.length === 0;
+  const playablePresets = useMemo(() => PRESETS.filter((preset) => !UNAVAILABLE_PRESET_YEARS.includes(preset.year)), []);
   const allDrivers = [
     { di: di1, co: co1, ct: ct1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
     { di: di2, co: co2, ct: ct2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
     ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, ct: ct3, li: laps3.find((l) => l.lap_number === sl3), tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
     ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, ct: ct4, li: laps4.find((l) => l.lap_number === sl4), tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
   ].filter((d) => d.di);
+
+  const driverFullName = useCallback((driver) => {
+    if (!driver) return "";
+    const byApi = driver.full_name || driver.broadcast_name || [driver.first_name, driver.last_name].filter(Boolean).join(" ").trim();
+    return byApi || DRIVER_NAME_BY_NUMBER[driver.driver_number] || "";
+  }, []);
+
+  const formatDriverOption = useCallback((driver) => {
+    const shortName = driver?.name_acronym || `#${driver?.driver_number ?? "?"}`;
+    const fullName = driverFullName(driver);
+    const teamName = driver?.team_name ? ` • ${driver.team_name}` : "";
+    return fullName ? `${shortName} • ${fullName}${teamName}` : shortName;
+  }, [driverFullName]);
+
+  const formatLapOption = useCallback((lap, bestLapNumber) => {
+    const prefix = lap.lap_number === bestLapNumber ? "FASTEST • " : "";
+    return `${prefix}L${lap.lap_number} • ${fmt(lap.lap_duration)}`;
+  }, []);
 
   // ─── Data loading effects ───
   useEffect(() => {
@@ -106,14 +131,8 @@ export default function App({ embed }) {
     setSceneErr("");
     fetchMeetings(year).then((d) => {
       const meetings = d.filter((m) => m.meeting_name);
-      const nextYear = AVAILABLE_YEARS[AVAILABLE_YEARS.indexOf(year) + 1];
-      if (!meetings.length && initialYearFallbackRef.current && nextYear) {
-        setYear(nextYear);
-        return;
-      }
-      initialYearFallbackRef.current = false;
       setMts(meetings); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading("");
-    }).catch((e) => { initialYearFallbackRef.current = false; setErr(e.message); setLoading(""); });
+    }).catch((e) => { setErr(e.message); setLoading(""); });
   }, [year]);
   useEffect(() => { if (!selMt || presetActiveRef.current) return; setLoading("Loading sessions..."); fetchSessions(selMt.meeting_key).then((d) => { setSess(d.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name))); setSelSe(null); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selMt]);
   useEffect(() => { if (!selSe || presetActiveRef.current) return; setLoading("Loading drivers..."); fetchDrivers(selSe.session_key).then((d) => { const seen = new Set(); setDrvs(d.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selSe]);
@@ -137,60 +156,123 @@ export default function App({ embed }) {
   // Auto-load when URL params are fully restored (shared links + embed)
   useEffect(() => { if (!urlLoaded.current || autoLoadRef.current) return; if (selSe && d1 && d2 && sl1 && sl2) { autoLoadRef.current = true; setTimeout(() => loadData(), 300); } }, [selSe, d1, d2, sl1, sl2]);
 
+  useEffect(() => () => { loadAbortRef.current?.abort(); }, []);
+
+  const isAbortError = useCallback((error) => error?.name === "AbortError", []);
+
+  const beginCancelableLoad = useCallback(() => {
+    loadAbortRef.current?.abort();
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
+    setCanCancelLoad(true);
+    return controller;
+  }, []);
+
+  const finishCancelableLoad = useCallback((controller) => {
+    if (loadAbortRef.current === controller) loadAbortRef.current = null;
+    setCanCancelLoad(false);
+  }, []);
+
+  const cancelLoading = useCallback(() => {
+    if (!loadAbortRef.current) return;
+    loadAbortRef.current.abort();
+    loadAbortRef.current = null;
+    presetActiveRef.current = false;
+    setCanCancelLoad(false);
+    setLoading("");
+    setLdPct(undefined);
+    setPlay(false);
+  }, []);
+
+  const focusConfiguration = useCallback(() => {
+    selectorsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    try { yearSelectRef.current?.focus({ preventScroll: true }); } catch { yearSelectRef.current?.focus?.(); }
+  }, []);
+
+  const openAuxView = useCallback((mode) => {
+    if (embed || mob) {
+      setMobTab(mode);
+      return;
+    }
+    if (mode === "telemetry") setShowTel(true);
+    if (mode === "stats") setShowStats(true);
+    if (mode === "laps") setShowLaps(true);
+  }, [embed, mob]);
+
   // ─── Actions ───
   const loadData = useCallback(async () => {
-    if (!selSe || !d1 || !d2 || !sl1 || !sl2) return; setLoading("Fetching telemetry..."); setErr(""); setSceneErr(""); setLdPct(0);
+    if (!selSe || !d1 || !d2 || !sl1 || !sl2) return;
+    const controller = beginCancelableLoad();
+    setLoading("Fetching telemetry...");
+    setErr("");
+    setSceneErr("");
+    setLdPct(0);
     try {
       const sk = selSe.session_key;
       const la1 = laps1.find((l) => l.lap_number === sl1), la2 = laps2.find((l) => l.lap_number === sl2);
-      if (!la1?.date_start || !la2?.date_start) { setErr("Lap timing unavailable."); setLoading(""); return; }
+      if (!la1?.date_start || !la2?.date_start) { setErr("Lap timing unavailable."); setLoading(""); setLdPct(undefined); return; }
       const e1 = new Date(new Date(la1.date_start).getTime() + (la1.lap_duration || 120) * 1000).toISOString();
       const e2 = new Date(new Date(la2.date_start).getTime() + (la2.lap_duration || 120) * 1000).toISOString();
       setLdPct(15);
-      const locProms = [fetchLocation(sk, d1, la1.date_start, e1), fetchLocation(sk, d2, la2.date_start, e2)];
-      const telProms = [fetchCarData(sk, d1, la1.date_start, e1), fetchCarData(sk, d2, la2.date_start, e2)];
+      const reqOptions = { signal: controller.signal };
+      const locProms = [fetchLocation(sk, d1, la1.date_start, e1, reqOptions), fetchLocation(sk, d2, la2.date_start, e2, reqOptions)];
+      const telProms = [fetchCarData(sk, d1, la1.date_start, e1, reqOptions), fetchCarData(sk, d2, la2.date_start, e2, reqOptions)];
       const la3 = d3 && sl3 ? laps3.find((l) => l.lap_number === sl3) : null;
-      if (la3?.date_start) { const e3 = new Date(new Date(la3.date_start).getTime() + (la3.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d3, la3.date_start, e3)); telProms.push(fetchCarData(sk, d3, la3.date_start, e3)); }
+      if (la3?.date_start) { const e3 = new Date(new Date(la3.date_start).getTime() + (la3.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d3, la3.date_start, e3, reqOptions)); telProms.push(fetchCarData(sk, d3, la3.date_start, e3, reqOptions)); }
       const la4 = d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
-      if (la4?.date_start) { const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d4, la4.date_start, e4)); telProms.push(fetchCarData(sk, d4, la4.date_start, e4)); }
+      if (la4?.date_start) { const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d4, la4.date_start, e4, reqOptions)); telProms.push(fetchCarData(sk, d4, la4.date_start, e4, reqOptions)); }
       setLdPct(20); const locs = await Promise.all(locProms); setLdPct(55); const tels = await Promise.all(telProms);
       if (locs[0].length < 5 || locs[1].length < 5) { setErr("Insufficient data."); setLoading(""); setLdPct(undefined); return; }
       setLoc1(locs[0]); setLoc2(locs[1]); setTel1(tels[0]); setTel2(tels[1]);
       if (locs[2]) { setLoc3(locs[2]); setTel3(tels[2]); } else { setLoc3(null); setTel3(null); }
       if (locs[3]) { setLoc4(locs[3]); setTel4(tels[3]); } else { setLoc4(null); setTel4(null); }
-      setTp(norm(locs[0])); setProg(0); setPlay(false); setLdPct(100); setTimeout(() => { setLoading(""); setLdPct(undefined); }, 300);
-    } catch (e) { setErr(e.message); setLoading(""); setLdPct(undefined); }
-  }, [selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4]);
+      setTp(norm(locs[0])); setProg(0); setPlay(false); setLdPct(100); setLoading(""); setLdPct(undefined);
+    } catch (e) {
+      if (!isAbortError(e)) setErr(e.message);
+      setLoading("");
+      setLdPct(undefined);
+    } finally {
+      finishCancelableLoad(controller);
+    }
+  }, [selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, beginCancelableLoad, finishCancelableLoad, isAbortError]);
 
   const loadPreset = useCallback(async (pr) => {
+    const controller = beginCancelableLoad();
     setShowPresets(false); setShowMobMenu(false); setLoading("Loading preset..."); setErr(""); setSceneErr(""); setLdPct(0); presetActiveRef.current = true;
     try {
-      const allMts = await fetchMeetings(pr.year); const filteredMts = allMts.filter((x) => x.meeting_name);
+      if (UNAVAILABLE_PRESET_YEARS.includes(pr.year)) throw new Error(`Preset data for ${pr.year} is not available yet.`);
+      const reqOptions = { signal: controller.signal };
+      const allMts = await fetchMeetings(pr.year, reqOptions); const filteredMts = allMts.filter((x) => x.meeting_name);
       const presetMeeting = normalizeText(pr.meeting).replace(" grand prix", "");
       const mt = filteredMts.find((x) => {
         const meetingName = normalizeText(x.meeting_name).replace(" grand prix", "");
         return meetingName.includes(presetMeeting) || presetMeeting.includes(meetingName);
       });
       if (!mt) throw new Error(`Meeting "${pr.meeting}" not found`); setLdPct(10);
-      const allSess = await fetchSessions(mt.meeting_key); const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
+      const allSess = await fetchSessions(mt.meeting_key, reqOptions); const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
       const se = filteredSess.find((s) => s.session_name === pr.session); if (!se) throw new Error(`Session not found`); setLdPct(20);
-      const allDrvs = await fetchDrivers(se.session_key); const seen = new Set(); const uniqueDrvs = allDrvs.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; }); setLdPct(30);
-      const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1), fetchLaps(se.session_key, pr.d2)]);
+      const allDrvs = await fetchDrivers(se.session_key, reqOptions); const seen = new Set(); const uniqueDrvs = allDrvs.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; }); setLdPct(30);
+      const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1, reqOptions), fetchLaps(se.session_key, pr.d2, reqOptions)]);
       const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data); if (!fast1 || !fast2) throw new Error("No valid laps"); setLdPct(45);
-      const [st1Data, st2Data] = await Promise.all([fetchStints(se.session_key, pr.d1).catch(() => []), fetchStints(se.session_key, pr.d2).catch(() => [])]);
-      initialYearFallbackRef.current = false;
+      const [st1Data, st2Data] = await Promise.all([fetchStints(se.session_key, pr.d1, reqOptions).catch(() => []), fetchStints(se.session_key, pr.d2, reqOptions).catch(() => [])]);
       setYear(pr.year); setMts(filteredMts); setSelMt(mt); setSess(filteredSess); setSelSe(se); setDrvs(uniqueDrvs); setD1(pr.d1); setD2(pr.d2);
       setLaps1(l1Data); setLaps2(l2Data); setSl1(fast1.lap_number); setSl2(fast2.lap_number); setSt1(st1Data); setSt2(st2Data); setLdPct(50);
       setLoading("Fetching telemetry..."); const sk = se.session_key;
       const end1 = new Date(new Date(fast1.date_start).getTime() + (fast1.lap_duration || 120) * 1000).toISOString();
       const end2 = new Date(new Date(fast2.date_start).getTime() + (fast2.lap_duration || 120) * 1000).toISOString(); setLdPct(60);
-      const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1), fetchLocation(sk, pr.d2, fast2.date_start, end2)]); setLdPct(80);
-      const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1), fetchCarData(sk, pr.d2, fast2.date_start, end2)]);
+      const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchLocation(sk, pr.d2, fast2.date_start, end2, reqOptions)]); setLdPct(80);
+      const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchCarData(sk, pr.d2, fast2.date_start, end2, reqOptions)]);
       if (lo1.length < 5 || lo2.length < 5) throw new Error("Insufficient location data");
       setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2); setTp(norm(lo1)); setProg(0); setPlay(false); setLdPct(100);
-      setTimeout(() => { setLoading(""); setLdPct(undefined); presetActiveRef.current = false; }, 300);
-    } catch (e) { setErr(e.message); setLoading(""); setLdPct(undefined); presetActiveRef.current = false; }
-  }, []);
+      setLoading(""); setLdPct(undefined);
+    } catch (e) {
+      if (!isAbortError(e)) setErr(e.message);
+      setLoading(""); setLdPct(undefined);
+    } finally {
+      presetActiveRef.current = false;
+      finishCancelableLoad(controller);
+    }
+  }, [UNAVAILABLE_PRESET_YEARS, beginCancelableLoad, finishCancelableLoad, isAbortError]);
 
   const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
 
@@ -270,7 +352,7 @@ export default function App({ embed }) {
   useEffect(() => { if (!mob || !tp) return; let sx = 0; const onTS = (e) => { sx = e.touches[0].clientX; }; const onTE = (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setProg((p) => Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03)))); }; document.addEventListener("touchstart", onTS, { passive: true }); document.addEventListener("touchend", onTE, { passive: true }); return () => { document.removeEventListener("touchstart", onTS); document.removeEventListener("touchend", onTE); }; }, [mob, tp]);
 
   // Showreel
-  useEffect(() => { if (!showreel) { showreelRef.current = false; return; } showreelRef.current = true; let idx = 0; async function next() { if (!showreelRef.current || idx >= PRESETS.length) { setShowreel(false); return; } await loadPreset(PRESETS[idx]); setPlay(true); idx++; setTimeout(() => { setPlay(false); if (showreelRef.current) next(); }, 12000); } next(); return () => { showreelRef.current = false; }; }, [showreel, loadPreset]);
+  useEffect(() => { if (!showreel) { showreelRef.current = false; return; } showreelRef.current = true; let idx = 0; async function next() { if (!showreelRef.current || idx >= playablePresets.length) { setShowreel(false); return; } await loadPreset(playablePresets[idx]); setPlay(true); idx++; setTimeout(() => { setPlay(false); if (showreelRef.current) next(); }, 12000); } next(); return () => { showreelRef.current = false; }; }, [showreel, loadPreset, playablePresets]);
 
   // ─── Modal backdrop ───
   const anyModal = showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash;
@@ -308,7 +390,7 @@ export default function App({ embed }) {
 
       {/* Modals */}
       {anyModal && <div onClick={closeAll} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />}
-      {showPresets && <PresetsModal mob={mob} onClose={() => setShowPresets(false)} onLoadPreset={loadPreset} />}
+      {showPresets && <PresetsModal mob={mob} onClose={() => setShowPresets(false)} onLoadPreset={loadPreset} unavailableYears={UNAVAILABLE_PRESET_YEARS} />}
       {showStats && tp && <StatsModal mob={mob} allDrivers={allDrivers} onClose={() => setShowStats(false)} />}
       {showLaps && <LapsModal mob={mob} onClose={() => setShowLaps(false)} drivers={[
         { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
@@ -401,10 +483,12 @@ export default function App({ embed }) {
       </>)}
 
       {/* Selectors */}
-      {!embed && <div style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
+      {!embed && <div ref={selectorsRef} style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
         {/* Row 1: Event selectors */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
-          <select value={year} onChange={(e) => { initialYearFallbackRef.current = false; setYear(Number(e.target.value)); }} style={{ width: mob ? 60 : "auto", fontSize: mob ? 11 : 12 }}>{AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}</select>
+          <select ref={yearSelectRef} value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 124 : "auto", fontSize: mob ? 11 : 12 }}>
+            {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y === 2026 ? "2026 (Early / partial)" : y}</option>)}
+          </select>
           <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 100 : 155, flex: mob ? 1 : undefined, fontSize: mob ? 11 : 12 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
           <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 75 : 115, fontSize: mob ? 11 : 12 }}><option value="">Session</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{s.session_name}</option>)}</select>
         </div>
@@ -413,26 +497,32 @@ export default function App({ embed }) {
           {!mob && <div style={{ width: 1, height: 20, background: `${F1.blue}33` }} />}
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 3, height: 16, background: co1, borderRadius: 1 }} />
-            <select value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 100, fontSize: mob ? 11 : 12 }}><option value="">Driver 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
-            {laps1.length > 0 && <select value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 50 : 72, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps1.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+            <select title={driverFullName(di1) || "Select driver 1"} value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
+            {laps1.length > 0 && <select title={li1 ? fmt(li1.lap_duration) : "Select lap"} value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps1.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps1)?.lap_number)}</option>)}</select>}
           </div>
           <span style={{ color: F1.blue, fontSize: mob ? 9 : 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 3, height: 16, background: co2, borderRadius: 1 }} />
-            <select value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 100, fontSize: mob ? 11 : 12 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>
-            {laps2.length > 0 && <select value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 50 : 72, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}
+            <select title={driverFullName(di2) || "Select driver 2"} value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
+            {laps2.length > 0 && <select title={li2 ? fmt(li2.lap_duration) : "Select lap"} value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps2)?.lap_number)}</option>)}</select>}
           </div>
-          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 90, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>{laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 46 : 62, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}</div></>}
-          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 62 : 90, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{x.name_acronym || `#${x.driver_number}`}</option>)}</select>{laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 46 : 62, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).map((l) => <option key={l.lap_number} value={l.lap_number}>L{l.lap_number}</option>)}</select>}</div></>}
+          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Select driver 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps3)?.lap_number)}</option>)}</select>}</div></>}
+          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Select driver 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps4)?.lap_number)}</option>)}</select>}</div></>}
           {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+D{numDrivers + 1}</button>}
           {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
           <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "COMPARE"}</button>
         </div>
-        {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>No meeting data is available for {year} yet. Try an earlier season.</div>}
+        {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>No meeting data is available for {year} yet. Try 2025 for the latest complete telemetry season.</div>}
       </div>}
 
       {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button onClick={() => { setErr(""); setSceneErr(""); }} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
-      {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}><div style={{ fontSize: 11, color: F1.textDim, fontFamily: F1.mono, marginBottom: 4 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 1, transition: "width .3s" }} /></div>}</div>}
+      {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <div style={{ flex: 1, fontSize: 11, color: F1.textDim, fontFamily: F1.mono }}>{loading}</div>
+          {canCancelLoad && <button onClick={cancelLoading} style={{ padding: "4px 10px", fontSize: 10 }}>CANCEL</button>}
+        </div>
+        {ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 1, transition: "width .3s" }} /></div>}
+      </div>}
       {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, overflowX: "auto", flexShrink: 0 }}>
         {[
           { id: "3d", label: "🏎️ Track" },
@@ -483,10 +573,19 @@ export default function App({ embed }) {
               <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
             </div>}
             {tp && sceneErr && <div style={{ position: "absolute", inset: mob ? 12 : 20, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ maxWidth: 460, padding: mob ? "18px 16px" : "22px 24px", borderRadius: 14, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", textAlign: "center", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
+              <div style={{ maxWidth: 520, padding: mob ? "18px 16px" : "22px 24px", borderRadius: 14, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", textAlign: "center", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>3D VIEW UNAVAILABLE</div>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                  <MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} size={mob ? 180 : 220} />
+                </div>
                 <div style={{ fontSize: mob ? 15 : 16, fontWeight: 700, color: F1.text, lineHeight: 1.5, marginBottom: 10 }}>{sceneErr}</div>
-                <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>Telemetry, lap data, stats and head-to-head views still work. Try a browser with WebGL and hardware acceleration enabled to restore the 3D track.</div>
+                <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6, marginBottom: 14 }}>Telemetry, lap tables and stats still work. Use the actions below or try a browser with WebGL and hardware acceleration enabled to restore the 3D track.</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button onClick={() => openAuxView("telemetry")} style={{ padding: "7px 12px", fontSize: 11 }}>TELEMETRY</button>
+                  <button onClick={() => openAuxView("stats")} style={{ padding: "7px 12px", fontSize: 11 }}>STATS</button>
+                  <button onClick={() => openAuxView("laps")} style={{ padding: "7px 12px", fontSize: 11 }}>LAPS</button>
+                  {!embed && <button onClick={focusConfiguration} className="f1-btn" style={{ padding: "7px 12px", fontSize: 11 }}>CHANGE MATCHUP</button>}
+                </div>
               </div>
             </div>}
             {!tp && !loading && !embed && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
@@ -500,7 +599,7 @@ export default function App({ embed }) {
               </div>
             </div>}
             {embed && !tp && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .4s" }}>
-              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}</>) : alertErr ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{alertErr}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>LOADING COMPARISON</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
+              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto 10px" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}{canCancelLoad && <button onClick={cancelLoading} style={{ padding: "5px 10px", fontSize: 10 }}>CANCEL</button>}</>) : alertErr ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{alertErr}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>LOADING COMPARISON</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
             </div>}
           </div>
 
@@ -552,6 +651,7 @@ export default function App({ embed }) {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: mob ? 55 : 70 }}>
           {allDrivers.map((d, i) => <span key={i} style={{ fontSize: 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
         </div>
+        {!embed && <button onClick={focusConfiguration} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
         <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: 48, padding: "2px 3px", fontSize: 10 }}>
           <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
         </select>

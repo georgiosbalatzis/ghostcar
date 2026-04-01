@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, memo } from "react";
 import { lerp, norm } from "../helpers.js";
 import { getF1 } from "../theme.js";
 
-const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2 }) {
+const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150 }) {
   const F1 = getF1();
   const ref = useRef(null);
   const nn1 = useMemo(() => l1 ? norm(l1) : null, [l1]);
@@ -18,7 +18,7 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2 }) {
     function dot(data, color) { const pts = data?.length >= 2 ? data : tp; const pt = lerp(pts, prog); const pp = proj(pt); ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(pp.x, pp.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
     dot(nn1, c1); dot(nn2, c2);
   }, [tp, prog, l1, l2, c1, c2]);
-  return <canvas ref={ref} width={150} height={150} style={{ width: 150, height: 150, borderRadius: 8 }} />;
+  return <canvas ref={ref} width={size} height={size} style={{ width: size, height: size, borderRadius: 8 }} />;
 });
 
 export default MiniMap;

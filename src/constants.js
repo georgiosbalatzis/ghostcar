@@ -89,6 +89,20 @@ export const TEAM_COLORS = {
   "Haas": "#B6BABD", "Cadillac": "#FFD700",
 };
 
+export const DRIVER_NAME_BY_NUMBER = {
+  1: "Max Verstappen",
+  4: "Lando Norris",
+  11: "Sergio Perez",
+  12: "Andrea Kimi Antonelli",
+  14: "Fernando Alonso",
+  16: "Charles Leclerc",
+  20: "Kevin Magnussen",
+  44: "Lewis Hamilton",
+  55: "Carlos Sainz",
+  63: "George Russell",
+  81: "Oscar Piastri",
+};
+
 export const getTeamColor = (t) => {
   if (!t) return "#888";
   for (const [k, v] of Object.entries(TEAM_COLORS))
