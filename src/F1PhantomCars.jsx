@@ -269,6 +269,14 @@ export default function App({ embed }) {
         .f1-btn:disabled{opacity:.4;cursor:not-allowed}
         input[type="range"]{cursor:pointer}
         input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:${F1.red};border-radius:50%;cursor:pointer;border:2px solid #fff}
+        .hdr-nav-link{position:relative;font-size:11px;color:${F1.textDim};text-decoration:none;padding:4px 2px;font-weight:600;letter-spacing:0.06em;transition:color .2s ease}
+        .hdr-nav-link::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:2px;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:2px;transition:width .25s ease}
+        .hdr-nav-link:hover{color:#e4e4ec}.hdr-nav-link:hover::after{width:80%}
+        .hdr-logo-link{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;transition:filter .2s ease}
+        .hdr-logo-link:hover{filter:drop-shadow(0 0 6px rgba(59,130,246,0.45))}
+        .hdr-action-btn{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.08)!important;color:${F1.textDim}!important;border-radius:6px!important;font-size:10px!important;padding:4px 9px!important;font-weight:600!important;letter-spacing:0.04em!important;transition:all .18s ease!important}
+        .hdr-action-btn:hover{background:rgba(59,130,246,0.12)!important;border-color:rgba(59,130,246,0.3)!important;color:#e4e4ec!important}
+        .hdr-action-btn-active{background:rgba(59,130,246,0.15)!important;border-color:rgba(59,130,246,0.4)!important;color:#93c5fd!important}
       `}</style>
 
       {/* Modals */}
@@ -295,58 +303,54 @@ export default function App({ embed }) {
       </div>)}
 
       {/* Header */}
-      {!embed && <div style={{ display: "flex", alignItems: "stretch", borderBottom: `2px solid ${F1.red}`, background: `linear-gradient(180deg, ${F1.carbonLight} 0%, ${F1.carbon} 100%)`, zIndex: 10, position: "relative" }}>
-        <div style={{ width: mob ? 4 : 5, background: F1.red, flexShrink: 0 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: mob ? 6 : 16, padding: mob ? "6px 8px" : "0 20px", flex: 1, flexWrap: mob ? "nowrap" : "wrap", minHeight: mob ? 40 : 48, overflow: "hidden" }}>
-          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none", flexShrink: 0 }}>
-            <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 24 : 34, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
-            {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: F1.text, letterSpacing: "0.03em" }}>F1 STORIES</span>
-              <span style={{ fontSize: 9, fontWeight: 400, color: F1.textMuted, letterSpacing: "0.12em", textTransform: "uppercase" }}>Ghost Car Lab</span>
+      {!embed && <div style={{ display: "flex", alignItems: "center", background: isDark ? "rgba(17,17,24,0.92)" : "rgba(245,245,247,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.08)", boxShadow: "0 2px 12px rgba(0,0,0,0.45)", zIndex: 10, position: "relative", padding: mob ? "0 10px" : "0 20px", minHeight: mob ? 44 : 52, gap: mob ? 8 : 18 }}>
+          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" className="hdr-logo-link">
+            <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 26 : 32, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
+            {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: F1.text, letterSpacing: "0.04em" }}>F1 STORIES</span>
+              <span style={{ fontSize: 9, fontWeight: 600, color: "#3b82f6", letterSpacing: "0.14em", textTransform: "uppercase" }}>Ghost Car Lab</span>
             </div>}
           </a>
-          {mob && <span style={{ fontSize: 11, fontWeight: 700, color: F1.text, letterSpacing: "0.03em", whiteSpace: "nowrap" }}>Ghost Car Lab</span>}
-          {mob && selMt && <span style={{ fontSize: 9, color: F1.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")}</span>}
-          {!mob && <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+          {mob && <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>Ghost Car Lab</span>}
+          {mob && selMt && <span style={{ fontSize: 9, color: F1.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 90 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")}</span>}
+          {!mob && <div style={{ display: "flex", gap: 20, marginLeft: 4, paddingTop: 2 }}>
             {[{ label: "Blog", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Standings", href: "https://f1stories.gr/standings/" }].map((l) => (
-              <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: F1.textDim, textDecoration: "none", padding: "3px 8px", borderRadius: 3, fontWeight: 600, letterSpacing: "0.05em" }}>{l.label.toUpperCase()}</a>
+              <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="hdr-nav-link">{l.label.toUpperCase()}</a>
             ))}
           </div>}
-          {!mob && selMt && <span style={{ fontSize: 11, color: F1.textDim, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 8 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: mob ? 3 : 5, flexShrink: 0 }}>
-            {/* Mobile: compact action row */}
+          {!mob && selMt && <span style={{ fontSize: 10, color: F1.textMuted, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 4, borderLeft: `1px solid ${F1.borderLight}`, paddingLeft: 12 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: mob ? 4 : 5, flexShrink: 0 }}>
             {mob ? (<>
-              <button onClick={() => setShowPresets(true)} style={{ fontSize: 9, padding: "3px 6px" }}>⚡</button>
-              {selSe && <button onClick={share} style={{ fontSize: 9, padding: "3px 6px" }}>{shareMsg ? "✓" : "↗"}</button>}
-              {tp && <button onClick={saveToGallery} style={{ fontSize: 9, padding: "3px 6px" }}>💾</button>}
-              <button onClick={toggleTheme} style={{ fontSize: 9, padding: "3px 6px" }}>{isDark ? "☀️" : "🌙"}</button>
-              <button onClick={() => setShowMobMenu((v) => !v)} style={{ fontSize: 12, padding: "3px 6px", background: showMobMenu ? `${F1.red}33` : F1.cardBg }}>☰</button>
+              <button className="hdr-action-btn" onClick={() => setShowPresets(true)}>⚡</button>
+              {selSe && <button className="hdr-action-btn" onClick={share}>{shareMsg ? "✓" : "↗"}</button>}
+              {tp && <button className="hdr-action-btn" onClick={saveToGallery}>💾</button>}
+              <button className="hdr-action-btn" onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
+              <button className={`hdr-action-btn${showMobMenu ? " hdr-action-btn-active" : ""}`} onClick={() => setShowMobMenu((v) => !v)} style={{ fontSize: 13 }}>☰</button>
             </>) : (<>
-              <button onClick={() => setShowPresets(true)} style={{ fontSize: 10, padding: "4px 10px" }}>⚡ PRESETS</button>
-              {selSe && <button onClick={share} style={{ fontSize: 10, padding: "4px 10px" }}>{shareMsg || "SHARE"}</button>}
-              {tp && <button onClick={() => setShowStats(true)} style={{ fontSize: 10, padding: "4px 10px" }}>STATS</button>}
-              {tp && <button onClick={() => setShowLaps(true)} style={{ fontSize: 10, padding: "4px 10px" }}>LAPS</button>}
-              {tp && d1 && d2 && <button onClick={loadH2H} style={{ fontSize: 10, padding: "4px 10px" }}>H2H</button>}
-              {d1 && d2 && selSe && <button onClick={loadSeasonDash} style={{ fontSize: 10, padding: "4px 10px" }}>SEASON</button>}
-              {tp && <button onClick={saveToGallery} style={{ fontSize: 10, padding: "4px 10px" }}>💾</button>}
-              <button onClick={() => setShowGallery(true)} style={{ fontSize: 10, padding: "4px 10px" }}>📂</button>
-              {tp && <button onClick={generateSocialCard} style={{ fontSize: 10, padding: "4px 10px" }}>🖼️</button>}
-              {tp && selSe && <button onClick={() => setShowEmbed(true)} style={{ fontSize: 10, padding: "4px 10px" }}>{"</>"}</button>}
-              {tp && <button onClick={takeScreenshot} style={{ fontSize: 10, padding: "4px 10px" }}>📸</button>}
-              <button onClick={() => setShowreel((s) => !s)} style={{ fontSize: 10, padding: "4px 10px", background: showreel ? `${F1.red}33` : F1.cardBg, borderColor: showreel ? F1.red : F1.border }}>{showreel ? "⏹" : "🎬"}</button>
-              <button onClick={toggleTheme} style={{ fontSize: 10, padding: "4px 10px" }}>{isDark ? "☀️" : "🌙"}</button>
-              <button onClick={() => setShowKeys(true)} style={{ fontSize: 10, padding: "4px 8px", fontFamily: F1.mono, fontWeight: 900 }}>?</button>
+              <button className="hdr-action-btn" onClick={() => setShowPresets(true)}>⚡ PRESETS</button>
+              {selSe && <button className="hdr-action-btn" onClick={share}>{shareMsg || "SHARE"}</button>}
+              {tp && <button className="hdr-action-btn" onClick={() => setShowStats(true)}>STATS</button>}
+              {tp && <button className="hdr-action-btn" onClick={() => setShowLaps(true)}>LAPS</button>}
+              {tp && d1 && d2 && <button className="hdr-action-btn" onClick={loadH2H}>H2H</button>}
+              {d1 && d2 && selSe && <button className="hdr-action-btn" onClick={loadSeasonDash}>SEASON</button>}
+              {tp && <button className="hdr-action-btn" onClick={saveToGallery}>💾</button>}
+              <button className="hdr-action-btn" onClick={() => setShowGallery(true)}>📂</button>
+              {tp && <button className="hdr-action-btn" onClick={generateSocialCard}>🖼️</button>}
+              {tp && selSe && <button className="hdr-action-btn" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
+              {tp && <button className="hdr-action-btn" onClick={takeScreenshot}>📸</button>}
+              <button className={`hdr-action-btn${showreel ? " hdr-action-btn-active" : ""}`} onClick={() => setShowreel((s) => !s)}>{showreel ? "⏹" : "🎬"}</button>
+              <button className="hdr-action-btn" onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
+              <button className="hdr-action-btn" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
             </>)}
           </div>
-        </div>
       </div>}
 
       {/* Mobile menu panel */}
       {mob && showMobMenu && !embed && (<>
-        <div onClick={() => setShowMobMenu(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 49 }} />
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, background: F1.carbon, borderBottom: `2px solid ${F1.red}`, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
+        <div onClick={() => setShowMobMenu(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 49, backdropFilter: "blur(4px)" }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(59,130,246,0.2)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: F1.text, letterSpacing: "0.08em" }}>TOOLS</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>TOOLS</span>
             <button onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
