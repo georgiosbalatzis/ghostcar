@@ -91,6 +91,15 @@ export function fmt(s) {
   return `${m}:${sec < 10 ? "0" : ""}${sec.toFixed(3)}`;
 }
 
+export function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function encodeURL(s) {
   const p = new URLSearchParams();
   if (s.year) p.set("y", s.year);

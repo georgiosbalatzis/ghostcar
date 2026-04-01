@@ -4,7 +4,26 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { F1_DARK, F1_LIGHT } from "../constants.js";
 import { lerp, norm } from "../helpers.js";
 
-export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4) {
+function getSceneSupportError() {
+  if (typeof window === "undefined") return "";
+  if (!window.WebGLRenderingContext) return "This browser does not support WebGL.";
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    return gl ? "" : "WebGL is disabled or unavailable on this device.";
+  } catch {
+    return "WebGL is disabled or unavailable on this device.";
+  }
+}
+
+function formatSceneError(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (!message) return "Unable to start the 3D scene.";
+  if (/webgl|context/i.test(message)) return message;
+  return `Unable to start the 3D scene. ${message}`;
+}
+
+export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
@@ -14,38 +33,77 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
   const brakeArr = useMemo(() => telData1?.map((t) => t.brake > 0 ? 1 : 0) || [], [telData1]);
 
   useEffect(() => {
-    const el = ref.current; if (!el || !tp || tp.length < 10) return;
+    const el = ref.current;
+    if (!el || !tp || tp.length < 10) {
+      onError?.("");
+      return;
+    }
+
+    const supportError = getSceneSupportError();
+    if (supportError) {
+      onError?.(supportError);
+      return;
+    }
+
+    let ren;
+    let de;
+    let rt;
+    let contextLost = false;
+    let onContextLost;
+
+    const clearRenderer = () => {
+      if (R.current.fr) cancelAnimationFrame(R.current.fr);
+      if (de && onContextLost) de.removeEventListener("webglcontextlost", onContextLost);
+      if (ren) ren.dispose();
+      if (el && ren?.domElement && el.contains(ren.domElement)) el.removeChild(ren.domElement);
+    };
+
+    const fail = (error) => {
+      clearRenderer();
+      onError?.(formatSceneError(error));
+    };
+
     if (R.current.ren) { R.current.ren.dispose(); if (el.contains(R.current.ren.domElement)) el.removeChild(R.current.ren.domElement); }
     if (R.current.fr) cancelAnimationFrame(R.current.fr);
-    const w = el.clientWidth, h = el.clientHeight;
-    const scene = new THREE.Scene();
-    const T = isDark ? F1_DARK : F1_LIGHT;
 
-    if (isDark) {
-      scene.background = new THREE.Color(0x080812);
-      scene.fog = new THREE.FogExp2(0x080812, 0.006);
-    } else {
-      scene.background = new THREE.Color(T.sceneBg);
-      scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
-    }
+    try {
+      const w = Math.max(el.clientWidth, 1), h = Math.max(el.clientHeight, 1);
+      const scene = new THREE.Scene();
+      const T = isDark ? F1_DARK : F1_LIGHT;
 
-    const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-    const ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    ren.toneMapping = THREE.ACESFilmicToneMapping;
-    ren.toneMappingExposure = isDark ? 1.1 : 1.0;
-    el.appendChild(ren.domElement);
+      if (isDark) {
+        scene.background = new THREE.Color(0x080812);
+        scene.fog = new THREE.FogExp2(0x080812, 0.006);
+      } else {
+        scene.background = new THREE.Color(T.sceneBg);
+        scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
+      }
 
-    // Lighting — cinematic night race feel
-    scene.add(new THREE.AmbientLight(isDark ? 0x8899bb : 0xdddde8, isDark ? 0.4 : 1.2));
-    const sun = new THREE.DirectionalLight(isDark ? 0xffeedd : 0xffffff, isDark ? 0.8 : 1.4);
-    sun.position.set(40, 80, 30); scene.add(sun);
-    scene.add(new THREE.HemisphereLight(isDark ? 0x334466 : 0xeeeeff, isDark ? 0x111118 : 0x889988, isDark ? 0.5 : 0.6));
-    // Warm fill light from below-horizon (simulates floodlight bounce)
-    if (isDark) {
-      const fill = new THREE.DirectionalLight(0xff8844, 0.15);
-      fill.position.set(-30, 5, -20); scene.add(fill);
-    }
+      const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
+      ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      ren.toneMapping = THREE.ACESFilmicToneMapping;
+      ren.toneMappingExposure = isDark ? 1.1 : 1.0;
+      el.appendChild(ren.domElement);
+      de = ren.domElement;
+      onContextLost = (event) => {
+        event.preventDefault();
+        contextLost = true;
+        fail("WebGL context was lost. Reload the page or enable hardware acceleration.");
+      };
+      de.addEventListener("webglcontextlost", onContextLost, false);
+      onError?.("");
+
+      // Lighting — cinematic night race feel
+      scene.add(new THREE.AmbientLight(isDark ? 0x8899bb : 0xdddde8, isDark ? 0.4 : 1.2));
+      const sun = new THREE.DirectionalLight(isDark ? 0xffeedd : 0xffffff, isDark ? 0.8 : 1.4);
+      sun.position.set(40, 80, 30); scene.add(sun);
+      scene.add(new THREE.HemisphereLight(isDark ? 0x334466 : 0xeeeeff, isDark ? 0x111118 : 0x889988, isDark ? 0.5 : 0.6));
+      // Warm fill light from below-horizon (simulates floodlight bounce)
+      if (isDark) {
+        const fill = new THREE.DirectionalLight(0xff8844, 0.15);
+        fill.position.set(-30, 5, -20); scene.add(fill);
+      }
 
     // ─── Ground — layered for depth ───
     // Base ground (dark)
@@ -347,104 +405,104 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
     const car4 = l4?.length > 0 && lab4 ? makeCarGroup(c4, lab4, true) : null;
     if (car3) scene.add(car3); if (car4) scene.add(car4);
 
-    const loader = new GLTFLoader();
-    const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
-    loader.load(basePath, (gltf) => {
-      const template = gltf.scene; const modelScale = 0.12;
-      function applyModel(carGroup) {
-        if (!carGroup) return;
-        const clone = template.clone(true); clone.scale.set(modelScale, modelScale, modelScale);
-        const box = new THREE.Box3().setFromObject(clone); const center = box.getCenter(new THREE.Vector3());
-        clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
-        const col = new THREE.Color(carGroup.userData.color); const isGhost = carGroup.userData.isGhost;
-        clone.traverse((child) => {
-          if (child.isMesh && child.material) {
-            try {
-              const mat = child.material.clone(); const name = (mat.name || "").toLowerCase();
-              if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) { mat.color.copy(col); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = isGhost ? 0.4 : 0.15; } }
-              else if (name.includes("3rd")) { mat.color.copy(col).multiplyScalar(0.6); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = 0.1; } }
-              else if (name.includes("mirror")) { mat.color.setHex(0x888888); }
-              if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
-              child.material = mat;
-            } catch (e) { /* skip */ }
-          }
+      const loader = new GLTFLoader();
+      const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
+      loader.load(basePath, (gltf) => {
+        const template = gltf.scene; const modelScale = 0.12;
+        function applyModel(carGroup) {
+          if (!carGroup) return;
+          const clone = template.clone(true); clone.scale.set(modelScale, modelScale, modelScale);
+          const box = new THREE.Box3().setFromObject(clone); const center = box.getCenter(new THREE.Vector3());
+          clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
+          const col = new THREE.Color(carGroup.userData.color); const isGhost = carGroup.userData.isGhost;
+          clone.traverse((child) => {
+            if (child.isMesh && child.material) {
+              try {
+                const mat = child.material.clone(); const name = (mat.name || "").toLowerCase();
+                if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) { mat.color.copy(col); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = isGhost ? 0.4 : 0.15; } }
+                else if (name.includes("3rd")) { mat.color.copy(col).multiplyScalar(0.6); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = 0.1; } }
+                else if (name.includes("mirror")) { mat.color.setHex(0x888888); }
+                if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
+                child.material = mat;
+              } catch (e) { /* skip */ }
+            }
+          });
+          carGroup.add(clone); carGroup.userData.modelLoaded = true;
+        }
+        applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
+      }, undefined, () => {
+        [car1, car2, car3, car4].filter(Boolean).forEach((g) => {
+          const col = new THREE.Color(g.userData.color);
+          const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: g.userData.isGhost, opacity: g.userData.isGhost ? 0.5 : 1 }));
+          m.position.y = 0.15; g.add(m);
         });
-        carGroup.add(clone); carGroup.userData.modelLoaded = true;
-      }
-      applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
-    }, undefined, () => {
-      [car1, car2, car3, car4].filter(Boolean).forEach((g) => {
-        const col = new THREE.Color(g.userData.color);
-        const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: g.userData.isGhost, opacity: g.userData.isGhost ? 0.5 : 1 }));
-        m.position.y = 0.15; g.add(m);
       });
-    });
 
-    const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1); spot1.position.set(0, 12, 0); scene.add(spot1);
-    const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1); spot2.position.set(0, 12, 0); scene.add(spot2);
+      const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1); spot1.position.set(0, 12, 0); scene.add(spot1);
+      const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1); spot2.position.set(0, 12, 0); scene.add(spot2);
 
-    const deltaGeo = new THREE.BufferGeometry(); const deltaPos = new Float32Array(6);
-    deltaGeo.setAttribute("position", new THREE.Float32BufferAttribute(deltaPos, 3));
-    const deltaLine = new THREE.Line(deltaGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
-    deltaLine.frustumCulled = false; scene.add(deltaLine);
+      const deltaGeo = new THREE.BufferGeometry(); const deltaPos = new Float32Array(6);
+      deltaGeo.setAttribute("position", new THREE.Float32BufferAttribute(deltaPos, 3));
+      const deltaLine = new THREE.Line(deltaGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+      deltaLine.frustumCulled = false; scene.add(deltaLine);
 
-    const rlLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
-    rlLine.position.y += 0.015; scene.add(rlLine);
+      const rlLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
+      rlLine.position.y += 0.015; scene.add(rlLine);
 
-    function makeTrail(color, ghost) {
-      const max = 120, pos = new Float32Array(max * 3);
-      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      const alphas = new Float32Array(max); alphas.fill(0); geo.setAttribute("alpha", new THREE.BufferAttribute(alphas, 1)); geo.setDrawRange(0, 0);
-      const mat = new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, uniforms: { uColor: { value: new THREE.Color(color) } },
-        vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
-        fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
-      });
-      const points = new THREE.Points(geo, mat); scene.add(points);
-      return { mesh: points, positions: pos, alphas, max, count: 0 };
-    }
-    const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
-    const tr3 = car3 ? makeTrail(c3, true) : null; const tr4 = car4 ? makeTrail(c4, true) : null;
-
-    R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorMarkers, fr: null };
-
-    const cs = CS.current;
-    let pinchDist = null;
-    const onDown = (e) => {
-      if (e.touches && e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        pinchDist = Math.sqrt(dx * dx + dy * dy);
-        cs.drag = false;
-        return;
+      function makeTrail(color, ghost) {
+        const max = 120, pos = new Float32Array(max * 3);
+        const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        const alphas = new Float32Array(max); alphas.fill(0); geo.setAttribute("alpha", new THREE.BufferAttribute(alphas, 1)); geo.setDrawRange(0, 0);
+        const mat = new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false, uniforms: { uColor: { value: new THREE.Color(color) } },
+          vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
+          fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
+        });
+        const points = new THREE.Points(geo, mat); scene.add(points);
+        return { mesh: points, positions: pos, alphas, max, count: 0 };
       }
-      cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
-    };
-    const onMove = (e) => {
-      if (e.touches && e.touches.length === 2) {
-        e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const newDist = Math.sqrt(dx * dx + dy * dy);
-        if (pinchDist !== null) cs.dist = Math.max(15, Math.min(200, cs.dist * (pinchDist / newDist)));
-        pinchDist = newDist;
-        return;
-      }
-      if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2;
-    };
-    const onUp = () => { cs.drag = false; pinchDist = null; };
-    const onWheel = (e) => { cs.dist = Math.max(15, Math.min(200, cs.dist + e.deltaY * 0.05)); };
-    const de = ren.domElement;
-    de.addEventListener("mousedown", onDown); de.addEventListener("mousemove", onMove); de.addEventListener("mouseup", onUp); de.addEventListener("mouseleave", onUp);
-    de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: false }); de.addEventListener("touchmove", onMove, { passive: false }); de.addEventListener("touchend", onUp);
+      const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
+      const tr3 = car3 ? makeTrail(c3, true) : null; const tr4 = car4 ? makeTrail(c4, true) : null;
 
-    // Store progRef for render loop access
-    R.current._progRef = progRef;
-    R.current._telData1 = telData1;
+      R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorMarkers, fr: null };
 
-    function animate() {
-      R.current.fr = requestAnimationFrame(animate); cs.cinT += 0.0003;
-      if (R.current._starMat) R.current._starMat.uniforms.uTime.value = performance.now() * 0.001;
+      const cs = CS.current;
+      let pinchDist = null;
+      const onDown = (e) => {
+        if (e.touches && e.touches.length === 2) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          pinchDist = Math.sqrt(dx * dx + dy * dy);
+          cs.drag = false;
+          return;
+        }
+        cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+      };
+      const onMove = (e) => {
+        if (e.touches && e.touches.length === 2) {
+          e.preventDefault();
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const newDist = Math.sqrt(dx * dx + dy * dy);
+          if (pinchDist !== null) cs.dist = Math.max(15, Math.min(200, cs.dist * (pinchDist / newDist)));
+          pinchDist = newDist;
+          return;
+        }
+        if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2;
+      };
+      const onUp = () => { cs.drag = false; pinchDist = null; };
+      const onWheel = (e) => { cs.dist = Math.max(15, Math.min(200, cs.dist + e.deltaY * 0.05)); };
+      de.addEventListener("mousedown", onDown); de.addEventListener("mousemove", onMove); de.addEventListener("mouseup", onUp); de.addEventListener("mouseleave", onUp);
+      de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: false }); de.addEventListener("touchmove", onMove, { passive: false }); de.addEventListener("touchend", onUp);
+
+      // Store progRef for render loop access
+      R.current._progRef = progRef;
+      R.current._telData1 = telData1;
+
+      function animate() {
+        if (contextLost) return;
+        R.current.fr = requestAnimationFrame(animate); cs.cinT += 0.0003;
+        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = performance.now() * 0.001;
 
       // ─── Car updates (60fps, no React) ───
       const prog = R.current._progRef?.current ?? 0;
@@ -510,17 +568,32 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
         }
       }
 
-      const cm = cmRef.current;
-      if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camTargetLook.current.set(0, 0, 0); }
-      else if (cm === "top") { camTargetPos.current.set(0, 65, 0.01); camTargetLook.current.set(0, 0, 0); }
-      camera.position.lerp(camTargetPos.current, 0.08); camera.lookAt(camTargetLook.current); ren.render(scene, camera);
-    }
-    animate();
+        const cm = cmRef.current;
+        if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camTargetLook.current.set(0, 0, 0); }
+        else if (cm === "top") { camTargetPos.current.set(0, 65, 0.01); camTargetLook.current.set(0, 0, 0); }
+        camera.position.lerp(camTargetPos.current, 0.08); camera.lookAt(camTargetLook.current);
+        try {
+          ren.render(scene, camera);
+        } catch (error) {
+          contextLost = true;
+          fail(error);
+        }
+      }
+      animate();
 
-    let rt; const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el) return; camera.aspect = el.clientWidth / el.clientHeight; camera.updateProjectionMatrix(); ren.setSize(el.clientWidth, el.clientHeight); }, 100); };
-    window.addEventListener("resize", onR);
-    return () => { window.removeEventListener("resize", onR); de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp); cancelAnimationFrame(R.current.fr); ren.dispose(); if (el.contains(ren.domElement)) el.removeChild(ren.domElement); };
-  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, brakeArr, isDark]);
+      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1); camera.updateProjectionMatrix(); ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1)); }, 100); };
+      window.addEventListener("resize", onR);
+      return () => {
+        clearTimeout(rt);
+        window.removeEventListener("resize", onR);
+        de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp);
+        clearRenderer();
+      };
+    } catch (error) {
+      fail(error);
+      return;
+    }
+  }, [tp, c1, c2, cam, lab1, lab2, vizMode, speedArr, brakeArr, isDark, l3, l4, c3, c4, lab3, lab4, onError]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
-import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL } from "./helpers.js";
+import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
 import { setThemeMode, getF1 } from "./theme.js";
 
 // Hooks
@@ -25,13 +25,15 @@ import TourOverlay from "./modals/TourOverlay.jsx";
 
 export default function App({ embed }) {
   const mob = useIsMobile();
+  const initialURL = useMemo(() => decodeURL(), []);
+  const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
   const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; } });
   setThemeMode(isDark);
   const F1 = getF1();
   const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
 
   // ─── State ───
-  const [year, setYear] = useState(2026);
+  const [year, setYear] = useState(() => Number(initialURL.year) || AVAILABLE_YEARS[0]);
   const [mts, setMts] = useState([]); const [selMt, setSelMt] = useState(null);
   const [sess, setSess] = useState([]); const [selSe, setSelSe] = useState(null);
   const [drvs, setDrvs] = useState([]); const [d1, setD1] = useState(null); const [d2, setD2] = useState(null);
@@ -59,12 +61,14 @@ export default function App({ embed }) {
   const [gallery, setGallery] = useState(() => { try { return JSON.parse(localStorage.getItem("f1s-gallery") || "[]"); } catch { return []; } });
   const [showGallery, setShowGallery] = useState(false); const [showEmbed, setShowEmbed] = useState(false);
   const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
+  const [sceneErr, setSceneErr] = useState("");
   const [showTel, setShowTel] = useState(!embed); const [mobTab, setMobTab] = useState("3d");
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [showMobMenu, setShowMobMenu] = useState(false);
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
+  const initialYearFallbackRef = useRef(!initialURL.year);
 
   // ─── Derived ───
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
@@ -85,6 +89,8 @@ export default function App({ embed }) {
   const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
   const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
   const ct1 = telAt(tel1, prog), ct2 = telAt(tel2, prog), ct3 = telAt(tel3, prog), ct4 = telAt(tel4, prog);
+  const alertErr = sceneErr || err;
+  const noMeetings = !loading && !alertErr && mts.length === 0;
   const allDrivers = [
     { di: di1, co: co1, ct: ct1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
     { di: di2, co: co2, ct: ct2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
@@ -93,7 +99,22 @@ export default function App({ embed }) {
   ].filter((d) => d.di);
 
   // ─── Data loading effects ───
-  useEffect(() => { if (presetActiveRef.current) return; setLoading("Loading..."); setErr(""); fetchMeetings(year).then((d) => { setMts(d.filter((m) => m.meeting_name)); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [year]);
+  useEffect(() => {
+    if (presetActiveRef.current) return;
+    setLoading("Loading...");
+    setErr("");
+    setSceneErr("");
+    fetchMeetings(year).then((d) => {
+      const meetings = d.filter((m) => m.meeting_name);
+      const nextYear = AVAILABLE_YEARS[AVAILABLE_YEARS.indexOf(year) + 1];
+      if (!meetings.length && initialYearFallbackRef.current && nextYear) {
+        setYear(nextYear);
+        return;
+      }
+      initialYearFallbackRef.current = false;
+      setMts(meetings); setSelMt(null); setSelSe(null); setSess([]); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading("");
+    }).catch((e) => { initialYearFallbackRef.current = false; setErr(e.message); setLoading(""); });
+  }, [year]);
   useEffect(() => { if (!selMt || presetActiveRef.current) return; setLoading("Loading sessions..."); fetchSessions(selMt.meeting_key).then((d) => { setSess(d.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name))); setSelSe(null); setDrvs([]); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selMt]);
   useEffect(() => { if (!selSe || presetActiveRef.current) return; setLoading("Loading drivers..."); fetchDrivers(selSe.session_key).then((d) => { const seen = new Set(); setDrvs(d.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; })); setD1(null); setD2(null); setTp(null); setLoading(""); }).catch((e) => { setErr(e.message); setLoading(""); }); }, [selSe]);
   useEffect(() => { if (presetActiveRef.current) return; if (selSe && d1) { fetchLaps(selSe.session_key, d1).then((l) => { setLaps1(l); setSl1(null); }).catch(() => setLaps1([])); fetchStints(selSe.session_key, d1).then(setSt1).catch(() => setSt1([])); } }, [selSe, d1]);
@@ -118,7 +139,7 @@ export default function App({ embed }) {
 
   // ─── Actions ───
   const loadData = useCallback(async () => {
-    if (!selSe || !d1 || !d2 || !sl1 || !sl2) return; setLoading("Fetching telemetry..."); setErr(""); setLdPct(0);
+    if (!selSe || !d1 || !d2 || !sl1 || !sl2) return; setLoading("Fetching telemetry..."); setErr(""); setSceneErr(""); setLdPct(0);
     try {
       const sk = selSe.session_key;
       const la1 = laps1.find((l) => l.lap_number === sl1), la2 = laps2.find((l) => l.lap_number === sl2);
@@ -142,10 +163,14 @@ export default function App({ embed }) {
   }, [selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4]);
 
   const loadPreset = useCallback(async (pr) => {
-    setShowPresets(false); setLoading("Loading preset..."); setErr(""); setLdPct(0); presetActiveRef.current = true;
+    setShowPresets(false); setShowMobMenu(false); setLoading("Loading preset..."); setErr(""); setSceneErr(""); setLdPct(0); presetActiveRef.current = true;
     try {
       const allMts = await fetchMeetings(pr.year); const filteredMts = allMts.filter((x) => x.meeting_name);
-      const mt = filteredMts.find((x) => x.meeting_name?.toLowerCase().includes(pr.meeting.toLowerCase().replace(" grand prix", "").trim()));
+      const presetMeeting = normalizeText(pr.meeting).replace(" grand prix", "");
+      const mt = filteredMts.find((x) => {
+        const meetingName = normalizeText(x.meeting_name).replace(" grand prix", "");
+        return meetingName.includes(presetMeeting) || presetMeeting.includes(meetingName);
+      });
       if (!mt) throw new Error(`Meeting "${pr.meeting}" not found`); setLdPct(10);
       const allSess = await fetchSessions(mt.meeting_key); const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
       const se = filteredSess.find((s) => s.session_name === pr.session); if (!se) throw new Error(`Session not found`); setLdPct(20);
@@ -153,6 +178,7 @@ export default function App({ embed }) {
       const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1), fetchLaps(se.session_key, pr.d2)]);
       const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data); if (!fast1 || !fast2) throw new Error("No valid laps"); setLdPct(45);
       const [st1Data, st2Data] = await Promise.all([fetchStints(se.session_key, pr.d1).catch(() => []), fetchStints(se.session_key, pr.d2).catch(() => [])]);
+      initialYearFallbackRef.current = false;
       setYear(pr.year); setMts(filteredMts); setSelMt(mt); setSess(filteredSess); setSelSe(se); setDrvs(uniqueDrvs); setD1(pr.d1); setD2(pr.d2);
       setLaps1(l1Data); setLaps2(l2Data); setSl1(fast1.lap_number); setSl2(fast2.lap_number); setSt1(st1Data); setSt2(st2Data); setLdPct(50);
       setLoading("Fetching telemetry..."); const sk = se.session_key;
@@ -211,7 +237,7 @@ export default function App({ embed }) {
   // ─── Scene — pass progRef for direct 60fps reads ───
   const progRef = useRef(0);
   progRef.current = prog;
-  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "");
+  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "", setSceneErr);
 
   // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
   const spdRef = useRef(spd); spdRef.current = spd;
@@ -274,9 +300,10 @@ export default function App({ embed }) {
         .hdr-nav-link:hover{color:#e4e4ec}.hdr-nav-link:hover::after{width:80%}
         .hdr-logo-link{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;transition:filter .2s ease}
         .hdr-logo-link:hover{filter:drop-shadow(0 0 6px rgba(59,130,246,0.45))}
-        .hdr-action-btn{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.08)!important;color:${F1.textDim}!important;border-radius:6px!important;font-size:10px!important;padding:4px 9px!important;font-weight:600!important;letter-spacing:0.04em!important;transition:all .18s ease!important}
+        .hdr-action-btn{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.08)!important;color:${F1.textDim}!important;border-radius:8px!important;font-size:10px!important;padding:6px 10px!important;min-height:34px!important;font-weight:600!important;letter-spacing:0.04em!important;transition:all .18s ease!important}
         .hdr-action-btn:hover{background:rgba(59,130,246,0.12)!important;border-color:rgba(59,130,246,0.3)!important;color:#e4e4ec!important}
         .hdr-action-btn-active{background:rgba(59,130,246,0.15)!important;border-color:rgba(59,130,246,0.4)!important;color:#93c5fd!important}
+        .hdr-action-btn-icon{min-width:38px!important;padding:0 10px!important;font-size:14px!important}
       `}</style>
 
       {/* Modals */}
@@ -321,26 +348,26 @@ export default function App({ embed }) {
           {!mob && selMt && <span style={{ fontSize: 10, color: F1.textMuted, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 4, borderLeft: `1px solid ${F1.borderLight}`, paddingLeft: 12 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: mob ? 4 : 5, flexShrink: 0 }}>
             {mob ? (<>
-              <button className="hdr-action-btn" onClick={() => setShowPresets(true)}>⚡</button>
-              {selSe && <button className="hdr-action-btn" onClick={share}>{shareMsg ? "✓" : "↗"}</button>}
-              {tp && <button className="hdr-action-btn" onClick={saveToGallery}>💾</button>}
-              <button className="hdr-action-btn" onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
-              <button className={`hdr-action-btn${showMobMenu ? " hdr-action-btn-active" : ""}`} onClick={() => setShowMobMenu((v) => !v)} style={{ fontSize: 13 }}>☰</button>
+              <button className="hdr-action-btn hdr-action-btn-icon" title="Open preset battles" aria-label="Open preset battles" onClick={() => setShowPresets(true)}>⚡</button>
+              {selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Share this comparison" aria-label="Share this comparison" onClick={share}>{shareMsg ? "✓" : "↗"}</button>}
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Save to gallery" aria-label="Save to gallery" onClick={saveToGallery}>💾</button>}
+              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Switch to light theme" : "Switch to dark theme"} aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
+              <button className={`hdr-action-btn hdr-action-btn-icon${showMobMenu ? " hdr-action-btn-active" : ""}`} title="Open tools menu" aria-label="Open tools menu" onClick={() => setShowMobMenu((v) => !v)}>☰</button>
             </>) : (<>
-              <button className="hdr-action-btn" onClick={() => setShowPresets(true)}>⚡ PRESETS</button>
-              {selSe && <button className="hdr-action-btn" onClick={share}>{shareMsg || "SHARE"}</button>}
-              {tp && <button className="hdr-action-btn" onClick={() => setShowStats(true)}>STATS</button>}
-              {tp && <button className="hdr-action-btn" onClick={() => setShowLaps(true)}>LAPS</button>}
-              {tp && d1 && d2 && <button className="hdr-action-btn" onClick={loadH2H}>H2H</button>}
-              {d1 && d2 && selSe && <button className="hdr-action-btn" onClick={loadSeasonDash}>SEASON</button>}
-              {tp && <button className="hdr-action-btn" onClick={saveToGallery}>💾</button>}
-              <button className="hdr-action-btn" onClick={() => setShowGallery(true)}>📂</button>
-              {tp && <button className="hdr-action-btn" onClick={generateSocialCard}>🖼️</button>}
-              {tp && selSe && <button className="hdr-action-btn" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
-              {tp && <button className="hdr-action-btn" onClick={takeScreenshot}>📸</button>}
-              <button className={`hdr-action-btn${showreel ? " hdr-action-btn-active" : ""}`} onClick={() => setShowreel((s) => !s)}>{showreel ? "⏹" : "🎬"}</button>
-              <button className="hdr-action-btn" onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
-              <button className="hdr-action-btn" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
+              <button className="hdr-action-btn" title="Open preset battles" onClick={() => setShowPresets(true)}>⚡ PRESETS</button>
+              {selSe && <button className="hdr-action-btn" title="Share this comparison" onClick={share}>{shareMsg || "SHARE"}</button>}
+              {tp && <button className="hdr-action-btn" title="Open lap stats" onClick={() => setShowStats(true)}>STATS</button>}
+              {tp && <button className="hdr-action-btn" title="Browse lap choices" onClick={() => setShowLaps(true)}>LAPS</button>}
+              {tp && d1 && d2 && <button className="hdr-action-btn" title="Head to head history" onClick={loadH2H}>H2H</button>}
+              {d1 && d2 && selSe && <button className="hdr-action-btn" title="Season dashboard" onClick={loadSeasonDash}>SEASON</button>}
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Save to gallery" aria-label="Save to gallery" onClick={saveToGallery}>💾</button>}
+              <button className="hdr-action-btn hdr-action-btn-icon" title="Open saved gallery" aria-label="Open saved gallery" onClick={() => setShowGallery(true)}>📂</button>
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Create social card" aria-label="Create social card" onClick={generateSocialCard}>🖼️</button>}
+              {tp && selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Embed this comparison" aria-label="Embed this comparison" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Download screenshot" aria-label="Download screenshot" onClick={takeScreenshot}>📸</button>}
+              <button className={`hdr-action-btn hdr-action-btn-icon${showreel ? " hdr-action-btn-active" : ""}`} title={showreel ? "Stop showreel" : "Start showreel"} aria-label={showreel ? "Stop showreel" : "Start showreel"} onClick={() => setShowreel((s) => !s)}>{showreel ? "⏹" : "🎬"}</button>
+              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Switch to light theme" : "Switch to dark theme"} aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
+              <button className="hdr-action-btn hdr-action-btn-icon" title="Show keyboard shortcuts" aria-label="Show keyboard shortcuts" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
             </>)}
           </div>
       </div>}
@@ -377,7 +404,7 @@ export default function App({ embed }) {
       {!embed && <div style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
         {/* Row 1: Event selectors */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 60 : "auto", fontSize: mob ? 11 : 12 }}>{[2026,2025,2024,2023].map((y) => <option key={y} value={y}>{y}</option>)}</select>
+          <select value={year} onChange={(e) => { initialYearFallbackRef.current = false; setYear(Number(e.target.value)); }} style={{ width: mob ? 60 : "auto", fontSize: mob ? 11 : 12 }}>{AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y}</option>)}</select>
           <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 100 : 155, flex: mob ? 1 : undefined, fontSize: mob ? 11 : 12 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
           <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 75 : 115, fontSize: mob ? 11 : 12 }}><option value="">Session</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{s.session_name}</option>)}</select>
         </div>
@@ -401,9 +428,10 @@ export default function App({ embed }) {
           {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
           <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "COMPARE"}</button>
         </div>
+        {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>No meeting data is available for {year} yet. Try an earlier season.</div>}
       </div>}
 
-      {!embed && err && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{err}</span><button onClick={() => setErr("")} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
+      {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button onClick={() => { setErr(""); setSceneErr(""); }} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
       {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}><div style={{ fontSize: 11, color: F1.textDim, fontFamily: F1.mono, marginBottom: 4 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 1, transition: "width .3s" }} /></div>}</div>}
       {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, overflowX: "auto", flexShrink: 0 }}>
         {[
@@ -433,12 +461,12 @@ export default function App({ embed }) {
         {/* 3D Track — always mounted to preserve WebGL context, hidden via display:none */}
         <div style={{ flex: 1, position: "relative", minHeight: (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
             <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: (embed || mob) ? 0 : "auto", touchAction: "none" }} />
-            {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
+            {tp && !sceneErr && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.blue : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.blue : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
               <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
             </div>}
-            {tp && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
+            {tp && !sceneErr && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
             {delta !== null && tp && <div style={{ position: "absolute", bottom: 8, left: 10, zIndex: 3, animation: "fadeIn .4s" }}>
               <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.blue}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ fontSize: 7, color: F1.textMuted, letterSpacing: "0.15em", fontWeight: 700, textTransform: "uppercase" }}>Interval</div>
@@ -454,6 +482,13 @@ export default function App({ embed }) {
               <SectorDelta s={2} t1={li1.duration_sector_2} t2={li2.duration_sector_2} c1={co1} c2={co2} />
               <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
             </div>}
+            {tp && sceneErr && <div style={{ position: "absolute", inset: mob ? 12 : 20, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ maxWidth: 460, padding: mob ? "18px 16px" : "22px 24px", borderRadius: 14, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", textAlign: "center", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>3D VIEW UNAVAILABLE</div>
+                <div style={{ fontSize: mob ? 15 : 16, fontWeight: 700, color: F1.text, lineHeight: 1.5, marginBottom: 10 }}>{sceneErr}</div>
+                <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>Telemetry, lap data, stats and head-to-head views still work. Try a browser with WebGL and hardware acceleration enabled to restore the 3D track.</div>
+              </div>
+            </div>}
             {!tp && !loading && !embed && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
               <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
               <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>GHOST CAR LAB</div>
@@ -465,7 +500,7 @@ export default function App({ embed }) {
               </div>
             </div>}
             {embed && !tp && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .4s" }}>
-              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}</>) : err ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{err}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>LOADING COMPARISON</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
+              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}</>) : alertErr ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{alertErr}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>LOADING COMPARISON</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
             </div>}
           </div>
 
