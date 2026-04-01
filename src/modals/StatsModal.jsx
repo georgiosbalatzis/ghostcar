@@ -24,7 +24,7 @@ export default function StatsModal({ mob, allDrivers, onClose, inline }) {
 
   const wrapStyle = inline
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
-    : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.red}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" };
+    : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" };
 
   return (
     <div style={wrapStyle}>
@@ -38,7 +38,7 @@ export default function StatsModal({ mob, allDrivers, onClose, inline }) {
       <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: F1.mono }}>
           <thead><tr style={{ color: F1.textMuted, fontSize: 9, letterSpacing: "0.1em" }}>
-            <th style={{ textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${F1.red}22` }}>METRIC</th>
+            <th style={{ textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${F1.blue}22` }}>METRIC</th>
             {allDrivers.map((d, i) => <th key={i} style={{ textAlign: "center", padding: "8px 4px", color: d.co, borderBottom: `2px solid ${d.co}44`, fontSize: 10 }}>{d.di?.name_acronym || `D${i+1}`}</th>)}
           </tr></thead>
           <tbody>{rows.map((r) => {

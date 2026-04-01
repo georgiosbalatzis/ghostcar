@@ -6,6 +6,7 @@
 export const F1_DARK = {
   // Primary accent
   red: "#E10600", redDark: "#B30500", redGlow: "rgba(225,6,0,0.15)",
+  blue: "#3b82f6", blueDark: "#2563eb", blueGlow: "rgba(59,130,246,0.15)",
 
   // Backgrounds — f1stories.gr dark palette
   carbon: "#111118",         // deepest background (was #15151e)
@@ -43,6 +44,7 @@ export const F1_DARK = {
 export const F1_LIGHT = {
   // Primary accent
   red: "#E10600", redDark: "#B30500", redGlow: "rgba(225,6,0,0.08)",
+  blue: "#2563eb", blueDark: "#1d4ed8", blueGlow: "rgba(59,130,246,0.12)",
 
   // Backgrounds — f1stories.gr clean white palette
   carbon: "#f5f5f7",         // main bg (Apple-inspired off-white)

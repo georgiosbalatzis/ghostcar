@@ -52,7 +52,7 @@ export default function TelemetryPanel({ mob, tp, prog, allDrivers, numDrivers, 
               const ys = tp.map((p) => p.y); const minY = Math.min(...ys), maxY = Math.max(...ys);
               const range = maxY - minY || 1; const step = Math.max(1, Math.floor(tp.length / 150));
               let d = ""; for (let i = 0; i < tp.length; i += step) { const x = (i / (tp.length - 1)) * 300; const y = 38 - ((ys[i] - minY) / range) * 34; d += (i === 0 ? "M" : "L") + `${x},${y}`; }
-              return (<><path d={d + `L300,40L0,40Z`} fill={`${F1.red}15`} /><path d={d} fill="none" stroke={F1.red} strokeWidth="1.5" opacity="0.6" /><line x1={prog * 300} y1="0" x2={prog * 300} y2="40" stroke="#fff" strokeWidth="1" opacity="0.5" /></>);
+              return (<><path d={d + `L300,40L0,40Z`} fill={`${F1.blue}15`} /><path d={d} fill="none" stroke={F1.blue} strokeWidth="1.5" opacity="0.6" /><line x1={prog * 300} y1="0" x2={prog * 300} y2="40" stroke="#fff" strokeWidth="1" opacity="0.5" /></>);
             })()}
           </svg>
         </div>

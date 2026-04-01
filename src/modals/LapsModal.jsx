@@ -5,7 +5,7 @@ export default function LapsModal({ mob, drivers, onClose, inline }) {
   const F1 = getF1();
   const wrapStyle = inline
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
-    : { position: "fixed", top: 0, right: 0, bottom: 0, width: mob ? "100%" : 380, background: F1.carbon, borderLeft: `1px solid ${F1.red}22`, zIndex: 100, display: "flex", flexDirection: "column", animation: "fadeIn .2s" };
+    : { position: "fixed", top: 0, right: 0, bottom: 0, width: mob ? "100%" : 380, background: F1.carbon, borderLeft: `1px solid ${F1.blue}22`, zIndex: 100, display: "flex", flexDirection: "column", animation: "fadeIn .2s" };
   return (
     <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${F1.borderLight}` }}>
