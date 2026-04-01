@@ -409,13 +409,34 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
     R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorMarkers, fr: null };
 
     const cs = CS.current;
-    const onDown = (e) => { cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0; };
-    const onMove = (e) => { if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2; };
-    const onUp = () => { cs.drag = false; };
+    let pinchDist = null;
+    const onDown = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchDist = Math.sqrt(dx * dx + dy * dy);
+        cs.drag = false;
+        return;
+      }
+      cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+    };
+    const onMove = (e) => {
+      if (e.touches && e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const newDist = Math.sqrt(dx * dx + dy * dy);
+        if (pinchDist !== null) cs.dist = Math.max(15, Math.min(200, cs.dist * (pinchDist / newDist)));
+        pinchDist = newDist;
+        return;
+      }
+      if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2;
+    };
+    const onUp = () => { cs.drag = false; pinchDist = null; };
     const onWheel = (e) => { cs.dist = Math.max(15, Math.min(200, cs.dist + e.deltaY * 0.05)); };
     const de = ren.domElement;
     de.addEventListener("mousedown", onDown); de.addEventListener("mousemove", onMove); de.addEventListener("mouseup", onUp); de.addEventListener("mouseleave", onUp);
-    de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: true }); de.addEventListener("touchmove", onMove, { passive: true }); de.addEventListener("touchend", onUp);
+    de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: false }); de.addEventListener("touchmove", onMove, { passive: false }); de.addEventListener("touchend", onUp);
 
     // Store progRef for render loop access
     R.current._progRef = progRef;

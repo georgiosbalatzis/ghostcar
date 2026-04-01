@@ -428,7 +428,7 @@ export default function App({ embed }) {
       <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
         {/* 3D Track — always mounted to preserve WebGL context, hidden via display:none */}
         <div style={{ flex: 1, position: "relative", minHeight: (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
-            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: (embed || mob) ? 0 : "auto" }} />
+            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: (embed || mob) ? 0 : "auto", touchAction: "none" }} />
             {tp && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
               {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.red : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.red : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
               <div style={{ width: 1, height: 16, background: F1.borderLight }} />
