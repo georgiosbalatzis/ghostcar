@@ -1,5 +1,6 @@
 import { getF1 } from "../theme.js";
 import { encodeURL } from "../helpers.js";
+import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function EmbedModal({ mob, year, selMt, selSe, d1, d2, sl1, sl2, onClose }) {
   const F1 = getF1();
@@ -10,7 +11,7 @@ export default function EmbedModal({ mob, year, selMt, selSe, d1, d2, sl1, sl2, 
     <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxHeight: "85vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div><div style={{ fontWeight: 900, fontSize: 16 }}>INTEGRATION HUB</div><div style={{ fontSize: 10, color: F1.textMuted }}>Embed, share & publish</div></div>
-        <button onClick={onClose} style={{ marginLeft: "auto" }}>✕</button>
+        <button aria-label="Close integration hub" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "16px 20px 20px" }}>
         <div style={{ marginBottom: 18 }}>

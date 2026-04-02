@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER } from "./constants.js";
+import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
 import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
 import { setThemeMode, getF1 } from "./theme.js";
@@ -11,6 +11,7 @@ import useScene from "./hooks/useScene.js";
 import MiniMap from "./components/MiniMap.jsx";
 import SectorDelta from "./components/SectorDelta.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
+import TrackReplay2D from "./components/TrackReplay2D.jsx";
 
 // Modals
 import PresetsModal from "./modals/PresetsModal.jsx";
@@ -21,7 +22,9 @@ import H2HModal from "./modals/H2HModal.jsx";
 import DashModal from "./modals/DashModal.jsx";
 import GalleryModal from "./modals/GalleryModal.jsx";
 import EmbedModal from "./modals/EmbedModal.jsx";
+import TelemetryModal from "./modals/TelemetryModal.jsx";
 import TourOverlay from "./modals/TourOverlay.jsx";
+import { getModalCloseButtonStyle } from "./modals/modalStyles.js";
 
 const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
 const UNAVAILABLE_PRESET_YEARS = [2026];
@@ -50,6 +53,8 @@ export default function App({ embed }) {
   const [tel1, setTel1] = useState(null); const [tel2, setTel2] = useState(null);
   const [tel3, setTel3] = useState(null); const [tel4, setTel4] = useState(null);
   const [tp, setTp] = useState(null);
+  const [circuitFlip, setCircuitFlip] = useState(false);
+  const [circuitTurns, setCircuitTurns] = useState(20);
   const [st1, setSt1] = useState([]); const [st2, setSt2] = useState([]);
   const [st3, setSt3] = useState([]); const [st4, setSt4] = useState([]);
   const [numDrivers, setNumDrivers] = useState(2);
@@ -67,14 +72,22 @@ export default function App({ embed }) {
   const [sceneErr, setSceneErr] = useState("");
   const [canCancelLoad, setCanCancelLoad] = useState(false);
   const [showTel, setShowTel] = useState(!embed); const [mobTab, setMobTab] = useState("3d");
+  const [showTelOverlay, setShowTelOverlay] = useState(false);
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [shareDialogUrl, setShareDialogUrl] = useState("");
+  const [shareDialogNotice, setShareDialogNotice] = useState("");
+  const [toast, setToast] = useState(null);
+  const [highlightConfig, setHighlightConfig] = useState(false);
   const [showMobMenu, setShowMobMenu] = useState(false);
   const selectorsRef = useRef(null);
   const yearSelectRef = useRef(null);
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
   const loadAbortRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const shareMsgTimerRef = useRef(null);
+  const highlightConfigTimerRef = useRef(null);
 
   // ─── Derived ───
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
@@ -97,6 +110,12 @@ export default function App({ embed }) {
   const alertErr = sceneErr || err;
   const noMeetings = !loading && !alertErr && mts.length === 0;
   const playablePresets = useMemo(() => PRESETS.filter((preset) => !UNAVAILABLE_PRESET_YEARS.includes(preset.year)), []);
+  const fallbackDrivers = useMemo(() => ([
+    { label: di1?.name_acronym || "D1", color: co1, path: loc1, lapDuration: li1?.lap_duration, current: telAt(tel1, prog), tire: tire1 },
+    { label: di2?.name_acronym || "D2", color: co2, path: loc2, lapDuration: li2?.lap_duration, current: telAt(tel2, prog), tire: tire2 },
+    ...(numDrivers >= 3 && di3 && loc3 ? [{ label: di3?.name_acronym || "D3", color: co3, path: loc3, lapDuration: laps3.find((l) => l.lap_number === sl3)?.lap_duration, current: telAt(tel3, prog), tire: tire3 }] : []),
+    ...(numDrivers >= 4 && di4 && loc4 ? [{ label: di4?.name_acronym || "D4", color: co4, path: loc4, lapDuration: laps4.find((l) => l.lap_number === sl4)?.lap_duration, current: telAt(tel4, prog), tire: tire4 }] : []),
+  ]).filter((driver) => driver.path?.length >= 2), [di1, di2, di3, di4, co1, co2, co3, co4, loc1, loc2, loc3, loc4, li1, li2, tel1, tel2, tel3, tel4, prog, tire1, tire2, tire3, tire4, numDrivers, laps3, laps4, sl3, sl4]);
   // Memoized — excludes live ct* so it stays stable between prog ticks
   const allDrivers = useMemo(() => [
     { di: di1, co: co1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
@@ -153,10 +172,12 @@ export default function App({ embed }) {
   useEffect(() => { const u = decodeURL(); if (u.l1 && laps1.length && !sl1) setSl1(Number(u.l1)); }, [laps1]);
   useEffect(() => { const u = decodeURL(); if (u.l2 && laps2.length && !sl2) setSl2(Number(u.l2)); }, [laps2]);
 
-  // Auto-load when URL params are fully restored (shared links + embed)
-  useEffect(() => { if (!urlLoaded.current || autoLoadRef.current) return; if (selSe && d1 && d2 && sl1 && sl2) { autoLoadRef.current = true; setTimeout(() => loadData(), 300); } }, [selSe, d1, d2, sl1, sl2]);
-
-  useEffect(() => () => { loadAbortRef.current?.abort(); }, []);
+  useEffect(() => () => {
+    loadAbortRef.current?.abort();
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
+    if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
+  }, []);
 
   const isAbortError = useCallback((error) => error?.name === "AbortError", []);
 
@@ -185,19 +206,59 @@ export default function App({ embed }) {
   }, []);
 
   const focusConfiguration = useCallback(() => {
-    selectorsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    try { yearSelectRef.current?.focus({ preventScroll: true }); } catch { yearSelectRef.current?.focus?.(); }
+    const top = selectorsRef.current ? selectorsRef.current.getBoundingClientRect().top + window.scrollY - 12 : 0;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    window.setTimeout(() => {
+      try { yearSelectRef.current?.focus({ preventScroll: true }); } catch { yearSelectRef.current?.focus?.(); }
+    }, 220);
   }, []);
 
+  const pushToast = useCallback((message, tone = "info") => {
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    setToast({ message, tone });
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2800);
+  }, []);
+
+  const bumpShareMsg = useCallback((message) => {
+    if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
+    setShareMsg(message);
+    shareMsgTimerRef.current = window.setTimeout(() => setShareMsg(""), 2200);
+  }, []);
+
+  const changeMatchup = useCallback(() => {
+    setPlay(false);
+    setShowTelOverlay(false);
+    setShowStats(false);
+    setShowLaps(false);
+    setShowH2H(false);
+    setShowDash(false);
+    setShowGallery(false);
+    setShowEmbed(false);
+    setShowKeys(false);
+    setShowMobMenu(false);
+    setShowTel(false);
+    if (mob || embed) setMobTab("3d");
+    if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
+    setHighlightConfig(true);
+    highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
+    focusConfiguration();
+    pushToast("Update the season, circuit and drivers in the selector bar.", "info");
+  }, [embed, mob, focusConfiguration, pushToast]);
+
   const openAuxView = useCallback((mode) => {
+    if (mode === "telemetry" && !embed && !mob) {
+      setShowTel(true);
+      setShowTelOverlay(true);
+      pushToast("Telemetry charts opened.", "info");
+      return;
+    }
     if (embed || mob) {
       setMobTab(mode);
       return;
     }
-    if (mode === "telemetry") setShowTel(true);
     if (mode === "stats") setShowStats(true);
     if (mode === "laps") setShowLaps(true);
-  }, [embed, mob]);
+  }, [embed, mob, pushToast]);
 
   // ─── Actions ───
   const loadData = useCallback(async () => {
@@ -226,7 +287,12 @@ export default function App({ embed }) {
       setLoc1(locs[0]); setLoc2(locs[1]); setTel1(tels[0]); setTel2(tels[1]);
       if (locs[2]) { setLoc3(locs[2]); setTel3(tels[2]); } else { setLoc3(null); setTel3(null); }
       if (locs[3]) { setLoc4(locs[3]); setTel4(tels[3]); } else { setLoc4(null); setTel4(null); }
-      setTp(norm(locs[0])); setProg(0); setPlay(false); setLdPct(100); setLoading(""); setLdPct(undefined);
+      const _ci = getCircuitInfo(selMt);
+      const _rawTp = norm(locs[0]);
+      let _area = 0; for (let _i = 0; _i < _rawTp.length; _i++) { const _j = (_i + 1) % _rawTp.length; _area += _rawTp[_i].x * _rawTp[_j].z - _rawTp[_j].x * _rawTp[_i].z; }
+      const _flip = _ci.clockwise !== (_area < 0);
+      setCircuitFlip(_flip); setCircuitTurns(_ci.turns);
+      setTp(norm(locs[0], _flip)); setProg(0); setPlay(false); setLdPct(100); setLoading(""); setLdPct(undefined);
     } catch (e) {
       if (!isAbortError(e)) setErr(e.message);
       setLoading("");
@@ -234,7 +300,10 @@ export default function App({ embed }) {
     } finally {
       finishCancelableLoad(controller);
     }
-  }, [selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, beginCancelableLoad, finishCancelableLoad, isAbortError]);
+  }, [selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, beginCancelableLoad, finishCancelableLoad, isAbortError]);
+
+  // Auto-load when URL params are fully restored (shared links + embed)
+  useEffect(() => { if (!urlLoaded.current || autoLoadRef.current) return; if (selSe && d1 && d2 && sl1 && sl2) { autoLoadRef.current = true; setTimeout(() => loadData(), 300); } }, [selSe, d1, d2, sl1, sl2, loadData]);
 
   const loadPreset = useCallback(async (pr) => {
     const controller = beginCancelableLoad();
@@ -263,7 +332,12 @@ export default function App({ embed }) {
       const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchLocation(sk, pr.d2, fast2.date_start, end2, reqOptions)]); setLdPct(80);
       const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchCarData(sk, pr.d2, fast2.date_start, end2, reqOptions)]);
       if (lo1.length < 5 || lo2.length < 5) throw new Error("Insufficient location data");
-      setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2); setTp(norm(lo1)); setProg(0); setPlay(false); setLdPct(100);
+      const _ci2 = getCircuitInfo(mt);
+      const _rawTp2 = norm(lo1);
+      let _area2 = 0; for (let _i = 0; _i < _rawTp2.length; _i++) { const _j = (_i + 1) % _rawTp2.length; _area2 += _rawTp2[_i].x * _rawTp2[_j].z - _rawTp2[_j].x * _rawTp2[_i].z; }
+      const _flip2 = _ci2.clockwise !== (_area2 < 0);
+      setCircuitFlip(_flip2); setCircuitTurns(_ci2.turns);
+      setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2); setTp(norm(lo1, _flip2)); setProg(0); setPlay(false); setLdPct(100);
       setLoading(""); setLdPct(undefined);
     } catch (e) {
       if (!isAbortError(e)) setErr(e.message);
@@ -274,7 +348,38 @@ export default function App({ embed }) {
     }
   }, [UNAVAILABLE_PRESET_YEARS, beginCancelableLoad, finishCancelableLoad, isAbortError]);
 
-  const share = useCallback(() => { if (!selMt || !selSe) return; const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 }); navigator.clipboard?.writeText(url).then(() => { setShareMsg("Copied!"); setTimeout(() => setShareMsg(""), 2000); }); window.history.replaceState(null, "", url.split(window.location.origin)[1]); }, [year, selMt, selSe, d1, d2, sl1, sl2]);
+  const share = useCallback(async () => {
+    if (!selMt || !selSe) return;
+    const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 });
+    window.history.replaceState(null, "", url.split(window.location.origin)[1]);
+    const shareTitle = `${selMt.meeting_name} ${year} Ghost Car Lab`;
+    if (navigator.share && mob && !embed) {
+      try {
+        await navigator.share({ title: shareTitle, text: "Ghost Car telemetry comparison", url });
+        setShareDialogUrl("");
+        setShareDialogNotice("");
+        bumpShareMsg("SHARED");
+        pushToast("Share sheet opened.", "success");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(url);
+      setShareDialogUrl(url);
+      setShareDialogNotice("Link copied to clipboard. You can share it directly or copy it again below.");
+      bumpShareMsg("COPIED");
+      pushToast("Share link copied to clipboard.", "success");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      setShareDialogUrl(url);
+      setShareDialogNotice("Clipboard access was blocked. Copy the link below.");
+      bumpShareMsg("LINK READY");
+      pushToast("Share link ready to copy.", "info");
+    }
+  }, [year, selMt, selSe, d1, d2, sl1, sl2, mob, embed, bumpShareMsg, pushToast]);
 
   const saveToGallery = useCallback(() => {
     if (!di1 || !di2 || !selMt || !li1 || !li2) return;
@@ -319,7 +424,7 @@ export default function App({ embed }) {
   // ─── Scene — pass progRef for direct 60fps reads ───
   const progRef = useRef(0);
   progRef.current = prog;
-  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "", setSceneErr);
+  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "", setSceneErr, circuitFlip, circuitTurns);
 
   // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
   const spdRef = useRef(spd); spdRef.current = spd;
@@ -332,7 +437,7 @@ export default function App({ embed }) {
     if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; }
     function tick(ts) {
       if (!ltRef.current) ltRef.current = ts;
-      const dt = (ts - ltRef.current) / 1000; ltRef.current = ts;
+      const dt = Math.min((ts - ltRef.current) / 1000, 0.05); ltRef.current = ts;
       let n = progRef.current + dt * 0.015 * spdRef.current;
       if (n >= 1) { if (loopRef.current) { n = 0; } else { n = 1; setPlay(false); } }
       progRef.current = n;
@@ -344,19 +449,61 @@ export default function App({ embed }) {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [play]);
 
+  // ─── Modal backdrop ───
+  const anyModal = showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash || showTelOverlay || !!shareDialogUrl;
+  const closeAll = useCallback(() => {
+    setShowPresets(false);
+    setShowStats(false);
+    setShowLaps(false);
+    setShowKeys(false);
+    setShowH2H(false);
+    setShowGallery(false);
+    setShowEmbed(false);
+    setShowDash(false);
+    setShowTelOverlay(false);
+    setShareDialogUrl("");
+    setShareDialogNotice("");
+  }, []);
+
   // ─── Keyboard ───
   const lastLeftRef = useRef(0);
-  useEffect(() => { const h = (e) => { if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return; if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; } if (e.code === "Escape") { setShowKeys(false); setShowTour(false); return; } if (e.code === "Space") { e.preventDefault(); if (tp) startWithCountdown(); } if (e.code === "KeyR") { setProg(0); setPlay(false); } if (e.code === "KeyT") setShowTel((s) => !s); if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]); if (e.code === "KeyL") setLoop((l) => !l); if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01)); if (e.code === "ArrowLeft") { const now = Date.now(); if (now - lastLeftRef.current < 300) setProg((p) => Math.max(0, p - 0.05)); else setProg((p) => Math.max(0, p - 0.01)); lastLeftRef.current = now; } }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [tp, startWithCountdown]);
+  useEffect(() => {
+    const h = (e) => {
+      if (e.code === "Escape") {
+        if (showMobMenu) { setShowMobMenu(false); return; }
+        if (showTour) { setShowTour(false); return; }
+        if (anyModal) { closeAll(); return; }
+        if ((mob || embed) && mobTab !== "3d") { setMobTab("3d"); return; }
+        if (!mob && !embed && showTel) { setShowTel(false); return; }
+        return;
+      }
+      if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; }
+      if (e.code === "Space") { e.preventDefault(); if (tp) startWithCountdown(); }
+      if (e.code === "KeyR") { setProg(0); setPlay(false); }
+      if (e.code === "KeyT") {
+        if (!mob && !embed) setShowTel((s) => !s);
+        return;
+      }
+      if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]);
+      if (e.code === "KeyL") setLoop((l) => !l);
+      if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01));
+      if (e.code === "ArrowLeft") {
+        const now = Date.now();
+        if (now - lastLeftRef.current < 300) setProg((p) => Math.max(0, p - 0.05));
+        else setProg((p) => Math.max(0, p - 0.01));
+        lastLeftRef.current = now;
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [tp, startWithCountdown, showMobMenu, showTour, anyModal, closeAll, mob, embed, mobTab, showTel]);
 
   // Mobile swipe
   useEffect(() => { if (!mob || !tp) return; let sx = 0; const onTS = (e) => { sx = e.touches[0].clientX; }; const onTE = (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setProg((p) => Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03)))); }; document.addEventListener("touchstart", onTS, { passive: true }); document.addEventListener("touchend", onTE, { passive: true }); return () => { document.removeEventListener("touchstart", onTS); document.removeEventListener("touchend", onTE); }; }, [mob, tp]);
 
   // Showreel
   useEffect(() => { if (!showreel) { showreelRef.current = false; return; } showreelRef.current = true; let idx = 0; async function next() { if (!showreelRef.current || idx >= playablePresets.length) { setShowreel(false); return; } await loadPreset(playablePresets[idx]); setPlay(true); idx++; setTimeout(() => { setPlay(false); if (showreelRef.current) next(); }, 12000); } next(); return () => { showreelRef.current = false; }; }, [showreel, loadPreset, playablePresets]);
-
-  // ─── Modal backdrop ───
-  const anyModal = showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash;
-  const closeAll = () => { setShowPresets(false); setShowStats(false); setShowLaps(false); setShowKeys(false); setShowH2H(false); setShowGallery(false); setShowEmbed(false); setShowDash(false); };
 
   // ─── RENDER ───
   return (
@@ -391,6 +538,7 @@ export default function App({ embed }) {
       {/* Modals */}
       {anyModal && <div onClick={closeAll} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />}
       {showPresets && <PresetsModal mob={mob} onClose={() => setShowPresets(false)} onLoadPreset={loadPreset} unavailableYears={UNAVAILABLE_PRESET_YEARS} />}
+      {showTelOverlay && <TelemetryModal mob={mob} onClose={() => setShowTelOverlay(false)} panelProps={{ mob, tp, prog, allDrivers, numDrivers, di1, di2, co1, co2, li1, li2, s1, s2, laps1, st1, sl1 }} />}
       {showStats && tp && <StatsModal mob={mob} allDrivers={allDrivers} onClose={() => setShowStats(false)} />}
       {showLaps && <LapsModal mob={mob} onClose={() => setShowLaps(false)} drivers={[
         { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
@@ -402,6 +550,40 @@ export default function App({ embed }) {
       {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={() => setShowGallery(false)} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} />}
       {showEmbed && <EmbedModal mob={mob} year={year} selMt={selMt} selSe={selSe} d1={d1} d2={d2} sl1={sl1} sl2={sl2} onClose={() => setShowEmbed(false)} />}
       {showTour && !embed && <TourOverlay onClose={() => setShowTour(false)} />}
+      {shareDialogUrl && (
+        <div role="dialog" aria-modal="true" aria-label="Share link" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxWidth: "calc(100vw - 24px)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px rgba(0,0,0,0.4)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>SHARE LINK READY</div>
+              <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>{shareDialogNotice || "The share link is ready below."}</div>
+            </div>
+            <button aria-label="Close share dialog" onClick={() => { setShareDialogUrl(""); setShareDialogNotice(""); }} style={getModalCloseButtonStyle(F1)}>✕</button>
+          </div>
+          <div style={{ padding: "16px 20px 20px" }}>
+            <input readOnly value={shareDialogUrl} onFocus={(e) => e.target.select()} style={{ width: "100%", background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 12, outline: "none" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Select and copy the link manually, or use the copy button again.</div>
+              <button
+                className="f1-btn"
+                onClick={async () => {
+                  try {
+                    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+                    await navigator.clipboard.writeText(shareDialogUrl);
+                    setShareDialogNotice("Link copied to clipboard.");
+                    bumpShareMsg("COPIED");
+                    pushToast("Share link copied to clipboard.", "success");
+                  } catch {
+                    pushToast("Clipboard is still unavailable on this device.", "info");
+                  }
+                }}
+                style={{ padding: "8px 14px", fontSize: 11 }}
+              >
+                COPY LINK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Countdown */}
       {countdown !== null && (<div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -483,7 +665,7 @@ export default function App({ embed }) {
       </>)}
 
       {/* Selectors */}
-      {!embed && <div ref={selectorsRef} style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight }}>
+      {!embed && <div ref={selectorsRef} style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${highlightConfig ? `${F1.blue}77` : F1.borderLight}`, background: F1.carbonLight, boxShadow: highlightConfig ? `0 0 0 2px ${F1.blue}22 inset, 0 0 24px ${F1.blueGlow}` : "none", transition: "box-shadow .25s ease, border-color .25s ease" }}>
         {/* Row 1: Event selectors */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
           <select ref={yearSelectRef} value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 124 : "auto", fontSize: mob ? 11 : 12 }}>
@@ -515,7 +697,7 @@ export default function App({ embed }) {
         {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>No meeting data is available for {year} yet. Try 2025 for the latest complete telemetry season.</div>}
       </div>}
 
-      {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button onClick={() => { setErr(""); setSceneErr(""); }} style={{ padding: "2px 8px", fontSize: 10 }}>✕</button></div>}
+      {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button aria-label="Dismiss error" onClick={() => { setErr(""); setSceneErr(""); }} style={{ minWidth: 34, minHeight: 34, padding: "0 10px", fontSize: 14, lineHeight: 1 }}>✕</button></div>}
       {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <div style={{ flex: 1, fontSize: 11, color: F1.textDim, fontFamily: F1.mono }}>{loading}</div>
@@ -564,7 +746,7 @@ export default function App({ embed }) {
                 <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
               </div>
             ))}
-            {tp && !sceneErr && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
+            {tp && !sceneErr && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} flip={circuitFlip} /></div>}
             {/* Interval delta — top-right on embed mobile to avoid bottom overlap */}
             {delta !== null && tp && <div style={{ position: "absolute", ...(embed && mob ? { top: 8, right: 8 } : { bottom: 8, left: 10 }), zIndex: 3, animation: "fadeIn .4s" }}>
               <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: embed && mob ? "4px 10px" : mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.blue}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -583,18 +765,40 @@ export default function App({ embed }) {
               <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
             </div>}
             {tp && sceneErr && <div style={{ position: "absolute", inset: mob ? 12 : 20, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ maxWidth: 520, padding: mob ? "18px 16px" : "22px 24px", borderRadius: 14, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", textAlign: "center", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>3D VIEW UNAVAILABLE</div>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-                  <MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} size={mob ? 180 : 220} />
-                </div>
-                <div style={{ fontSize: mob ? 15 : 16, fontWeight: 700, color: F1.text, lineHeight: 1.5, marginBottom: 10 }}>{sceneErr}</div>
-                <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6, marginBottom: 14 }}>Telemetry, lap tables and stats still work. Use the actions below or try a browser with WebGL and hardware acceleration enabled to restore the 3D track.</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                  <button onClick={() => openAuxView("telemetry")} style={{ padding: "7px 12px", fontSize: 11 }}>TELEMETRY</button>
-                  <button onClick={() => openAuxView("stats")} style={{ padding: "7px 12px", fontSize: 11 }}>STATS</button>
-                  <button onClick={() => openAuxView("laps")} style={{ padding: "7px 12px", fontSize: 11 }}>LAPS</button>
-                  {!embed && <button onClick={focusConfiguration} className="f1-btn" style={{ padding: "7px 12px", fontSize: 11 }}>CHANGE MATCHUP</button>}
+              <div style={{ width: "min(900px, 100%)", padding: mob ? "18px 16px" : "22px 24px", borderRadius: 16, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(260px, 320px) 1fr", gap: mob ? 16 : 22, alignItems: "center" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>2D FALLBACK PLAYBACK</div>
+                    <TrackReplay2D tp={tp} drivers={fallbackDrivers} prog={prog} flip={circuitFlip} />
+                    <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: mob ? "1fr" : `repeat(${Math.max(2, Math.min(4, fallbackDrivers.length || 2))}, minmax(0, 1fr))`, gap: 10 }}>
+                      {fallbackDrivers.map((driver) => (
+                        <div key={driver.label} style={{ minWidth: 0, padding: "10px 12px", borderRadius: 10, background: F1.cardBg, border: `1px solid ${driver.color}33`, textAlign: "left" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>{driver.label}</div>
+                            <div style={{ fontSize: 10, color: F1.textMuted }}>{Math.round(prog * 100)}%</div>
+                          </div>
+                          <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>{fmt((driver.lapDuration || 0) * prog)}</div>
+                          <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
+                            <span>{Math.round(driver.current?.speed || 0)} km/h</span>
+                            <span>THR {Math.round(driver.current?.throttle || 0)}%</span>
+                            <span>{driver.current?.brake > 0 ? "BRAKE" : "COAST"}</span>
+                            {driver.tire && <span>{driver.tire}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below now drive a 2D track replay with live progress dots.</div>
+                  </div>
+                  <div style={{ textAlign: mob ? "center" : "left" }}>
+                    <div style={{ fontSize: mob ? 15 : 18, fontWeight: 800, color: F1.text, lineHeight: 1.45, marginBottom: 8 }}>{sceneErr}</div>
+                    <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.7, marginBottom: 14 }}>The comparison is still usable without WebGL. Open the telemetry charts, stats or lap tables, or jump back to the selector bar to change the matchup.</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: mob ? "center" : "flex-start" }}>
+                      <button onClick={() => openAuxView("telemetry")} style={{ padding: "8px 13px", fontSize: 11 }}>TELEMETRY</button>
+                      <button onClick={() => openAuxView("stats")} style={{ padding: "8px 13px", fontSize: 11 }}>STATS</button>
+                      <button onClick={() => openAuxView("laps")} style={{ padding: "8px 13px", fontSize: 11 }}>LAPS</button>
+                      {!embed && <button onClick={changeMatchup} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>CHANGE MATCHUP</button>}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>}
@@ -614,7 +818,7 @@ export default function App({ embed }) {
           </div>
 
         {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
-        {((!mob && !embed && showTel && tp) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
+        {((!mob && !embed && showTel && tp && !sceneErr) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
           <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: (embed || mob) ? 1 : undefined, maxHeight: (!mob && !embed) ? "auto" : undefined, overflow: "auto", animation: "fadeIn .2s" }}>
             <TelemetryPanel mob={mob || embed} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
           </div>
@@ -661,7 +865,7 @@ export default function App({ embed }) {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: embed && mob ? 46 : mob ? 55 : 70 }}>
           {allDrivers.map((d, i) => <span key={i} style={{ fontSize: embed && mob ? 9 : 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
         </div>
-        {!embed && <button onClick={focusConfiguration} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
+        {!embed && <button onClick={changeMatchup} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
         <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: embed && mob ? 42 : 48, padding: "2px 3px", fontSize: 10 }}>
           <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
         </select>
@@ -684,6 +888,7 @@ export default function App({ embed }) {
           <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
         </div>
       )}
+      {toast && <div role="status" aria-live="polite" style={{ position: "fixed", right: 16, bottom: tp ? 72 : 16, zIndex: 250, maxWidth: mob ? "calc(100vw - 32px)" : 320, padding: "10px 14px", borderRadius: 10, background: toast.tone === "success" ? `${F1.green}22` : `${F1.blue}18`, border: `1px solid ${toast.tone === "success" ? `${F1.green}55` : `${F1.blue}44`}`, color: F1.text, boxShadow: "0 14px 30px rgba(0,0,0,0.25)", fontSize: 12, lineHeight: 1.5 }}>{toast.message}</div>}
     </div>
   );
 }

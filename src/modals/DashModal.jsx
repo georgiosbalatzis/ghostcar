@@ -1,5 +1,6 @@
 import { getF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
+import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onClose, inline }) {
   const F1 = getF1();
@@ -13,7 +14,7 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>SEASON DASHBOARD {year}</div>
           <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "D1"} vs {di2?.name_acronym || "D2"} — Qualifying overview</div>
         </div>
-        <button onClick={onClose} style={{ marginLeft: "auto" }}>✕</button>
+        <button aria-label="Close season dashboard" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
         {!dashData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching season data<span style={{ animation: "pulse 1s infinite" }}>...</span></div>

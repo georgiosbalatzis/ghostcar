@@ -1,5 +1,6 @@
 import { getF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
+import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function StatsModal({ mob, allDrivers, onClose, inline }) {
   const F1 = getF1();
@@ -33,7 +34,7 @@ export default function StatsModal({ mob, allDrivers, onClose, inline }) {
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP ANALYSIS</div>
           <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Detailed telemetry comparison</div>
         </div>
-        <button onClick={onClose} style={{ marginLeft: "auto", padding: "4px 10px" }}>✕</button>
+        <button aria-label="Close lap analysis" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: F1.mono }}>

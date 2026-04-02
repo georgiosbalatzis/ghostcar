@@ -26,7 +26,7 @@ export function lerp(pts, t) {
   };
 }
 
-export function norm(points) {
+export function norm(points, flip = false) {
   if (!points?.length) return [];
   let mnX = Infinity, mxX = -Infinity, mnY = Infinity, mxY = -Infinity, mnZ = Infinity, mxZ = -Infinity;
   for (const p of points) {
@@ -36,8 +36,9 @@ export function norm(points) {
   }
   const sc = Math.max(mxX - mnX, mxY - mnY) || 1;
   const cx = (mnX + mxX) / 2, cy = (mnY + mxY) / 2, cz = (mnZ + mxZ) / 2;
+  const fx = flip ? -1 : 1;
   return points.map((p) => ({
-    x: ((p.x - cx) / sc) * 40,
+    x: fx * ((p.x - cx) / sc) * 40,
     y: ((p.z - cz) / sc) * 4,
     z: ((p.y - cy) / sc) * 40,
   }));
@@ -77,6 +78,15 @@ export function useIsMobile() {
     return () => { clearTimeout(t); window.removeEventListener("resize", h); };
   }, []);
   return m;
+}
+
+// Resample a path to n evenly-spaced points using Catmull-Rom.
+// Call once at load time so per-frame lerp is always between closely-packed smooth points.
+export function smoothPath(pts, n = 1200) {
+  if (!pts?.length || pts.length < 2) return pts || [];
+  const out = new Array(n + 1);
+  for (let i = 0; i <= n; i++) out[i] = lerp(pts, i / n);
+  return out;
 }
 
 export function ds(a, max) {

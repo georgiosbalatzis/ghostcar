@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
+import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function LapsModal({ mob, drivers, onClose, inline }) {
   const F1 = getF1();
@@ -16,7 +17,7 @@ export default function LapsModal({ mob, drivers, onClose, inline }) {
           <button onClick={() => setSortMode("time")} style={{ padding: "4px 8px", fontSize: 10, background: sortMode === "time" ? F1.blue : F1.cardBg, borderColor: sortMode === "time" ? F1.blue : F1.borderLight, color: sortMode === "time" ? "#fff" : F1.text }}>FASTEST</button>
           <button onClick={() => setSortMode("lap")} style={{ padding: "4px 8px", fontSize: 10, background: sortMode === "lap" ? F1.blue : F1.cardBg, borderColor: sortMode === "lap" ? F1.blue : F1.borderLight, color: sortMode === "lap" ? "#fff" : F1.text }}>LAP #</button>
         </div>
-        <button onClick={onClose} style={{ marginLeft: "auto" }}>✕</button>
+        <button aria-label="Close lap times" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
         {drivers.map((drv) => {

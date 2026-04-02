@@ -90,17 +90,33 @@ export const TEAM_COLORS = {
 };
 
 export const DRIVER_NAME_BY_NUMBER = {
+  2: "Logan Sargeant",
+  3: "Daniel Ricciardo",
   1: "Max Verstappen",
   4: "Lando Norris",
+  5: "Gabriel Bortoleto",
+  6: "Isack Hadjar",
+  7: "Jack Doohan",
+  10: "Pierre Gasly",
   11: "Sergio Perez",
   12: "Andrea Kimi Antonelli",
   14: "Fernando Alonso",
   16: "Charles Leclerc",
+  18: "Lance Stroll",
   20: "Kevin Magnussen",
+  22: "Yuki Tsunoda",
+  23: "Alexander Albon",
+  24: "Zhou Guanyu",
+  27: "Nico Hulkenberg",
+  30: "Liam Lawson",
+  31: "Esteban Ocon",
+  43: "Franco Colapinto",
   44: "Lewis Hamilton",
   55: "Carlos Sainz",
   63: "George Russell",
+  77: "Valtteri Bottas",
   81: "Oscar Piastri",
+  87: "Oliver Bearman",
 };
 
 export const getTeamColor = (t) => {
@@ -135,3 +151,62 @@ export const PRESETS = [
 
 export const CAM_MODES = ["orbit", "follow1", "follow2", "top", "cinematic"];
 export const CAM_LABELS = { orbit: "Free", follow1: "Chase D1", follow2: "Chase D2", top: "Heli", cinematic: "Film" };
+
+// ─── Circuit data: turns and driving direction ───
+// clockwise: true = CW when viewed from above (cars mostly turn right first)
+// clockwise: false = anticlockwise (cars mostly turn left first)
+export const CIRCUIT_DATA = {
+  "bahrain":          { turns: 15, clockwise: true  },
+  "jeddah":           { turns: 27, clockwise: false },
+  "melbourne":        { turns: 16, clockwise: true  },
+  "baku":             { turns: 20, clockwise: false },
+  "miami":            { turns: 19, clockwise: true  },
+  "imola":            { turns: 19, clockwise: false },
+  "monaco":           { turns: 19, clockwise: true  },
+  "barcelona":        { turns: 16, clockwise: true  },
+  "spielberg":        { turns: 10, clockwise: true  },
+  "montreal":         { turns: 14, clockwise: true  },
+  "silverstone":      { turns: 18, clockwise: true  },
+  "budapest":         { turns: 14, clockwise: true  },
+  "spa-francorchamps":{ turns: 19, clockwise: true  },
+  "spa":              { turns: 19, clockwise: true  },
+  "zandvoort":        { turns: 14, clockwise: true  },
+  "monza":            { turns: 11, clockwise: true  },
+  "singapore":        { turns: 19, clockwise: false },
+  "suzuka":           { turns: 18, clockwise: true  },
+  "lusail":           { turns: 16, clockwise: true  },
+  "austin":           { turns: 20, clockwise: false },
+  "mexico city":      { turns: 17, clockwise: true  },
+  "mexico":           { turns: 17, clockwise: true  },
+  "sao paulo":        { turns: 15, clockwise: false },
+  "las vegas":        { turns: 17, clockwise: false },
+  "abu dhabi":        { turns: 16, clockwise: true  },
+  "shanghai":         { turns: 16, clockwise: true  },
+  "portimao":         { turns: 15, clockwise: true  },
+  "sochi":            { turns: 18, clockwise: true  },
+  "istanbul":         { turns: 14, clockwise: false },
+  "mugello":          { turns: 15, clockwise: true  },
+  "nurburgring":      { turns: 15, clockwise: true  },
+};
+
+const _normKey = (s) =>
+  String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+export function getCircuitInfo(meeting) {
+  if (!meeting) return { turns: 20, clockwise: true };
+  const key = _normKey(meeting.circuit_short_name || "");
+  const name = _normKey(meeting.meeting_name || "").replace(/\s*grand\s*prix\s*/, "").trim();
+  // Exact match on circuit_short_name
+  if (key && CIRCUIT_DATA[key]) return CIRCUIT_DATA[key];
+  // Partial match on circuit_short_name
+  for (const [k, v] of Object.entries(CIRCUIT_DATA)) {
+    if (key && (key.includes(k) || k.includes(key))) return v;
+  }
+  // Exact match on GP name (stripped)
+  if (name && CIRCUIT_DATA[name]) return CIRCUIT_DATA[name];
+  // Partial match on GP name
+  for (const [k, v] of Object.entries(CIRCUIT_DATA)) {
+    if (name && (name.includes(k) || k.includes(name))) return v;
+  }
+  return { turns: 20, clockwise: true };
+}

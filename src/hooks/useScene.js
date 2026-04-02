@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { F1_DARK, F1_LIGHT } from "../constants.js";
-import { lerp, norm } from "../helpers.js";
+import { lerp, norm, smoothPath } from "../helpers.js";
 
 function getSceneSupportError() {
   if (typeof window === "undefined") return "";
@@ -23,12 +23,12 @@ function formatSceneError(error) {
   return `Unable to start the 3D scene. ${message}`;
 }
 
-export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError) {
+export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
-  const n1 = useMemo(() => l1 ? norm(l1) : null, [l1]); const n2 = useMemo(() => l2 ? norm(l2) : null, [l2]);
-  const n3 = useMemo(() => l3 ? norm(l3) : null, [l3]); const n4 = useMemo(() => l4 ? norm(l4) : null, [l4]);
+  const n1 = useMemo(() => l1 ? smoothPath(norm(l1, circuitFlip)) : null, [l1, circuitFlip]); const n2 = useMemo(() => l2 ? smoothPath(norm(l2, circuitFlip)) : null, [l2, circuitFlip]);
+  const n3 = useMemo(() => l3 ? smoothPath(norm(l3, circuitFlip)) : null, [l3, circuitFlip]); const n4 = useMemo(() => l4 ? smoothPath(norm(l4, circuitFlip)) : null, [l4, circuitFlip]);
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
   const brakeArr = useMemo(() => telData1?.map((t) => t.brake > 0 ? 1 : 0) || [], [telData1]);
 
@@ -356,7 +356,7 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       const cross = Math.abs((p1c.x - p0.x) * (p2c.z - p1c.z) - (p1c.z - p0.z) * (p2c.x - p1c.x));
       if (cross > 0.12 && (corners.length === 0 || Math.abs(t1 - corners[corners.length - 1].t) > 0.035)) corners.push({ t: t1, p: p1c });
     }
-    corners.slice(0, 20).forEach((c, i) => {
+    corners.slice(0, circuitTurns).forEach((c, i) => {
       const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
       const ctx = cv.getContext("2d");
       ctx.fillStyle = "rgba(225,6,0,0.75)"; ctx.beginPath(); ctx.arc(24, 24, 20, 0, Math.PI * 2); ctx.fill();
@@ -524,7 +524,7 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
         function updCar(car, trail, data, t, lateralOff) {
           const pts = data?.length >= 2 ? data : tp;
           const p = lerp(pts, t); if (isNaN(p.x)) return { x: 0, y: 0, z: 0 };
-          const p2 = lerp(pts, Math.min(1, t + 0.005));
+          const p2 = lerp(pts, Math.min(1, t + 0.01));
           // Lateral offset for overtaking visualization
           let ox = 0, oz = 0;
           if (lateralOff !== 0) {
@@ -532,16 +532,28 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
             const len = Math.sqrt(dx * dx + dz * dz) || 1;
             ox = (-dz / len) * lateralOff; oz = (dx / len) * lateralOff;
           }
-          car.position.set(p.x + ox, p.y + 0.2, p.z + oz);
-          if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.001 && !isNaN(p2.x)) car.lookAt(p2.x + ox, p.y + 0.2, p2.z + oz);
+          const tx = p.x + ox, ty = p.y + 0.2, tz = p.z + oz;
+          if (!car.userData.pos) car.userData.pos = { x: tx, y: ty, z: tz };
+          else { car.userData.pos.x += (tx - car.userData.pos.x) * 0.3; car.userData.pos.y += (ty - car.userData.pos.y) * 0.3; car.userData.pos.z += (tz - car.userData.pos.z) * 0.3; }
+          car.position.set(car.userData.pos.x, car.userData.pos.y, car.userData.pos.z);
+          if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.0001 && !isNaN(p2.x)) {
+            const fwdX = p2.x - p.x, fwdZ = p2.z - p.z;
+            const fLen = Math.sqrt(fwdX * fwdX + fwdZ * fwdZ);
+            if (fLen > 0) {
+              const nx = fwdX / fLen, nz = fwdZ / fLen;
+              if (!car.userData.fwd) car.userData.fwd = { x: nx, z: nz };
+              else { car.userData.fwd.x += (nx - car.userData.fwd.x) * 0.08; car.userData.fwd.z += (nz - car.userData.fwd.z) * 0.08; }
+              car.lookAt(p.x + ox + car.userData.fwd.x, p.y + 0.2, p.z + oz + car.userData.fwd.z);
+            }
+          }
           if (trail) {
             const c = Math.min(trail.count + 1, trail.max);
             for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; }
-            trail.positions[0] = p.x + ox; trail.positions[1] = p.y + 0.05; trail.positions[2] = p.z + oz;
+            trail.positions[0] = car.userData.pos.x; trail.positions[1] = car.userData.pos.y - 0.15; trail.positions[2] = car.userData.pos.z;
             for (let i = c - 1; i >= 1; i--) trail.alphas[i] = trail.alphas[i - 1] * 0.97; trail.alphas[0] = 1.0; trail.count = c;
             trail.mesh.geometry.attributes.position.needsUpdate = true; trail.mesh.geometry.attributes.alpha.needsUpdate = true; trail.mesh.geometry.setDrawRange(0, c);
           }
-          return { x: p.x + ox, y: p.y, z: p.z + oz };
+          return { x: car.userData.pos.x, y: car.userData.pos.y - 0.2, z: car.userData.pos.z };
         }
 
         // Calculate proximity — if cars are close, offset them laterally

@@ -1,4 +1,5 @@
 import { getF1 } from "../theme.js";
+import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, onClose, inline }) {
   const F1 = getF1();
@@ -12,7 +13,7 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, onClo
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>HEAD-TO-HEAD {year}</div>
           <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "D1"} vs {di2?.name_acronym || "D2"} — Qualifying</div>
         </div>
-        <button onClick={onClose} style={{ marginLeft: "auto" }}>✕</button>
+        <button aria-label="Close head to head" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
         {!h2hData ? (
