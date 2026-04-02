@@ -94,16 +94,16 @@ export default function App({ embed }) {
   const t3 = useMemo(() => ds(tel3?.map((t) => t.throttle || 0), ms), [tel3, ms]); const t4 = useMemo(() => ds(tel4?.map((t) => t.throttle || 0), ms), [tel4, ms]);
   const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
   const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
-  const ct1 = telAt(tel1, prog), ct2 = telAt(tel2, prog), ct3 = telAt(tel3, prog), ct4 = telAt(tel4, prog);
   const alertErr = sceneErr || err;
   const noMeetings = !loading && !alertErr && mts.length === 0;
   const playablePresets = useMemo(() => PRESETS.filter((preset) => !UNAVAILABLE_PRESET_YEARS.includes(preset.year)), []);
-  const allDrivers = [
-    { di: di1, co: co1, ct: ct1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
-    { di: di2, co: co2, ct: ct2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
-    ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, ct: ct3, li: laps3.find((l) => l.lap_number === sl3), tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
-    ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, ct: ct4, li: laps4.find((l) => l.lap_number === sl4), tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
-  ].filter((d) => d.di);
+  // Memoized — excludes live ct* so it stays stable between prog ticks
+  const allDrivers = useMemo(() => [
+    { di: di1, co: co1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
+    { di: di2, co: co2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
+    ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, li: laps3.find((l) => l.lap_number === sl3), tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
+    ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, li: laps4.find((l) => l.lap_number === sl4), tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
+  ].filter((d) => d.di), [di1, co1, li1, tire1, tel1, s1, t1, b1, st1, laps1, sl1, di2, co2, li2, tire2, tel2, s2, t2, b2, st2, laps2, sl2, numDrivers, di3, co3, laps3, sl3, tire3, tel3, s3, t3, b3, st3, di4, co4, laps4, sl4, tire4, tel4, s4, t4, b4, st4]);
 
   const driverFullName = useCallback((driver) => {
     if (!driver) return "";
@@ -535,39 +535,49 @@ export default function App({ embed }) {
       </div>}
 
       {/* Embed tab bar */}
-      {embed && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, flexShrink: 0, overflowX: "auto" }}>
+      {embed && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, flexShrink: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         {[
-          { id: "3d", label: "🏎️ Track" },
-          { id: "telemetry", label: "📊 Telemetry" },
-          { id: "stats", label: "📈 Stats" },
-          { id: "laps", label: "⏱ Laps" },
-          { id: "h2h", label: "⚔️ H2H" },
-          { id: "season", label: "🏆 Season" },
-        ].map((tab) => <button key={tab.id} onClick={() => { setMobTab(tab.id); if (tab.id === "h2h" && !h2hData) loadH2H(); if (tab.id === "season" && !dashData) loadSeasonDash(); if (tab.id === "3d") setTimeout(() => window.dispatchEvent(new Event("resize")), 50); }} style={{ flex: 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: 0, color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
+          { id: "3d", label: mob ? "🏎️" : "🏎️ Track", title: "Track" },
+          { id: "telemetry", label: mob ? "📊" : "📊 Telemetry", title: "Telemetry" },
+          { id: "stats", label: mob ? "📈" : "📈 Stats", title: "Stats" },
+          { id: "laps", label: mob ? "⏱" : "⏱ Laps", title: "Laps" },
+          { id: "h2h", label: mob ? "⚔️" : "⚔️ H2H", title: "H2H" },
+          { id: "season", label: mob ? "🏆" : "🏆 Season", title: "Season" },
+        ].map((tab) => <button key={tab.id} title={tab.title} onClick={() => { setMobTab(tab.id); if (tab.id === "h2h" && !h2hData) loadH2H(); if (tab.id === "season" && !dashData) loadSeasonDash(); if (tab.id === "3d") setTimeout(() => window.dispatchEvent(new Event("resize")), 50); }} style={{ flex: mob ? "1 0 auto" : 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: mob ? 16 : 10, padding: mob ? "8px 0" : "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: mob ? 0 : undefined, color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
       </div>}
 
       {/* Main area */}
       <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
         {/* 3D Track — always mounted to preserve WebGL context, hidden via display:none */}
-        <div style={{ flex: 1, position: "relative", minHeight: (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
-            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: (embed || mob) ? 0 : "auto", touchAction: "none" }} />
-            {tp && !sceneErr && <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
-              {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.blue : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.blue : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
-              <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-              <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
-            </div>}
+        <div style={{ flex: 1, position: "relative", minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
+            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto", touchAction: "none" }} />
+            {tp && !sceneErr && (embed && mob ? (
+              /* Embed phone: compact cam cycle button + viz toggle */
+              <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, display: "flex", gap: 4 }}>
+                <button onClick={() => setCam((c) => { const i = CAM_MODES.indexOf(c); return CAM_MODES[(i + 1) % CAM_MODES.length]; })} style={{ padding: "4px 10px", fontSize: 9, background: F1.overlay, backdropFilter: "blur(6px)", borderColor: F1.blue, color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>📷 {CAM_LABELS[cam]}</button>
+                {vizMode !== "normal" && <button onClick={() => setVizMode("normal")} style={{ padding: "4px 8px", fontSize: 9, background: "#0088ff44", backdropFilter: "blur(6px)", borderColor: "#0088ff", color: "#fff", fontWeight: 700 }}>✕ {vizMode === "brake" ? "Brake" : "Speed"}</button>}
+              </div>
+            ) : (
+              <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
+                {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.blue : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.blue : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
+                <div style={{ width: 1, height: 16, background: F1.borderLight }} />
+                <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
+              </div>
+            ))}
             {tp && !sceneErr && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} /></div>}
-            {delta !== null && tp && <div style={{ position: "absolute", bottom: 8, left: 10, zIndex: 3, animation: "fadeIn .4s" }}>
-              <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.blue}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ fontSize: 7, color: F1.textMuted, letterSpacing: "0.15em", fontWeight: 700, textTransform: "uppercase" }}>Interval</div>
-                <div style={{ fontSize: mob ? 18 : 24, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.1 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}<span style={{ fontSize: "0.5em", opacity: 0.7 }}>s</span></div>
-                <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
+            {/* Interval delta — top-right on embed mobile to avoid bottom overlap */}
+            {delta !== null && tp && <div style={{ position: "absolute", ...(embed && mob ? { top: 8, right: 8 } : { bottom: 8, left: 10 }), zIndex: 3, animation: "fadeIn .4s" }}>
+              <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: embed && mob ? "4px 10px" : mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.blue}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ fontSize: 7, color: F1.textMuted, letterSpacing: "0.15em", fontWeight: 700, textTransform: "uppercase" }}>Δ</div>
+                <div style={{ fontSize: embed && mob ? 15 : mob ? 18 : 24, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.1 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}<span style={{ fontSize: "0.5em", opacity: 0.7 }}>s</span></div>
+                {!(embed && mob) && <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
                   <span style={{ fontSize: 9, color: co1, fontFamily: F1.mono, fontWeight: 700 }}>{di1?.name_acronym} {fmt(li1?.lap_duration)}</span>
                   <span style={{ fontSize: 9, color: co2, fontFamily: F1.mono, fontWeight: 700 }}>{di2?.name_acronym} {fmt(li2?.lap_duration)}</span>
-                </div>
+                </div>}
               </div>
             </div>}
-            {tp && li1 && li2 && <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 2, maxWidth: "95%" }}>
+            {/* Sector deltas — hide on embed mobile (screen too small) */}
+            {tp && li1 && li2 && !(embed && mob) && <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 2, maxWidth: "95%" }}>
               <SectorDelta s={1} t1={li1.duration_sector_1} t2={li2.duration_sector_1} c1={co1} c2={co2} />
               <SectorDelta s={2} t1={li1.duration_sector_2} t2={li2.duration_sector_2} c1={co1} c2={co2} />
               <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
@@ -643,22 +653,22 @@ export default function App({ embed }) {
       </div>
 
       {/* Playback bar */}
-      {tp && <div style={{ display: "flex", alignItems: "center", gap: mob ? 6 : 10, padding: mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.blue}22`, flexShrink: 0 }}>
-        <button onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>⏮</button>
-        <button onClick={startWithCountdown} style={{ padding: "3px 9px", fontSize: 13, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border }}>{play ? "⏸" : "▶"}</button>
-        <button onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>🔁</button>
-        <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => { const v = parseFloat(e.target.value); progRef.current = v; setProg(v); }} style={{ flex: 1, height: 4, accentColor: F1.blue }} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: mob ? 55 : 70 }}>
-          {allDrivers.map((d, i) => <span key={i} style={{ fontSize: 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
+      {tp && <div style={{ display: "flex", alignItems: "center", gap: embed && mob ? 4 : mob ? 6 : 10, padding: embed && mob ? "5px 8px" : mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.blue}22`, flexShrink: 0 }}>
+        {!(embed && mob) && <button onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>⏮</button>}
+        <button onClick={startWithCountdown} style={{ padding: embed && mob ? "5px 10px" : "3px 9px", fontSize: embed && mob ? 15 : 13, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border }}>{play ? "⏸" : "▶"}</button>
+        {!(embed && mob) && <button onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>🔁</button>}
+        <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => { const v = parseFloat(e.target.value); progRef.current = v; setProg(v); }} style={{ flex: 1, height: embed && mob ? 6 : 4, accentColor: F1.blue }} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: embed && mob ? 46 : mob ? 55 : 70 }}>
+          {allDrivers.map((d, i) => <span key={i} style={{ fontSize: embed && mob ? 9 : 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
         </div>
         {!embed && <button onClick={focusConfiguration} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
-        <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: 48, padding: "2px 3px", fontSize: 10 }}>
+        <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: embed && mob ? 42 : 48, padding: "2px 3px", fontSize: 10 }}>
           <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
         </select>
         {!mob && !embed && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
-        {embed && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
-        {embed && <a href={encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })} target="_blank" rel="noopener noreferrer" style={{ padding: "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>VIEW IN APP ↗</a>}
-        {embed && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Powered by <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
+        {embed && !mob && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
+        {embed && <a href={encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "VIEW IN APP ↗"}</a>}
+        {embed && !mob && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Powered by <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
       </div>}
 
       {/* Footer */}

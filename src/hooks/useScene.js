@@ -68,6 +68,7 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
 
     try {
       const w = Math.max(el.clientWidth, 1), h = Math.max(el.clientHeight, 1);
+      const isMob = w < 768;
       const scene = new THREE.Scene();
       const T = isDark ? F1_DARK : F1_LIGHT;
 
@@ -80,8 +81,8 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       }
 
       const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-      ren = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-      ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      ren = new THREE.WebGLRenderer({ antialias: !isMob, preserveDrawingBuffer: true });
+      ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, isMob ? 1.5 : 2));
       ren.toneMapping = THREE.ACESFilmicToneMapping;
       ren.toneMappingExposure = isDark ? 1.1 : 1.0;
       el.appendChild(ren.domElement);
@@ -116,42 +117,46 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
 
     // Lit area around track — soft radial glow on the ground
     if (isDark) {
+      const glowSize = isMob ? 128 : 256;
       const glowGeo = new THREE.PlaneGeometry(200, 200, 1, 1);
       const glowTex = (() => {
-        const cv = document.createElement("canvas"); cv.width = 256; cv.height = 256;
+        const cv = document.createElement("canvas"); cv.width = glowSize; cv.height = glowSize;
         const ctx = cv.getContext("2d");
-        const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+        const half = glowSize / 2;
+        const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
         grad.addColorStop(0, "rgba(30,35,60,0.5)");
         grad.addColorStop(0.5, "rgba(15,18,35,0.3)");
         grad.addColorStop(1, "rgba(8,8,18,0)");
-        ctx.fillStyle = grad; ctx.fillRect(0, 0, 256, 256);
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, glowSize, glowSize);
         return new THREE.CanvasTexture(cv);
       })();
       const glowPlane = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }));
       glowPlane.rotation.x = -Math.PI / 2; glowPlane.position.y = -0.18; scene.add(glowPlane);
 
-      // Subtle grid lines on the ground (technical floor feel)
-      const gridTex = (() => {
-        const cv = document.createElement("canvas"); cv.width = 512; cv.height = 512;
-        const ctx = cv.getContext("2d");
-        ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1;
-        for (let i = 0; i <= 512; i += 32) {
-          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
-        }
-        return new THREE.CanvasTexture(cv);
-      })();
-      gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
-      gridTex.repeat.set(12, 12);
-      const gridPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(400, 400),
-        new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, depthWrite: false })
-      );
-      gridPlane.rotation.x = -Math.PI / 2; gridPlane.position.y = -0.15; scene.add(gridPlane);
+      // Subtle grid lines — skip on mobile (saves a 512×512 canvas + draw calls)
+      if (!isMob) {
+        const gridTex = (() => {
+          const cv = document.createElement("canvas"); cv.width = 512; cv.height = 512;
+          const ctx = cv.getContext("2d");
+          ctx.strokeStyle = "rgba(255,255,255,0.03)"; ctx.lineWidth = 1;
+          for (let i = 0; i <= 512; i += 32) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+          }
+          return new THREE.CanvasTexture(cv);
+        })();
+        gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+        gridTex.repeat.set(12, 12);
+        const gridPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(400, 400),
+          new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, depthWrite: false })
+        );
+        gridPlane.rotation.x = -Math.PI / 2; gridPlane.position.y = -0.15; scene.add(gridPlane);
+      }
     }
 
     // ─── Sky dome — rich gradient with stars ───
-    const skyGeo = new THREE.SphereGeometry(200, 48, 24);
+    const skyGeo = new THREE.SphereGeometry(200, isMob ? 24 : 48, isMob ? 12 : 24);
     const skyVColors = new Float32Array(skyGeo.attributes.position.count * 3);
     for (let i = 0; i < skyGeo.attributes.position.count; i++) {
       const y = skyGeo.attributes.position.getY(i);
@@ -185,7 +190,7 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
 
     // Stars (dark mode only)
     if (isDark) {
-      const starCount = 600;
+      const starCount = isMob ? 250 : 600;
       const starPos = new Float32Array(starCount * 3);
       const starAlphas = new Float32Array(starCount);
       for (let i = 0; i < starCount; i++) {
@@ -499,9 +504,17 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       R.current._progRef = progRef;
       R.current._telData1 = telData1;
 
+      const TARGET_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
+      let lastFrameTime = 0;
       function animate() {
         if (contextLost) return;
-        R.current.fr = requestAnimationFrame(animate); cs.cinT += 0.0003;
+        R.current.fr = requestAnimationFrame(animate);
+        if (isMob) {
+          const now = performance.now();
+          if (now - lastFrameTime < TARGET_MS) return;
+          lastFrameTime = now;
+        }
+        cs.cinT += 0.0003;
         if (R.current._starMat) R.current._starMat.uniforms.uTime.value = performance.now() * 0.001;
 
       // ─── Car updates (60fps, no React) ───

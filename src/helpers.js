@@ -71,9 +71,10 @@ export function bestLap(laps) {
 export function useIsMobile() {
   const [m, setM] = useState(typeof window !== "undefined" && window.innerWidth < 768);
   useEffect(() => {
-    const h = () => setM(window.innerWidth < 768);
-    window.addEventListener("resize", h);
-    return () => window.removeEventListener("resize", h);
+    let t;
+    const h = () => { clearTimeout(t); t = setTimeout(() => setM(window.innerWidth < 768), 150); };
+    window.addEventListener("resize", h, { passive: true });
+    return () => { clearTimeout(t); window.removeEventListener("resize", h); };
   }, []);
   return m;
 }

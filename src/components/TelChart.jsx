@@ -1,25 +1,29 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { getF1 } from "../theme.js";
 
 const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
   const F1 = getF1();
   if (!traces?.length) return null;
   const H = ch || 45, W = 300;
-  function buildPath(data) {
-    if (!data?.length) return "";
-    const step = Math.max(1, Math.floor(data.length / 150));
+
+  // Memoize path strings — only recompute when the data arrays change, not on every prog tick
+  const paths = useMemo(() => traces.map((tr) => {
+    if (!tr.data?.length) return "";
+    const step = Math.max(1, Math.floor(tr.data.length / 150));
     let d = "";
-    for (let i = 0; i < data.length; i += step) {
-      const x = (i / (data.length - 1)) * W;
-      const y = H - 2 - ((data[i] || 0) / maxVal) * (H - 4);
+    for (let i = 0; i < tr.data.length; i += step) {
+      const x = (i / (tr.data.length - 1)) * W;
+      const y = H - 2 - ((tr.data[i] || 0) / maxVal) * (H - 4);
       d += (i === 0 ? "M" : "L") + `${x},${y}`;
     }
     return d;
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [traces, maxVal, H]);
+
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block", marginBottom: 2 }}>
       {traces.map((tr, i) => {
-        const path = buildPath(tr.data);
+        const path = paths[i];
         if (!path) return null;
         const isFirst = i === 0;
         return (<g key={i}>
