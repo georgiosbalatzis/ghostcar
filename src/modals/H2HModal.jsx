@@ -1,8 +1,10 @@
 import { getF1 } from "../theme.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
-export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, onClose, inline }) {
+export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progress, onClose, inline }) {
   const F1 = getF1();
+  const progressPct = progress?.total ? (progress.checked / progress.total) * 100 : 0;
+  const progressActive = progress?.total > 0 && progress.checked < progress.total;
   const wrapStyle = inline
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" };
@@ -16,6 +18,20 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, onClo
         <button aria-label="Close head to head" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
+        {!!progress?.total && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: F1.cardBg, border: `1px solid ${F1.borderLight}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: 10, color: F1.textDim, fontFamily: F1.mono }}>
+              <span>{progressActive ? `Checking ${progress.currentGp?.replace("Grand Prix", "GP") || "qualifying sessions"}...` : "Head-to-head scan complete"}</span>
+              <span>{progress.checked}/{progress.total}</span>
+            </div>
+            <div style={{ height: 4, background: F1.borderLight, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${progressPct}%`, background: F1.blue, borderRadius: 4, transition: "width .25s ease" }} />
+            </div>
+            <div style={{ marginTop: 6, fontSize: 10, color: F1.textMuted }}>
+              {progress.found || 0} comparable qualifying sessions found so far.
+            </div>
+          </div>
+        )}
         {!h2hData ? (
           <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching qualifying data across GPs<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
         ) : h2hData.length === 0 ? (

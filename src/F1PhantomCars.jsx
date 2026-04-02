@@ -63,7 +63,7 @@ export default function App({ embed }) {
   const [cam, setCam] = useState("orbit"); const [vizMode, setVizMode] = useState("normal");
   const [showKeys, setShowKeys] = useState(false);
   const [showTour, setShowTour] = useState(() => { if (embed) return false; try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
-  const [showH2H, setShowH2H] = useState(false); const [h2hData, setH2hData] = useState(null);
+  const [showH2H, setShowH2H] = useState(false); const [h2hData, setH2hData] = useState(null); const [h2hProgress, setH2hProgress] = useState(null);
   const [showreel, setShowreel] = useState(false); const showreelRef = useRef(false);
   const [countdown, setCountdown] = useState(null);
   const [gallery, setGallery] = useState(() => { try { return JSON.parse(localStorage.getItem("f1s-gallery") || "[]"); } catch { return []; } });
@@ -227,10 +227,14 @@ export default function App({ embed }) {
 
   const changeMatchup = useCallback(() => {
     setPlay(false);
+    setTp(null);
+    setSceneErr("");
+    setErr("");
     setShowTelOverlay(false);
     setShowStats(false);
     setShowLaps(false);
     setShowH2H(false);
+    setH2hProgress(null);
     setShowDash(false);
     setShowGallery(false);
     setShowEmbed(false);
@@ -242,7 +246,7 @@ export default function App({ embed }) {
     setHighlightConfig(true);
     highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
     focusConfiguration();
-    pushToast("Update the season, circuit and drivers in the selector bar.", "info");
+    pushToast("Selector bar ready. Choose a new season, circuit or driver matchup.", "info");
   }, [embed, mob, focusConfiguration, pushToast]);
 
   const openAuxView = useCallback((mode) => {
@@ -385,7 +389,8 @@ export default function App({ embed }) {
     if (!di1 || !di2 || !selMt || !li1 || !li2) return;
     const entry = { id: Date.now(), d1n: di1.name_acronym, d2n: di2.name_acronym, gp: selMt.meeting_name, year, delta: delta?.toFixed(3), t1: fmt(li1.lap_duration), t2: fmt(li2.lap_duration), c1: co1, c2: co2, url: encodeURL({ year, mk: selMt.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 }) };
     const newG = [entry, ...gallery].slice(0, 20); setGallery(newG); try { localStorage.setItem("f1s-gallery", JSON.stringify(newG)); } catch {}
-  }, [di1, di2, selMt, selSe, li1, li2, delta, co1, co2, year, d1, d2, sl1, sl2, gallery]);
+    pushToast("Comparison saved to gallery.", "success");
+  }, [di1, di2, selMt, selSe, li1, li2, delta, co1, co2, year, d1, d2, sl1, sl2, gallery, pushToast]);
 
   const generateSocialCard = useCallback(() => {
     const cv = document.createElement("canvas"); cv.width = 1200; cv.height = 630; const ctx = cv.getContext("2d");
@@ -401,16 +406,48 @@ export default function App({ embed }) {
     if (delta !== null) { ctx.fillStyle = delta > 0 ? "#E10600" : "#00d26a"; ctx.font = "bold 48px sans-serif"; ctx.textAlign = "center"; ctx.fillText((delta > 0 ? "+" : "") + delta.toFixed(3) + "s", 600, 470); }
     ctx.fillStyle = "#333"; ctx.fillRect(0, 570, 1200, 60); ctx.fillStyle = "#888"; ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Powered by F1 Stories • f1stories.gr/ghostcar", 600, 600);
     const a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = `f1stories-${di1?.name_acronym}-vs-${di2?.name_acronym}.png`; a.click();
-  }, [di1, di2, selMt, li1, li2, delta, co1, co2]);
+    pushToast("Social card downloaded.", "success");
+  }, [di1, di2, selMt, li1, li2, delta, co1, co2, pushToast]);
 
-  const takeScreenshot = useCallback(() => { const el = cRef.current; if (!el) return; const canvas = el.querySelector("canvas"); if (!canvas) return; const a = document.createElement("a"); a.href = canvas.toDataURL("image/png"); a.download = `f1stories-ghost-${Date.now()}.png`; a.click(); }, []);
+  const takeScreenshot = useCallback(() => { const el = cRef.current; if (!el) return; const canvas = el.querySelector("canvas"); if (!canvas) return; const a = document.createElement("a"); a.href = canvas.toDataURL("image/png"); a.download = `f1stories-ghost-${Date.now()}.png`; a.click(); pushToast("Track screenshot downloaded.", "success"); }, [pushToast]);
 
   const loadH2H = useCallback(async () => {
-    if (!d1 || !d2) return; setShowH2H(true); setH2hData(null);
-    try { const allMts = await fetchMeetings(year); const validMts = allMts.filter((m) => m.meeting_name); const results = [];
-      for (let i = 0; i < validMts.length && results.length < 12; i++) { const mt = validMts[i]; try { if (i > 0 && i % 3 === 0) await new Promise((r) => setTimeout(r, 1200)); const ss = await fetchSessions(mt.meeting_key); const q = ss.find((s) => s.session_name === "Qualifying"); if (!q) continue; await new Promise((r) => setTimeout(r, 400)); const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]); const b1 = bestLap(l1d), b2 = bestLap(l2d); if (b1 && b2) { results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration }); setH2hData([...results]); } } catch (e) { if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 3000)); } }
+    if (!d1 || !d2) return; setShowH2H(true); setH2hData(null); setH2hProgress({ checked: 0, total: 0, currentGp: "", found: 0 });
+    try {
+      const allMts = await fetchMeetings(year);
+      const validMts = allMts.filter((m) => m.meeting_name);
+      const results = [];
+      setH2hProgress({ checked: 0, total: validMts.length, currentGp: validMts[0]?.meeting_name || "", found: 0 });
+      for (let i = 0; i < validMts.length && results.length < 12; i++) {
+        const mt = validMts[i];
+        setH2hProgress({ checked: i, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
+        try {
+          if (i > 0 && i % 3 === 0) await new Promise((r) => setTimeout(r, 1200));
+          const ss = await fetchSessions(mt.meeting_key);
+          const q = ss.find((s) => s.session_name === "Qualifying");
+          if (!q) {
+            setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
+            continue;
+          }
+          await new Promise((r) => setTimeout(r, 400));
+          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]);
+          const b1 = bestLap(l1d), b2 = bestLap(l2d);
+          if (b1 && b2) {
+            results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration });
+            setH2hData([...results]);
+          }
+        } catch (e) {
+          if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 3000));
+        } finally {
+          setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
+        }
+      }
       if (results.length === 0) setH2hData([]);
-    } catch { setH2hData([]); }
+    } catch {
+      setH2hData([]);
+    } finally {
+      setH2hProgress((prev) => prev ? { ...prev, currentGp: "" } : null);
+    }
   }, [year, d1, d2]);
 
   const loadSeasonDash = useCallback(async () => {
@@ -457,6 +494,7 @@ export default function App({ embed }) {
     setShowLaps(false);
     setShowKeys(false);
     setShowH2H(false);
+    setH2hProgress(null);
     setShowGallery(false);
     setShowEmbed(false);
     setShowDash(false);
@@ -545,7 +583,7 @@ export default function App({ embed }) {
         { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
       ]} />}
       {showKeys && <KeysModal mob={mob} onClose={() => setShowKeys(false)} />}
-      {showH2H && <H2HModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} onClose={() => setShowH2H(false)} />}
+      {showH2H && <H2HModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={() => { setShowH2H(false); setH2hProgress(null); }} />}
       {showDash && <DashModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={() => setShowDash(false)} />}
       {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={() => setShowGallery(false)} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} />}
       {showEmbed && <EmbedModal mob={mob} year={year} selMt={selMt} selSe={selSe} d1={d1} d2={d2} sl1={sl1} sl2={sl2} onClose={() => setShowEmbed(false)} />}
@@ -642,7 +680,7 @@ export default function App({ embed }) {
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(59,130,246,0.2)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>TOOLS</span>
-            <button onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
+            <button title="Close tools menu" aria-label="Close tools menu" onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
             {[
@@ -844,7 +882,7 @@ export default function App({ embed }) {
         {/* Inline H2H tab */}
         {(embed || mob) && mobTab === "h2h" && tp && (
           <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
-            <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} onClose={() => setMobTab("3d")} inline />
+            <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={() => { setMobTab("3d"); setH2hProgress(null); }} inline />
           </div>
         )}
 
@@ -858,18 +896,18 @@ export default function App({ embed }) {
 
       {/* Playback bar */}
       {tp && <div style={{ display: "flex", alignItems: "center", gap: embed && mob ? 4 : mob ? 6 : 10, padding: embed && mob ? "5px 8px" : mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.blue}22`, flexShrink: 0 }}>
-        {!(embed && mob) && <button onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>⏮</button>}
-        <button onClick={startWithCountdown} style={{ padding: embed && mob ? "5px 10px" : "3px 9px", fontSize: embed && mob ? 15 : 13, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border }}>{play ? "⏸" : "▶"}</button>
-        {!(embed && mob) && <button onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>🔁</button>}
+        {!(embed && mob) && <button title="Restart playback" aria-label="Restart playback" onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>{mob ? "⏮" : "⏮ RESTART"}</button>}
+        <button title={play ? "Pause playback" : "Play comparison"} aria-label={play ? "Pause playback" : "Play comparison"} onClick={startWithCountdown} style={{ padding: embed && mob ? "5px 10px" : "3px 9px", fontSize: embed && mob ? 15 : 12, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border, fontWeight: 700, letterSpacing: embed && mob ? undefined : "0.04em" }}>{embed && mob ? (play ? "⏸" : "▶") : play ? "⏸ PAUSE" : "▶ PLAY"}</button>
+        {!(embed && mob) && <button title={loop ? "Disable loop playback" : "Enable loop playback"} aria-label={loop ? "Disable loop playback" : "Enable loop playback"} onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>{mob ? "🔁" : "🔁 LOOP"}</button>}
         <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => { const v = parseFloat(e.target.value); progRef.current = v; setProg(v); }} style={{ flex: 1, height: embed && mob ? 6 : 4, accentColor: F1.blue }} />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: embed && mob ? 46 : mob ? 55 : 70 }}>
           {allDrivers.map((d, i) => <span key={i} style={{ fontSize: embed && mob ? 9 : 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
         </div>
-        {!embed && <button onClick={changeMatchup} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
+        {!embed && <button title="Return to setup selectors" aria-label="Return to setup selectors" onClick={changeMatchup} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
         <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: embed && mob ? 42 : 48, padding: "2px 3px", fontSize: 10 }}>
           <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
         </select>
-        {!mob && !embed && <button onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>📊</button>}
+        {!mob && !embed && <button title={showTel ? "Hide telemetry side panel" : "Show telemetry side panel"} aria-label={showTel ? "Hide telemetry side panel" : "Show telemetry side panel"} onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>{showTel ? "📊 ON" : "📊 OFF"}</button>}
         {embed && !mob && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
         {embed && <a href={encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "VIEW IN APP ↗"}</a>}
         {embed && !mob && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Powered by <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
