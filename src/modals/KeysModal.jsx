@@ -3,7 +3,7 @@ import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 const SHORTCUTS = [
   ["Space", "Play / Pause"], ["R", "Reset to start"], ["T", "Toggle telemetry"],
-  ["C", "Cycle camera mode"], ["L", "Toggle loop"], ["← →", "Scrub ±1%"],
+  ["V", "Toggle 2D / 3D view"], ["C", "Cycle camera mode"], ["L", "Toggle loop"], ["← →", "Scrub ±1%"],
   ["←← (double-tap)", "Rewind 5%"], ["D", "Toggle theme"], ["?", "This overlay"], ["Esc", "Close overlays"],
 ];
 

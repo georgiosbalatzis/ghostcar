@@ -29,6 +29,8 @@ import { getModalCloseButtonStyle } from "./modals/modalStyles.js";
 const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
 const UNAVAILABLE_PRESET_YEARS = [2026];
 const DEFAULT_YEAR = 2025;
+const TRACK_VIEW_STORAGE_KEY = "f1s-track-view";
+const TRACK_VIEW_MODES = ["3d", "2d"];
 
 export default function App({ embed }) {
   const mob = useIsMobile();
@@ -37,6 +39,13 @@ export default function App({ embed }) {
   setThemeMode(isDark);
   const F1 = getF1();
   const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
+  const [trackView, setTrackView] = useState(() => {
+    try {
+      return localStorage.getItem(TRACK_VIEW_STORAGE_KEY) === "2d" ? "2d" : "3d";
+    } catch {
+      return "3d";
+    }
+  });
 
   // ─── State ───
   const [year, setYear] = useState(() => Number(initialURL.year) || DEFAULT_YEAR);
@@ -80,6 +89,12 @@ export default function App({ embed }) {
   const [toast, setToast] = useState(null);
   const [highlightConfig, setHighlightConfig] = useState(false);
   const [showMobMenu, setShowMobMenu] = useState(false);
+  const setTrackViewMode = useCallback((mode) => {
+    const next = mode === "2d" ? "2d" : "3d";
+    setTrackView(next);
+    if (next === "2d") setSceneErr("");
+    try { localStorage.setItem(TRACK_VIEW_STORAGE_KEY, next); } catch {}
+  }, []);
   const selectorsRef = useRef(null);
   const yearSelectRef = useRef(null);
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
@@ -107,7 +122,9 @@ export default function App({ embed }) {
   const t3 = useMemo(() => ds(tel3?.map((t) => t.throttle || 0), ms), [tel3, ms]); const t4 = useMemo(() => ds(tel4?.map((t) => t.throttle || 0), ms), [tel4, ms]);
   const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
   const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
-  const alertErr = sceneErr || err;
+  const is2DView = trackView === "2d";
+  const effectiveSceneErr = is2DView ? "" : sceneErr;
+  const alertErr = effectiveSceneErr || err;
   const noMeetings = !loading && !alertErr && mts.length === 0;
   const playablePresets = useMemo(() => PRESETS.filter((preset) => !UNAVAILABLE_PRESET_YEARS.includes(preset.year)), []);
   const fallbackDrivers = useMemo(() => ([
@@ -409,7 +426,34 @@ export default function App({ embed }) {
     pushToast("Social card downloaded.", "success");
   }, [di1, di2, selMt, li1, li2, delta, co1, co2, pushToast]);
 
-  const takeScreenshot = useCallback(() => { const el = cRef.current; if (!el) return; const canvas = el.querySelector("canvas"); if (!canvas) return; const a = document.createElement("a"); a.href = canvas.toDataURL("image/png"); a.download = `f1stories-ghost-${Date.now()}.png`; a.click(); pushToast("Track screenshot downloaded.", "success"); }, [pushToast]);
+  const takeScreenshot = useCallback(() => {
+    const el = cRef.current;
+    if (!el) return;
+    const canvas = el.querySelector("canvas");
+    if (canvas) {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `f1stories-ghost-${Date.now()}.png`;
+      a.click();
+      pushToast("Track screenshot downloaded.", "success");
+      return;
+    }
+    const svg = el.querySelector("svg");
+    if (svg) {
+      const a = document.createElement("a");
+      const clone = svg.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = `f1stories-ghost-${Date.now()}.svg`;
+      a.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      pushToast("Track capture downloaded.", "success");
+      return;
+    }
+    pushToast("Nothing to capture yet.", "info");
+  }, [pushToast]);
 
   const loadH2H = useCallback(async () => {
     if (!d1 || !d2) return; setShowH2H(true); setH2hData(null); setH2hProgress({ checked: 0, total: 0, currentGp: "", found: 0 });
@@ -461,11 +505,12 @@ export default function App({ embed }) {
   // ─── Scene — pass progRef for direct 60fps reads ───
   const progRef = useRef(0);
   progRef.current = prog;
-  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "", setSceneErr, circuitFlip, circuitTurns);
+  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "", setSceneErr, circuitFlip, circuitTurns, !is2DView);
 
   // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
   const spdRef = useRef(spd); spdRef.current = spd;
   const loopRef = useRef(loop); loopRef.current = loop;
+  const trackViewRef = useRef(trackView); trackViewRef.current = trackView;
   const uiSyncRef = useRef(0);
   const startWithCountdown = useCallback(() => {
     if (prog < 0.01 && tp && !play) { if (embed) { setPlay(true); return; } setCountdown(5); let c = 5; const iv = setInterval(() => { c--; setCountdown(c); if (c <= 0) { clearInterval(iv); setCountdown(null); setPlay(true); } }, 600); } else { setPlay(!play); }
@@ -478,8 +523,8 @@ export default function App({ embed }) {
       let n = progRef.current + dt * 0.015 * spdRef.current;
       if (n >= 1) { if (loopRef.current) { n = 0; } else { n = 1; setPlay(false); } }
       progRef.current = n;
-      // Sync to React state at ~12fps for slider/time display
-      if (ts - uiSyncRef.current > 80) { uiSyncRef.current = ts; setProg(n); }
+      // 2D mode relies on React for the track animation, so it needs a faster sync.
+      if (ts - uiSyncRef.current > (trackViewRef.current === "2d" ? 33 : 80)) { uiSyncRef.current = ts; setProg(n); }
       rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);
@@ -519,8 +564,13 @@ export default function App({ embed }) {
       if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; }
       if (e.code === "Space") { e.preventDefault(); if (tp) startWithCountdown(); }
       if (e.code === "KeyR") { setProg(0); setPlay(false); }
+      if (e.code === "KeyD") { toggleTheme(); return; }
       if (e.code === "KeyT") {
         if (!mob && !embed) setShowTel((s) => !s);
+        return;
+      }
+      if (e.code === "KeyV") {
+        if (tp) setTrackViewMode(is2DView ? "3d" : "2d");
         return;
       }
       if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]);
@@ -535,13 +585,32 @@ export default function App({ embed }) {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [tp, startWithCountdown, showMobMenu, showTour, anyModal, closeAll, mob, embed, mobTab, showTel]);
+  }, [tp, startWithCountdown, showMobMenu, showTour, anyModal, closeAll, mob, embed, mobTab, showTel, toggleTheme, setTrackViewMode, is2DView]);
 
   // Mobile swipe
   useEffect(() => { if (!mob || !tp) return; let sx = 0; const onTS = (e) => { sx = e.touches[0].clientX; }; const onTE = (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setProg((p) => Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03)))); }; document.addEventListener("touchstart", onTS, { passive: true }); document.addEventListener("touchend", onTE, { passive: true }); return () => { document.removeEventListener("touchstart", onTS); document.removeEventListener("touchend", onTE); }; }, [mob, tp]);
 
   // Showreel
   useEffect(() => { if (!showreel) { showreelRef.current = false; return; } showreelRef.current = true; let idx = 0; async function next() { if (!showreelRef.current || idx >= playablePresets.length) { setShowreel(false); return; } await loadPreset(playablePresets[idx]); setPlay(true); idx++; setTimeout(() => { setPlay(false); if (showreelRef.current) next(); }, 12000); } next(); return () => { showreelRef.current = false; }; }, [showreel, loadPreset, playablePresets]);
+
+  const renderTrackViewButtons = (compact = false) => TRACK_VIEW_MODES.map((mode) => (
+    <button
+      key={mode}
+      onClick={() => setTrackViewMode(mode)}
+      style={{
+        padding: compact ? "4px 10px" : "4px 12px",
+        fontSize: compact ? 9 : 10,
+        textTransform: "uppercase",
+        background: trackView === mode ? F1.blue : F1.overlay,
+        color: trackView === mode ? "#fff" : F1.textDim,
+        borderColor: trackView === mode ? F1.blue : F1.borderLight,
+        fontWeight: 800,
+        letterSpacing: "0.08em",
+      }}
+    >
+      {mode.toUpperCase()}
+    </button>
+  ));
 
   // ─── RENDER ───
   return (
@@ -768,25 +837,88 @@ export default function App({ embed }) {
 
       {/* Main area */}
       <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
-        {/* 3D Track — always mounted to preserve WebGL context, hidden via display:none */}
+        {/* Track stage */}
         <div style={{ flex: 1, position: "relative", minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
-            <div ref={cRef} style={{ width: "100%", height: "100%", background: F1.carbon, cursor: "grab", minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto", touchAction: "none" }} />
-            {tp && !sceneErr && (embed && mob ? (
+            <div
+              ref={cRef}
+              style={{
+                width: "100%",
+                height: "100%",
+                background: F1.carbon,
+                cursor: is2DView ? "default" : "grab",
+                minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto",
+                touchAction: is2DView ? "pan-y" : "none",
+                display: is2DView ? "flex" : "block",
+                alignItems: is2DView ? "center" : undefined,
+                justifyContent: is2DView ? "center" : undefined,
+                padding: is2DView ? (mob ? 12 : 18) : 0,
+                overflow: is2DView ? "auto" : "hidden",
+              }}
+            >
+              {tp && is2DView && (
+                <div style={{ width: "min(1080px, 100%)", display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0, 1fr) 304px", gap: mob ? 14 : 18, alignItems: "start", animation: "fadeIn .25s" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.blue, marginBottom: 4 }}>LOW-POWER 2D VIEW</div>
+                        <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>SVG replay with live progress dots. WebGL stays off in this mode for older GPUs, integrated graphics and battery saver setups.</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {renderTrackViewButtons()}
+                      </div>
+                    </div>
+                    <TrackReplay2D tp={tp} drivers={fallbackDrivers} prog={prog} flip={circuitFlip} />
+                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below still drive the replay, and telemetry, stats and lap tables remain available.</div>
+                  </div>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {delta !== null && (
+                      <div style={{ minWidth: 0, padding: "12px 14px", borderRadius: 12, background: F1.cardBg, border: `1px solid ${F1.blue}33` }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: F1.textMuted, letterSpacing: "0.08em", marginBottom: 6 }}>LAP DELTA</div>
+                        <div style={{ fontSize: 28, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.05 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}s</div>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 10, color: F1.textDim }}>
+                          <span style={{ color: co1 }}>{di1?.name_acronym} {fmt(li1?.lap_duration)}</span>
+                          <span style={{ color: co2 }}>{di2?.name_acronym} {fmt(li2?.lap_duration)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {fallbackDrivers.map((driver) => (
+                      <div key={driver.label} style={{ minWidth: 0, padding: "10px 12px", borderRadius: 12, background: F1.cardBg, border: `1px solid ${driver.color}33`, textAlign: "left" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>{driver.label}</div>
+                          <div style={{ fontSize: 10, color: F1.textMuted }}>{Math.round(prog * 100)}%</div>
+                        </div>
+                        <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>{fmt((driver.lapDuration || 0) * prog)}</div>
+                        <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
+                          <span>{Math.round(driver.current?.speed || 0)} km/h</span>
+                          <span>THR {Math.round(driver.current?.throttle || 0)}%</span>
+                          <span>{driver.current?.brake > 0 ? "BRAKE" : "COAST"}</span>
+                          {driver.tire && <span>{driver.tire}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {tp && !effectiveSceneErr && !is2DView && (embed && mob ? (
               /* Embed phone: compact cam cycle button + viz toggle */
-              <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, display: "flex", gap: 4 }}>
+              <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {renderTrackViewButtons(true)}
                 <button onClick={() => setCam((c) => { const i = CAM_MODES.indexOf(c); return CAM_MODES[(i + 1) % CAM_MODES.length]; })} style={{ padding: "4px 10px", fontSize: 9, background: F1.overlay, backdropFilter: "blur(6px)", borderColor: F1.blue, color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>📷 {CAM_LABELS[cam]}</button>
                 {vizMode !== "normal" && <button onClick={() => setVizMode("normal")} style={{ padding: "4px 8px", fontSize: 9, background: "#0088ff44", backdropFilter: "blur(6px)", borderColor: "#0088ff", color: "#fff", fontWeight: 700 }}>✕ {vizMode === "brake" ? "Brake" : "Speed"}</button>}
               </div>
             ) : (
-              <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3 }}>
+              <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3, flexWrap: "wrap" }}>
+                {renderTrackViewButtons()}
+                <div style={{ width: 1, height: 16, background: F1.borderLight }} />
                 {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.blue : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.blue : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
                 <div style={{ width: 1, height: 16, background: F1.borderLight }} />
                 <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
               </div>
             ))}
-            {tp && !sceneErr && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} flip={circuitFlip} /></div>}
+            {tp && !effectiveSceneErr && !is2DView && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} flip={circuitFlip} /></div>}
             {/* Interval delta — top-right on embed mobile to avoid bottom overlap */}
-            {delta !== null && tp && <div style={{ position: "absolute", ...(embed && mob ? { top: 8, right: 8 } : { bottom: 8, left: 10 }), zIndex: 3, animation: "fadeIn .4s" }}>
+            {delta !== null && tp && !is2DView && <div style={{ position: "absolute", ...(embed && mob ? { top: 8, right: 8 } : { bottom: 8, left: 10 }), zIndex: 3, animation: "fadeIn .4s" }}>
               <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: embed && mob ? "4px 10px" : mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.blue}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ fontSize: 7, color: F1.textMuted, letterSpacing: "0.15em", fontWeight: 700, textTransform: "uppercase" }}>Δ</div>
                 <div style={{ fontSize: embed && mob ? 15 : mob ? 18 : 24, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.1 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}<span style={{ fontSize: "0.5em", opacity: 0.7 }}>s</span></div>
@@ -797,12 +929,12 @@ export default function App({ embed }) {
               </div>
             </div>}
             {/* Sector deltas — hide on embed mobile (screen too small) */}
-            {tp && li1 && li2 && !(embed && mob) && <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 2, maxWidth: "95%" }}>
+            {tp && li1 && li2 && !is2DView && !(embed && mob) && <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 2, maxWidth: "95%" }}>
               <SectorDelta s={1} t1={li1.duration_sector_1} t2={li2.duration_sector_1} c1={co1} c2={co2} />
               <SectorDelta s={2} t1={li1.duration_sector_2} t2={li2.duration_sector_2} c1={co1} c2={co2} />
               <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
             </div>}
-            {tp && sceneErr && <div style={{ position: "absolute", inset: mob ? 12 : 20, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {tp && effectiveSceneErr && <div style={{ position: "absolute", inset: mob ? 12 : 20, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div style={{ width: "min(900px, 100%)", padding: mob ? "18px 16px" : "22px 24px", borderRadius: 16, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(260px, 320px) 1fr", gap: mob ? 16 : 22, alignItems: "center" }}>
                   <div style={{ textAlign: "center" }}>
@@ -828,9 +960,10 @@ export default function App({ embed }) {
                     <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below now drive a 2D track replay with live progress dots.</div>
                   </div>
                   <div style={{ textAlign: mob ? "center" : "left" }}>
-                    <div style={{ fontSize: mob ? 15 : 18, fontWeight: 800, color: F1.text, lineHeight: 1.45, marginBottom: 8 }}>{sceneErr}</div>
+                    <div style={{ fontSize: mob ? 15 : 18, fontWeight: 800, color: F1.text, lineHeight: 1.45, marginBottom: 8 }}>{effectiveSceneErr}</div>
                     <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.7, marginBottom: 14 }}>The comparison is still usable without WebGL. Open the telemetry charts, stats or lap tables, or jump back to the selector bar to change the matchup.</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: mob ? "center" : "flex-start" }}>
+                      <button onClick={() => setTrackViewMode("2d")} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>USE 2D VIEW</button>
                       <button onClick={() => openAuxView("telemetry")} style={{ padding: "8px 13px", fontSize: 11 }}>TELEMETRY</button>
                       <button onClick={() => openAuxView("stats")} style={{ padding: "8px 13px", fontSize: 11 }}>STATS</button>
                       <button onClick={() => openAuxView("laps")} style={{ padding: "8px 13px", fontSize: 11 }}>LAPS</button>
@@ -844,7 +977,7 @@ export default function App({ embed }) {
               <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
               <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>GHOST CAR LAB</div>
               <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>by F1 STORIES</div>
-              <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Compare qualifying laps in 3D with real telemetry data.</div>
+              <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Compare qualifying laps in 3D or switch to a low-power 2D replay when the machine needs a lighter view.</div>
               <div style={{ marginTop: 18, display: "flex", gap: 8, justifyContent: "center" }}>
                 <button onClick={() => setShowPresets(true)} className="f1-btn" style={{ padding: "8px 20px", fontSize: 12 }}>⚡ QUICK START</button>
                 <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: F1.textDim, textDecoration: "none", padding: "8px 14px", border: `1px solid ${F1.border}`, borderRadius: 4, fontWeight: 600 }}>f1stories.gr →</a>
@@ -856,7 +989,7 @@ export default function App({ embed }) {
           </div>
 
         {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
-        {((!mob && !embed && showTel && tp && !sceneErr) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
+        {((!mob && !embed && showTel && tp && !effectiveSceneErr) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
           <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: (embed || mob) ? 1 : undefined, maxHeight: (!mob && !embed) ? "auto" : undefined, overflow: "auto", animation: "fadeIn .2s" }}>
             <TelemetryPanel mob={mob || embed} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
           </div>

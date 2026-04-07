@@ -23,7 +23,7 @@ function formatSceneError(error) {
   return `Unable to start the 3D scene. ${message}`;
 }
 
-export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20) {
+export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
@@ -34,6 +34,10 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
 
   useEffect(() => {
     const el = ref.current;
+    if (!enabled) {
+      onError?.("");
+      return;
+    }
     if (!el || !tp || tp.length < 10) {
       onError?.("");
       return;
@@ -618,7 +622,7 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       fail(error);
       return;
     }
-  }, [tp, c1, c2, cam, lab1, lab2, vizMode, speedArr, brakeArr, isDark, l3, l4, c3, c4, lab3, lab4, onError]);
+  }, [tp, c1, c2, cam, lab1, lab2, vizMode, speedArr, brakeArr, isDark, l3, l4, c3, c4, lab3, lab4, onError, enabled]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
