@@ -214,10 +214,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
 
     // ─── Ground — layered for depth ───
     // Base ground (dark)
-      const groundMat = new THREE.MeshStandardMaterial({
-        color: isDark ? 0x0a0a14 : T.groundColor,
-        roughness: 0.95, metalness: 0.05
-      });
+      // Dark mode: PBR for subtle metallic look. Light mode: BasicMaterial halves fragment cost on the 500×500 plane.
+      const groundMat = isDark
+        ? new THREE.MeshStandardMaterial({ color: 0x0a0a14, roughness: 0.95, metalness: 0.05 })
+        : new THREE.MeshBasicMaterial({ color: T.groundColor });
       const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
       ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(freezeObjectTransform(ground));
 
@@ -351,7 +351,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
     ribbonGeo.setAttribute("position", new THREE.Float32BufferAttribute(ribbonPos, 3));
     ribbonGeo.setAttribute("normal", new THREE.Float32BufferAttribute(ribbonNorm, 3));
     ribbonGeo.setIndex(ribbonIdx);
-    scene.add(freezeObjectTransform(new THREE.Mesh(ribbonGeo, new THREE.MeshStandardMaterial({ color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide }))));
+    // Dark mode: PBR for reflective asphalt look. Light mode: BasicMaterial saves per-fragment PBR cost on the ribbon.
+    scene.add(freezeObjectTransform(new THREE.Mesh(ribbonGeo, isDark
+      ? new THREE.MeshStandardMaterial({ color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide })
+      : new THREE.MeshBasicMaterial({ color: T.trackColor, side: THREE.DoubleSide }))));
 
     if (vizMode === "heatmap" && speedArr.length > 10) {
       const heatColors = new Float32Array((curvePts.length * 2) * 3);
@@ -507,7 +510,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       const glow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false }));
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(freezeObjectTransform(glow));
       if (!isLowDetail && !isGhost) {
-        const carLight = new THREE.PointLight(col, 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(freezeObjectTransform(carLight));
+        // Boosted range now that SpotLights are removed — provides the coloured ground pool effect
+        const carLight = new THREE.PointLight(col, 0.4, 20); carLight.position.set(0, 0.3, 0); g.add(freezeObjectTransform(carLight));
       }
       if (label && !isLowDetail) {
         // Vertical pole line from car to flag
@@ -597,10 +601,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         addFallbackCars();
       }
 
-      const spot1 = !isLowDetail ? new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1) : null;
-      const spot2 = !isLowDetail ? new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1) : null;
-      if (spot1) { spot1.position.set(0, 12, 0); spot1.target = car1; scene.add(spot1); }
-      if (spot2) { spot2.position.set(0, 12, 0); spot2.target = car2; scene.add(spot2); }
+      // SpotLights removed (B5): per-fragment cone/penumbra calculations were the single most
+      // expensive lighting cost. Coloured ground pool effect preserved by the boosted PointLight
+      // inside each non-ghost car group.
+      const spot1 = null;
+      const spot2 = null;
 
       const deltaGeo = new THREE.BufferGeometry(); const deltaPos = new Float32Array(6);
       const deltaPosAttr = new THREE.Float32BufferAttribute(deltaPos, 3);
@@ -690,6 +695,51 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       let hasRendered = false;
       let lastSimTime = 0;
       let noiseFrame = 0;
+
+      // ─── Adaptive quality (A1) ───────────────────────────────────────────────
+      // Measures rolling average FPS every 2 s and steps pixel-ratio down/up in
+      // tiers without touching any React state (zero re-renders).
+      const basePixelRatio = ren.getPixelRatio();
+      const fpsWindow = new Float32Array(60);
+      let fpsWIdx = 0;
+      let fpsWFull = false;
+      let lastFpsCheck = 0;
+      let qualityTier = 0;   // 0 = full, 1 = reduced px, 2 = minimal (stars frozen)
+      let recoveryCount = 0;
+
+      function applyQualityTier(tier) {
+        const pr = tier === 0
+          ? basePixelRatio
+          : tier === 1
+            ? Math.max(0.75, basePixelRatio - 0.25)
+            : Math.max(0.75, basePixelRatio - 0.5);
+        ren.setPixelRatio(pr);
+        if (el && !contextLost) ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1));
+        R.current._starFrozen = tier >= 2;
+        R.current._dirty = true;
+      }
+
+      function checkAdaptiveQuality(now) {
+        if (now - lastFpsCheck < 2000) return;
+        lastFpsCheck = now;
+        const samples = fpsWFull ? 60 : fpsWIdx;
+        if (samples < 20) return;
+        let sum = 0;
+        for (let i = 0; i < samples; i++) sum += fpsWindow[i];
+        const avgFps = 1000 / (sum / samples);
+        fpsWIdx = 0; fpsWFull = false;
+        if (avgFps < 35 && qualityTier < 2) {
+          qualityTier = 2; applyQualityTier(2); recoveryCount = 0;
+        } else if (avgFps < 50 && qualityTier < 1) {
+          qualityTier = 1; applyQualityTier(1); recoveryCount = 0;
+        } else if (avgFps >= 58 && qualityTier > 0) {
+          if (++recoveryCount >= 3) { qualityTier = Math.max(0, qualityTier - 1); applyQualityTier(qualityTier); recoveryCount = 0; }
+        } else {
+          recoveryCount = 0;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       function animate(now = performance.now()) {
         if (contextLost) return;
         R.current.fr = requestAnimationFrame(animate);
@@ -698,7 +748,17 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         const isActive = !!(isPlaying || cs.drag || pinchDist !== null);
         const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
         if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
+        const prevFrameTime = lastFrameTime;
         lastFrameTime = now;
+        // Track frame interval for adaptive quality (only while visible, ignore tab-switch spikes)
+        if (prevFrameTime > 0 && isSceneVisible) {
+          const frameMs = now - prevFrameTime;
+          if (frameMs > 0 && frameMs < 200) {
+            fpsWindow[fpsWIdx++] = frameMs;
+            if (fpsWIdx >= 60) { fpsWIdx = 0; fpsWFull = true; }
+          }
+          checkAdaptiveQuality(now);
+        }
         if (!isSceneVisible) {
           lastSceneVisible = false;
           lastSimTime = 0;
@@ -868,7 +928,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         camera.lookAt(camTargetLook.current);
         if (camera.position.distanceToSquared(prevCameraPos) > 1e-6 || 1 - Math.abs(camera.quaternion.dot(prevCameraQuat)) > 1e-6) needsRender = true;
         if (!needsRender) return;
-        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = now * 0.001;
+        if (R.current._starMat && !R.current._starFrozen) R.current._starMat.uniforms.uTime.value = now * 0.001;
         try {
           ren.render(scene, camera);
           hasRendered = true;
