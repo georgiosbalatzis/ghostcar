@@ -45,6 +45,7 @@ function storeCachedResponse(key, value) {
 
 export async function fetchJSON(ep, params = {}, options = {}) {
   const { retries = 2, signal, cache = true } = options;
+  if (signal?.aborted) throw createAbortError();
   const url = new URL(`${API}${ep}`);
   Object.entries(params).forEach(([k, v]) => {
     if (v != null && v !== "") url.searchParams.append(k, v);
@@ -52,6 +53,7 @@ export async function fetchJSON(ep, params = {}, options = {}) {
   const cacheKey = cache ? getCacheKey(ep, params) : "";
   if (cache && responseCache.has(cacheKey)) return responseCache.get(cacheKey);
   for (let a = 0; a <= retries; a++) {
+    if (signal?.aborted) throw createAbortError();
     try {
       const r = await fetch(url.toString(), { signal });
       if (r.status === 429) {
