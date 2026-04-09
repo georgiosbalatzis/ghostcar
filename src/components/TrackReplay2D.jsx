@@ -1,5 +1,5 @@
-import { memo, useMemo } from "react";
-import { lerp, norm } from "../helpers.js";
+import { memo, useId, useMemo } from "react";
+import { norm } from "../helpers.js";
 import { getF1 } from "../theme.js";
 
 const WIDTH = 720;
@@ -15,16 +15,28 @@ function toPath(points, close = false) {
   return d;
 }
 
+function lerpPoint(points, t) {
+  if (!points.length) return { x: 0, y: 0 };
+  if (points.length === 1) return points[0];
+  const ct = Math.max(0, Math.min(1, t));
+  const idx = ct * (points.length - 1);
+  const i0 = Math.floor(idx);
+  const i1 = Math.min(i0 + 1, points.length - 1);
+  const f = idx - i0;
+  const a = points[i0];
+  const b = points[i1];
+  return {
+    x: a.x + (b.x - a.x) * f,
+    y: a.y + (b.y - a.y) * f,
+  };
+}
+
 export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
   const F1 = getF1();
+  const gradientId = useId().replace(/:/g, "");
 
   const geometry = useMemo(() => {
     if (!tp?.length) return null;
-
-    const projectedDrivers = drivers.map((driver) => ({
-      ...driver,
-      normPath: driver.path?.length ? norm(driver.path, flip) : tp,
-    }));
 
     let minX = Infinity;
     let maxX = -Infinity;
@@ -51,27 +63,38 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
 
     const trackPoints = tp.map(project);
     const startPoint = trackPoints[0];
-    const driverStates = projectedDrivers.map((driver) => {
-      const source = driver.normPath?.length >= 2 ? driver.normPath : tp;
-      const points = source.map(project);
-      const current = project(lerp(source, prog));
-      const trailIdx = Math.max(1, Math.floor(Math.max(0, Math.min(1, prog)) * (source.length - 1)));
-      const trailPoints = points.slice(0, trailIdx + 1);
-      trailPoints.push(current);
-
+    const driverPaths = drivers.map((driver) => {
+      const source = driver.path?.length ? norm(driver.path, flip) : tp;
       return {
-        ...driver,
-        current,
-        trailPath: toPath(trailPoints),
+        label: driver.label,
+        color: driver.color,
+        points: source.map(project),
       };
     });
 
     return {
       startPoint,
-      trackPath: toPath([...trackPoints, startPoint], true),
-      driverStates,
+      trackPath: toPath(trackPoints, true),
+      driverPaths,
     };
-  }, [tp, drivers, prog, flip]);
+  }, [tp, drivers, flip]);
+
+  const driverStates = useMemo(() => {
+    if (!geometry) return [];
+    const clampedProg = Math.max(0, Math.min(1, prog));
+    return geometry.driverPaths.map((driver) => {
+      const pathPoints = driver.points.length >= 2 ? driver.points : [geometry.startPoint];
+      const current = lerpPoint(pathPoints, clampedProg);
+      const trailIdx = Math.max(1, Math.floor(clampedProg * (pathPoints.length - 1)));
+      const trailPath = toPath([...pathPoints.slice(0, trailIdx + 1), current]);
+      return {
+        label: driver.label,
+        color: driver.color,
+        current,
+        trailPath,
+      };
+    });
+  }, [geometry, prog]);
 
   if (!geometry) return null;
 
@@ -90,18 +113,18 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
       }}
     >
       <defs>
-        <linearGradient id="trackReplayTrack" x1="0" x2="1">
+        <linearGradient id={gradientId} x1="0" x2="1">
           <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.08)" />
         </linearGradient>
       </defs>
       <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
       <path d={geometry.trackPath} fill="none" stroke="rgba(225,6,0,0.2)" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={geometry.trackPath} fill="none" stroke="url(#trackReplayTrack)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={geometry.trackPath} fill="none" stroke={`url(#${gradientId})`} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
       <g transform={`translate(${geometry.startPoint.x},${geometry.startPoint.y}) rotate(45)`}>
         <rect x="-7" y="-7" width="14" height="14" fill="#ffffff" opacity="0.85" rx="2" />
       </g>
-      {geometry.driverStates.map((driver) => (
+      {driverStates.map((driver) => (
         <g key={driver.label}>
           <path d={driver.trailPath} fill="none" stroke={driver.color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.22" />
           <circle cx={driver.current.x} cy={driver.current.y} r="16" fill={driver.color} opacity="0.14" />

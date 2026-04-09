@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="180" viewBox="0 0 640 180" role="img" aria-labelledby="title desc">
+  <title id="title">F1 Stories</title>
+  <desc id="desc">Local F1 Stories wordmark used by Ghost Car Lab.</desc>
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e10600" />
+      <stop offset="100%" stop-color="#ff5b4d" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="180" rx="28" fill="#111118" />
+  <rect x="28" y="28" width="16" height="124" rx="8" fill="url(#accent)" />
+  <rect x="56" y="38" width="148" height="18" rx="9" fill="url(#accent)" />
+  <rect x="56" y="74" width="96" height="18" rx="9" fill="url(#accent)" />
+  <rect x="56" y="110" width="132" height="18" rx="9" fill="url(#accent)" />
+  <text x="232" y="86" fill="#f4f7fb" font-size="54" font-family="'Titillium Web', 'Barlow Condensed', sans-serif" font-weight="900" letter-spacing="5">F1 STORIES</text>
+  <text x="236" y="122" fill="#6aa8ff" font-size="18" font-family="'Barlow Condensed', 'Titillium Web', sans-serif" font-weight="700" letter-spacing="8">GHOST CAR LAB</text>
+</svg>

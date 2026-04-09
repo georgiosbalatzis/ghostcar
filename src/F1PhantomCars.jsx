@@ -1,7 +1,7 @@
 import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo } from "./constants.js";
+import { getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
-import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
+import { norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
 import { setThemeMode, getF1 } from "./theme.js";
 
 // Components
@@ -16,6 +16,7 @@ const UNAVAILABLE_PRESET_YEARS = [2026];
 const DEFAULT_YEAR = 2025;
 const TRACK_VIEW_STORAGE_KEY = "f1s-track-view";
 const TRACK_VIEW_MODES = ["3d", "2d"];
+const LOGO_SRC = `${import.meta.env.BASE_URL}f1-stories-logo.svg`;
 const SceneStage3D = lazy(() => import("./components/SceneStage3D.jsx"));
 const PresetsModal = lazy(() => import("./modals/PresetsModal.jsx"));
 const StatsModal = lazy(() => import("./modals/StatsModal.jsx"));
@@ -50,6 +51,26 @@ function abortableSleep(ms, signal) {
     };
     signal?.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+function prepareLapSelectModel(laps) {
+  const valid = laps.filter((lap) => lap.lap_duration > 10);
+  let fastestLapNumber = null;
+  let fastestLapDuration = Infinity;
+  for (const lap of valid) {
+    if (lap.lap_duration < fastestLapDuration) {
+      fastestLapDuration = lap.lap_duration;
+      fastestLapNumber = lap.lap_number;
+    }
+  }
+  return {
+    options: [...valid].sort((a, b) => a.lap_duration - b.lap_duration),
+    fastestLapNumber,
+  };
+}
+
+function getComparisonCacheKey(year, d1, d2) {
+  return `${year}:${d1}:${d2}`;
 }
 
 export default function App({ embed }) {
@@ -121,6 +142,8 @@ export default function App({ embed }) {
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
   const loadAbortRef = useRef(null);
   const auxAbortRef = useRef(null);
+  const h2hCacheRef = useRef(new Map());
+  const dashCacheRef = useRef(new Map());
   const toastTimerRef = useRef(null);
   const shareMsgTimerRef = useRef(null);
   const highlightConfigTimerRef = useRef(null);
@@ -132,6 +155,7 @@ export default function App({ embed }) {
   const co1 = di1 ? getTeamColor(di1.team_name) : "#4488ff", co2 = di2 ? getTeamColor(di2.team_name) : "#ff4488";
   const co3 = di3 ? getTeamColor(di3.team_name) : "#44cc44", co4 = di4 ? getTeamColor(di4.team_name) : "#ffaa00";
   const li1 = laps1.find((l) => l.lap_number === sl1), li2 = laps2.find((l) => l.lap_number === sl2);
+  const li3 = laps3.find((l) => l.lap_number === sl3), li4 = laps4.find((l) => l.lap_number === sl4);
   const delta = li1?.lap_duration && li2?.lap_duration ? li1.lap_duration - li2.lap_duration : null;
   const tire1 = st1.find((s) => sl1 >= s.lap_start && sl1 <= s.lap_end)?.compound?.toUpperCase();
   const tire2 = st2.find((s) => sl2 >= s.lap_start && sl2 <= s.lap_end)?.compound?.toUpperCase();
@@ -149,19 +173,31 @@ export default function App({ embed }) {
   const alertErr = effectiveSceneErr || err;
   const noMeetings = !loading && !alertErr && mts.length === 0;
   const playablePresets = useMemo(() => PRESETS.filter((preset) => !UNAVAILABLE_PRESET_YEARS.includes(preset.year)), []);
-  const fallbackDrivers = useMemo(() => ([
-    { label: di1?.name_acronym || "D1", color: co1, path: loc1, lapDuration: li1?.lap_duration, current: telAt(tel1, prog), tire: tire1 },
-    { label: di2?.name_acronym || "D2", color: co2, path: loc2, lapDuration: li2?.lap_duration, current: telAt(tel2, prog), tire: tire2 },
-    ...(numDrivers >= 3 && di3 && loc3 ? [{ label: di3?.name_acronym || "D3", color: co3, path: loc3, lapDuration: laps3.find((l) => l.lap_number === sl3)?.lap_duration, current: telAt(tel3, prog), tire: tire3 }] : []),
-    ...(numDrivers >= 4 && di4 && loc4 ? [{ label: di4?.name_acronym || "D4", color: co4, path: loc4, lapDuration: laps4.find((l) => l.lap_number === sl4)?.lap_duration, current: telAt(tel4, prog), tire: tire4 }] : []),
-  ]).filter((driver) => driver.path?.length >= 2), [di1, di2, di3, di4, co1, co2, co3, co4, loc1, loc2, loc3, loc4, li1, li2, tel1, tel2, tel3, tel4, prog, tire1, tire2, tire3, tire4, numDrivers, laps3, laps4, sl3, sl4]);
+  const replaySources = useMemo(() => ([
+    { label: di1?.name_acronym || "D1", color: co1, path: loc1, lapDuration: li1?.lap_duration, tire: tire1, tel: tel1 },
+    { label: di2?.name_acronym || "D2", color: co2, path: loc2, lapDuration: li2?.lap_duration, tire: tire2, tel: tel2 },
+    ...(numDrivers >= 3 && di3 && loc3 ? [{ label: di3?.name_acronym || "D3", color: co3, path: loc3, lapDuration: li3?.lap_duration, tire: tire3, tel: tel3 }] : []),
+    ...(numDrivers >= 4 && di4 && loc4 ? [{ label: di4?.name_acronym || "D4", color: co4, path: loc4, lapDuration: li4?.lap_duration, tire: tire4, tel: tel4 }] : []),
+  ]).filter((driver) => driver.path?.length >= 2), [di1, di2, di3, di4, co1, co2, co3, co4, loc1, loc2, loc3, loc4, li1, li2, li3, li4, tire1, tire2, tire3, tire4, tel1, tel2, tel3, tel4, numDrivers]);
+  const replayDrivers = useMemo(() => replaySources.map(({ label, color, path }) => ({ label, color, path })), [replaySources]);
+  const replayDriverCards = useMemo(() => replaySources.map((driver) => ({
+    label: driver.label,
+    color: driver.color,
+    lapDuration: driver.lapDuration,
+    tire: driver.tire,
+    current: telAt(driver.tel, prog),
+  })), [replaySources, prog]);
+  const lapSelect1 = useMemo(() => prepareLapSelectModel(laps1), [laps1]);
+  const lapSelect2 = useMemo(() => prepareLapSelectModel(laps2), [laps2]);
+  const lapSelect3 = useMemo(() => prepareLapSelectModel(laps3), [laps3]);
+  const lapSelect4 = useMemo(() => prepareLapSelectModel(laps4), [laps4]);
   // Memoized — excludes live ct* so it stays stable between prog ticks
   const allDrivers = useMemo(() => [
     { di: di1, co: co1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
     { di: di2, co: co2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
-    ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, li: laps3.find((l) => l.lap_number === sl3), tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
-    ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, li: laps4.find((l) => l.lap_number === sl4), tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
-  ].filter((d) => d.di), [di1, co1, li1, tire1, tel1, s1, t1, b1, st1, laps1, sl1, di2, co2, li2, tire2, tel2, s2, t2, b2, st2, laps2, sl2, numDrivers, di3, co3, laps3, sl3, tire3, tel3, s3, t3, b3, st3, di4, co4, laps4, sl4, tire4, tel4, s4, t4, b4, st4]);
+    ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, li: li3, tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
+    ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, li: li4, tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
+  ].filter((d) => d.di), [di1, co1, li1, tire1, tel1, s1, t1, b1, st1, laps1, sl1, di2, co2, li2, tire2, tel2, s2, t2, b2, st2, laps2, sl2, numDrivers, di3, co3, li3, laps3, sl3, tire3, tel3, s3, t3, b3, st3, di4, co4, li4, laps4, sl4, tire4, tel4, s4, t4, b4, st4]);
 
   const driverFullName = useCallback((driver) => {
     if (!driver) return "";
@@ -198,10 +234,10 @@ export default function App({ embed }) {
   useEffect(() => { if (presetActiveRef.current) return; if (selSe && d2) { fetchLaps(selSe.session_key, d2).then((l) => { setLaps2(l); setSl2(null); }).catch(() => setLaps2([])); fetchStints(selSe.session_key, d2).then(setSt2).catch(() => setSt2([])); } }, [selSe, d2]);
   useEffect(() => { if (presetActiveRef.current) return; if (selSe && d3) { fetchLaps(selSe.session_key, d3).then((l) => { setLaps3(l); setSl3(null); }).catch(() => setLaps3([])); fetchStints(selSe.session_key, d3).then(setSt3).catch(() => setSt3([])); } }, [selSe, d3]);
   useEffect(() => { if (presetActiveRef.current) return; if (selSe && d4) { fetchLaps(selSe.session_key, d4).then((l) => { setLaps4(l); setSl4(null); }).catch(() => setLaps4([])); fetchStints(selSe.session_key, d4).then(setSt4).catch(() => setSt4([])); } }, [selSe, d4]);
-  useEffect(() => { if (laps1.length && !sl1) { const f = bestLap(laps1); if (f) setSl1(f.lap_number); } }, [laps1]);
-  useEffect(() => { if (laps2.length && !sl2) { const f = bestLap(laps2); if (f) setSl2(f.lap_number); } }, [laps2]);
-  useEffect(() => { if (laps3.length && !sl3) { const f = bestLap(laps3); if (f) setSl3(f.lap_number); } }, [laps3]);
-  useEffect(() => { if (laps4.length && !sl4) { const f = bestLap(laps4); if (f) setSl4(f.lap_number); } }, [laps4]);
+  useEffect(() => { if (lapSelect1.fastestLapNumber && !sl1) setSl1(lapSelect1.fastestLapNumber); }, [lapSelect1.fastestLapNumber, sl1]);
+  useEffect(() => { if (lapSelect2.fastestLapNumber && !sl2) setSl2(lapSelect2.fastestLapNumber); }, [lapSelect2.fastestLapNumber, sl2]);
+  useEffect(() => { if (lapSelect3.fastestLapNumber && !sl3) setSl3(lapSelect3.fastestLapNumber); }, [lapSelect3.fastestLapNumber, sl3]);
+  useEffect(() => { if (lapSelect4.fastestLapNumber && !sl4) setSl4(lapSelect4.fastestLapNumber); }, [lapSelect4.fastestLapNumber, sl4]);
 
   // URL restore
   useEffect(() => { if (urlLoaded.current) return; const u = decodeURL(); if (u.year && u.mk) { urlLoaded.current = true; setYear(Number(u.year)); } }, []);
@@ -503,6 +539,14 @@ export default function App({ embed }) {
 
   const loadH2H = useCallback(async () => {
     if (!d1 || !d2) return;
+    const cacheKey = getComparisonCacheKey(year, d1, d2);
+    const cachedResults = h2hCacheRef.current.get(cacheKey);
+    if (cachedResults) {
+      if (!mob && !embed) setShowH2H(true);
+      setH2hData(cachedResults);
+      setH2hProgress(null);
+      return;
+    }
     const controller = beginAuxLoad();
     const reqOptions = { signal: controller.signal };
     if (!mob && !embed) setShowH2H(true);
@@ -539,7 +583,11 @@ export default function App({ embed }) {
           if (!controller.signal.aborted) setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
         }
       }
-      if (!controller.signal.aborted && results.length === 0) setH2hData([]);
+      if (!controller.signal.aborted) {
+        const finalResults = results.length ? [...results] : [];
+        h2hCacheRef.current.set(cacheKey, finalResults);
+        if (finalResults.length === 0) setH2hData([]);
+      }
     } catch (e) {
       if (!isAbortError(e)) setH2hData([]);
     } finally {
@@ -550,6 +598,13 @@ export default function App({ embed }) {
 
   const loadSeasonDash = useCallback(async () => {
     if (!d1 || !d2) return;
+    const cacheKey = getComparisonCacheKey(year, d1, d2);
+    const cachedResults = dashCacheRef.current.get(cacheKey);
+    if (cachedResults) {
+      if (!mob && !embed) setShowDash(true);
+      setDashData(cachedResults);
+      return;
+    }
     const controller = beginAuxLoad();
     const reqOptions = { signal: controller.signal };
     if (!mob && !embed) setShowDash(true);
@@ -578,7 +633,11 @@ export default function App({ embed }) {
           if (String(e).includes("429")) await abortableSleep(3000, controller.signal);
         }
       }
-      if (!controller.signal.aborted && results.length === 0) setDashData([]);
+      if (!controller.signal.aborted) {
+        const finalResults = results.length ? [...results] : [];
+        dashCacheRef.current.set(cacheKey, finalResults);
+        if (finalResults.length === 0) setDashData([]);
+      }
     } catch (e) {
       if (!isAbortError(e)) setDashData([]);
     } finally {
@@ -751,7 +810,6 @@ export default function App({ embed }) {
   return (
     <div className={shellClassName} style={{ width: "100%", minHeight: embed || mob ? "100vh" : "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflowX: "hidden", display: (embed || mob) ? "flex" : "block", flexDirection: (embed || mob) ? "column" : undefined }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
         *{box-sizing:border-box;margin:0;padding:0}
@@ -843,7 +901,7 @@ export default function App({ embed }) {
       {/* Header */}
       {!embed && <div style={{ display: "flex", alignItems: "center", background: isDark ? "rgba(17,17,24,0.92)" : "rgba(245,245,247,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.08)", boxShadow: "0 2px 12px rgba(0,0,0,0.45)", zIndex: 10, position: "relative", padding: mob ? "0 10px" : "0 20px", minHeight: mob ? 44 : 52, gap: mob ? 8 : 18 }}>
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" className="hdr-logo-link">
-            <img src="https://f1stories.gr/images/logo.png" alt="F1 Stories" style={{ height: mob ? 26 : 32, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
+            <img src={LOGO_SRC} alt="F1 Stories" style={{ height: mob ? 26 : 32, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
             {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
               <span style={{ fontSize: 15, fontWeight: 900, color: F1.text, letterSpacing: "0.04em" }}>F1 STORIES</span>
               <span style={{ fontSize: 9, fontWeight: 600, color: "#3b82f6", letterSpacing: "0.14em", textTransform: "uppercase" }}>Ghost Car Lab</span>
@@ -927,16 +985,16 @@ export default function App({ embed }) {
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 3, height: 16, background: co1, borderRadius: 1 }} />
             <select title={driverFullName(di1) || "Select driver 1"} value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
-            {laps1.length > 0 && <select title={li1 ? fmt(li1.lap_duration) : "Select lap"} value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps1.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps1)?.lap_number)}</option>)}</select>}
+            {lapSelect1.options.length > 0 && <select title={li1 ? fmt(li1.lap_duration) : "Select lap"} value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect1.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect1.fastestLapNumber)}</option>)}</select>}
           </div>
           <span style={{ color: F1.blue, fontSize: mob ? 9 : 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 3, height: 16, background: co2, borderRadius: 1 }} />
             <select title={driverFullName(di2) || "Select driver 2"} value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
-            {laps2.length > 0 && <select title={li2 ? fmt(li2.lap_duration) : "Select lap"} value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps2.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps2)?.lap_number)}</option>)}</select>}
+            {lapSelect2.options.length > 0 && <select title={li2 ? fmt(li2.lap_duration) : "Select lap"} value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect2.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect2.fastestLapNumber)}</option>)}</select>}
           </div>
-          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Select driver 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{laps3.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps3.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps3)?.lap_number)}</option>)}</select>}</div></>}
-          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Select driver 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{laps4.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{laps4.filter((l) => l.lap_duration > 10).sort((a, b) => a.lap_duration - b.lap_duration).map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, bestLap(laps4)?.lap_number)}</option>)}</select>}</div></>}
+          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Select driver 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect3.options.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect3.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect3.fastestLapNumber)}</option>)}</select>}</div></>}
+          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Select driver 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect4.options.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect4.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect4.fastestLapNumber)}</option>)}</select>}</div></>}
           {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+D{numDrivers + 1}</button>}
           {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
           <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "COMPARE"}</button>
@@ -1037,7 +1095,7 @@ export default function App({ embed }) {
                       </div>
                     </div>
                     <div onTouchStart={handleReplayTouchStart} onTouchEnd={handleReplayTouchEnd} onTouchCancel={handleReplayTouchCancel}>
-                      <TrackReplay2D tp={tp} drivers={fallbackDrivers} prog={prog} flip={circuitFlip} />
+                      <TrackReplay2D tp={tp} drivers={replayDrivers} prog={prog} flip={circuitFlip} />
                     </div>
                     <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below still drive the replay, and telemetry, stats and lap tables remain available.</div>
                   </div>
@@ -1052,7 +1110,7 @@ export default function App({ embed }) {
                         </div>
                       </div>
                     )}
-                    {fallbackDrivers.map((driver) => (
+                    {replayDriverCards.map((driver) => (
                       <div key={driver.label} style={{ minWidth: 0, padding: "10px 12px", borderRadius: 12, background: F1.cardBg, border: `1px solid ${driver.color}33`, textAlign: "left" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                           <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>{driver.label}</div>
@@ -1110,9 +1168,9 @@ export default function App({ embed }) {
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(260px, 320px) 1fr", gap: mob ? 16 : 22, alignItems: "center" }}>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>2D FALLBACK PLAYBACK</div>
-                    <TrackReplay2D tp={tp} drivers={fallbackDrivers} prog={prog} flip={circuitFlip} />
-                    <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: mob ? "1fr" : `repeat(${Math.max(2, Math.min(4, fallbackDrivers.length || 2))}, minmax(0, 1fr))`, gap: 10 }}>
-                      {fallbackDrivers.map((driver) => (
+                    <TrackReplay2D tp={tp} drivers={replayDrivers} prog={prog} flip={circuitFlip} />
+                    <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: mob ? "1fr" : `repeat(${Math.max(2, Math.min(4, replayDriverCards.length || 2))}, minmax(0, 1fr))`, gap: 10 }}>
+                      {replayDriverCards.map((driver) => (
                         <div key={driver.label} style={{ minWidth: 0, padding: "10px 12px", borderRadius: 10, background: F1.cardBg, border: `1px solid ${driver.color}33`, textAlign: "left" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                             <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>{driver.label}</div>
@@ -1145,7 +1203,7 @@ export default function App({ embed }) {
               </div>
             </div>}
             {!tp && !loading && !embed && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
-              <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
+              <img src={LOGO_SRC} alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
               <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>GHOST CAR LAB</div>
               <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>by F1 STORIES</div>
               <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Compare qualifying laps in 3D or switch to a low-power 2D replay when the machine needs a lighter view.</div>
@@ -1226,7 +1284,7 @@ export default function App({ embed }) {
       {!embed && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
-            <img src="https://f1stories.gr/images/logo.png" alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
+            <img src={LOGO_SRC} alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
             <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
           </a>
           <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
