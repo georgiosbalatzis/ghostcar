@@ -2,7 +2,7 @@ import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRe
 import { getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
 import { norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
-import { ThemeProvider, getThemePalette } from "./theme.js";
+import { ThemeProvider, getThemeValue } from "./theme.js";
 
 // Components
 import MiniMap from "./components/MiniMap.jsx";
@@ -132,7 +132,8 @@ export default function App({ embed }) {
     if (urlTheme !== null) return urlTheme;
     try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; }
   });
-  const F1 = getThemePalette(isDark);
+  const themeValue = getThemeValue(isDark);
+  const F1 = themeValue.palette;
   const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
   const [trackView, setTrackView] = useState(() => {
     const urlTrackView = normalizeTrackView(initialURL.trackView);
@@ -1282,7 +1283,7 @@ export default function App({ embed }) {
 
   // ─── RENDER ───
   return (
-    <ThemeProvider value={F1}>
+    <ThemeProvider value={themeValue}>
       <div className={shellClassName} style={{ width: "100%", minHeight: embed || mob ? undefined : "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflowX: "hidden", display: (embed || mob) ? "flex" : "block", flexDirection: (embed || mob) ? "column" : undefined }}>
       <style>{`
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
