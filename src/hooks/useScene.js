@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { F1_DARK, F1_LIGHT } from "../constants.js";
-import { lerp, norm, smoothPath } from "../helpers.js";
+import { getSmoothPathPointCount, lerp, norm, smoothPath } from "../helpers.js";
 
 function getSceneSupportError() {
   if (typeof window === "undefined") return "";
@@ -89,13 +89,33 @@ function buildColoredLineSegments(groups, opacity = 1) {
   );
 }
 
-export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true, visible = true) {
+function frameLerp(base, dt) {
+  const clampedBase = THREE.MathUtils.clamp(base, 0, 0.999);
+  return 1 - Math.pow(1 - clampedBase, Math.max(dt, 1 / 240) * 60);
+}
+
+function createShakeNoiseTable(size = 256) {
+  const table = new Float32Array(size);
+  for (let i = 0; i < size; i++) {
+    const t = (i / size) * Math.PI * 2;
+    table[i] = (
+      Math.sin(t) * 0.58 +
+      Math.sin(t * 2.13 + 0.7) * 0.27 +
+      Math.sin(t * 5.17 + 1.9) * 0.15
+    );
+  }
+  return table;
+}
+
+export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true, visible = true) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const visibleRef = useRef(visible);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
-  const n1 = useMemo(() => l1 ? smoothPath(norm(l1, circuitFlip)) : null, [l1, circuitFlip]); const n2 = useMemo(() => l2 ? smoothPath(norm(l2, circuitFlip)) : null, [l2, circuitFlip]);
-  const n3 = useMemo(() => l3 ? smoothPath(norm(l3, circuitFlip)) : null, [l3, circuitFlip]); const n4 = useMemo(() => l4 ? smoothPath(norm(l4, circuitFlip)) : null, [l4, circuitFlip]);
+  const smoothPointCount = useMemo(() => getSmoothPathPointCount(typeof window !== "undefined" ? window.innerWidth < 768 : false), []);
+  const shakeNoise = useMemo(() => createShakeNoiseTable(), []);
+  const n1 = useMemo(() => l1 ? smoothPath(norm(l1, circuitFlip), smoothPointCount) : null, [l1, circuitFlip, smoothPointCount]); const n2 = useMemo(() => l2 ? smoothPath(norm(l2, circuitFlip), smoothPointCount) : null, [l2, circuitFlip, smoothPointCount]);
+  const n3 = useMemo(() => l3 ? smoothPath(norm(l3, circuitFlip), smoothPointCount) : null, [l3, circuitFlip, smoothPointCount]); const n4 = useMemo(() => l4 ? smoothPath(norm(l4, circuitFlip), smoothPointCount) : null, [l4, circuitFlip, smoothPointCount]);
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
   const brakeArr = useMemo(() => telData1?.map((t) => t.brake > 0 ? 1 : 0) || [], [telData1]);
 
@@ -653,6 +673,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       // Store progRef for render loop access
       R.current._progRef = progRef;
       R.current._playRef = playRef;
+      R.current._speedRef = speedRef;
       R.current._telData1 = telData1;
 
       const ACTIVE_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
@@ -667,6 +688,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       let lastPlayState = false;
       let lastSceneVisible = false;
       let hasRendered = false;
+      let lastSimTime = 0;
+      let noiseFrame = 0;
       function animate(now = performance.now()) {
         if (contextLost) return;
         R.current.fr = requestAnimationFrame(animate);
@@ -678,14 +701,24 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         lastFrameTime = now;
         if (!isSceneVisible) {
           lastSceneVisible = false;
+          lastSimTime = 0;
           return;
         }
 
       // ─── Car updates (60fps, no React) ───
+        const dt = lastSimTime ? Math.min((now - lastSimTime) / 1000, 0.05) : 1 / 60;
+        lastSimTime = now;
+        noiseFrame = (noiseFrame + 1) & 255;
         const prog = R.current._progRef?.current ?? 0;
         const progChanged = prog !== lastProg;
         if (progChanged) lastProg = prog;
         const cm = cmRef.current;
+        const playbackSpeed = Math.max(0.25, R.current._speedRef?.current ?? 1);
+        const followCam = cm === "follow1" || cm === "follow2";
+        const baseRotLerp = THREE.MathUtils.clamp(0.16 - playbackSpeed * 0.02, 0.08, 0.16);
+        const rotLerp = frameLerp(followCam ? Math.min(baseRotLerp + 0.02, 0.18) : baseRotLerp, dt);
+        const posLerp = frameLerp(THREE.MathUtils.clamp(0.34 - playbackSpeed * 0.04, 0.18, 0.34), dt);
+        const sampleNoise = (offset = 0) => shakeNoise[(noiseFrame + offset) & 255];
         let needsRender = !hasRendered || !!R.current._dirty || progChanged || cm !== lastCamMode || isPlaying !== lastPlayState || !lastSceneVisible;
         lastCamMode = cm;
         lastPlayState = isPlaying;
@@ -696,19 +729,27 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         }
       const { car1, car2, tr1, tr2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP, sectorMarkers, _telData1: td1 } = R.current;
       if (car1 && car2 && tp && tp.length >= 2) {
-        const rotSlerp = (cm === "follow1" || cm === "follow2") ? 0.18 : 0.12;
         const headingHelper = R.current._headingHelper || (R.current._headingHelper = new THREE.Object3D());
-        function updCar(car, trail, data, t, lateralOff, updateTrail) {
+        function updCar(car, trail, data, t, targetLateralOff, updateTrail) {
           let localDirty = false;
           const pts = data?.length >= 2 ? data : tp;
           const p = lerp(pts, t); if (isNaN(p.x)) return { x: 0, y: 0, z: 0 };
           const p2 = lerp(pts, Math.min(1, t + 0.01));
           // Lateral offset for overtaking visualization
           let ox = 0, oz = 0;
-          if (lateralOff !== 0) {
+          const lateralState = car.userData.lateral || (car.userData.lateral = { offset: 0, velocity: 0 });
+          lateralState.velocity += (targetLateralOff - lateralState.offset) * 80 * dt;
+          lateralState.velocity -= lateralState.velocity * 14 * dt;
+          lateralState.offset += lateralState.velocity * dt;
+          if (Math.abs(lateralState.offset) < 1e-4 && Math.abs(targetLateralOff) < 1e-4 && Math.abs(lateralState.velocity) < 1e-4) {
+            lateralState.offset = 0;
+            lateralState.velocity = 0;
+          }
+          if (Math.abs(targetLateralOff - lateralState.offset) > 1e-4 || Math.abs(lateralState.velocity) > 1e-4) localDirty = true;
+          if (lateralState.offset !== 0) {
             const dx = p2.x - p.x, dz = p2.z - p.z;
             const len = Math.sqrt(dx * dx + dz * dz) || 1;
-            ox = (-dz / len) * lateralOff; oz = (dx / len) * lateralOff;
+            ox = (-dz / len) * lateralState.offset; oz = (dx / len) * lateralState.offset;
           }
           const tx = p.x + ox, ty = p.y + 0.2, tz = p.z + oz;
           if (!car.userData.pos) { car.userData.pos = { x: tx, y: ty, z: tz }; localDirty = true; }
@@ -716,9 +757,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
             const prevX = car.userData.pos.x;
             const prevY = car.userData.pos.y;
             const prevZ = car.userData.pos.z;
-            car.userData.pos.x += (tx - car.userData.pos.x) * 0.3;
-            car.userData.pos.y += (ty - car.userData.pos.y) * 0.3;
-            car.userData.pos.z += (tz - car.userData.pos.z) * 0.3;
+            car.userData.pos.x += (tx - car.userData.pos.x) * posLerp;
+            car.userData.pos.y += (ty - car.userData.pos.y) * posLerp;
+            car.userData.pos.z += (tz - car.userData.pos.z) * posLerp;
             if ((car.userData.pos.x - prevX) ** 2 + (car.userData.pos.y - prevY) ** 2 + (car.userData.pos.z - prevZ) ** 2 > 1e-6) localDirty = true;
           }
           car.position.set(car.userData.pos.x, car.userData.pos.y, car.userData.pos.z);
@@ -728,12 +769,16 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
             if (fLen > 0) {
               const nx = fwdX / fLen, nz = fwdZ / fLen;
               if (!car.userData.fwd) car.userData.fwd = { x: nx, z: nz };
-              else { car.userData.fwd.x += (nx - car.userData.fwd.x) * 0.08; car.userData.fwd.z += (nz - car.userData.fwd.z) * 0.08; }
+              else {
+                const forwardLerp = frameLerp(THREE.MathUtils.clamp(0.18 - playbackSpeed * 0.025, 0.06, 0.18), dt);
+                car.userData.fwd.x += (nx - car.userData.fwd.x) * forwardLerp;
+                car.userData.fwd.z += (nz - car.userData.fwd.z) * forwardLerp;
+              }
               const prevQuat = car.userData.prevQuat || (car.userData.prevQuat = new THREE.Quaternion());
               prevQuat.copy(car.quaternion);
               headingHelper.position.copy(car.position);
               headingHelper.lookAt(p.x + ox + car.userData.fwd.x, p.y + 0.2, p.z + oz + car.userData.fwd.z);
-              car.quaternion.slerp(headingHelper.quaternion, rotSlerp);
+              car.quaternion.slerp(headingHelper.quaternion, rotLerp);
               if (1 - Math.abs(car.quaternion.dot(prevQuat)) > 1e-6) localDirty = true;
             }
           }
@@ -798,13 +843,13 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp);
           const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1;
           const telNow = td1?.length ? td1[Math.floor(prog * (td1.length - 1))] : null; const braking = telNow?.brake > 0 ? 1 : 0;
-          const shakeX = braking * (Math.random() - 0.5) * 0.12; const shakeY = braking * (Math.random() - 0.5) * 0.08;
+          const shakeX = braking * sampleNoise(0) * 0.06; const shakeY = braking * sampleNoise(37) * 0.04;
           camTargetPos.current.set(tgt.x - (dx / len) * 8 + shakeX, tgt.y + 4.5 + shakeY, tgt.z - (dz / len) * 8);
           camTargetLook.current.set(ah.x + shakeX * 0.5, tgt.y + 0.3, ah.z);
         } else if (cm === "cinematic" && R.current.curve) {
           const cinT2 = (cs.cinT + prog * 0.3) % 1; const cp = R.current.curve.getPointAt(cinT2);
           const telNow2 = td1?.length ? td1[Math.floor(prog * (td1.length - 1))] : null; const shk = telNow2?.brake > 0 ? 0.06 : 0;
-          camTargetPos.current.set(cp.x + 8 + (Math.random() - 0.5) * shk, cp.y + 5, cp.z + 8 + (Math.random() - 0.5) * shk);
+          camTargetPos.current.set(cp.x + 8 + sampleNoise(71) * shk, cp.y + 5, cp.z + 8 + sampleNoise(149) * shk);
           camTargetLook.current.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
         }
       }
@@ -819,7 +864,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         else if (cm === "top") { camTargetPos.current.set(0, 65, 0.01); camTargetLook.current.set(0, 0, 0); }
         prevCameraPos.copy(camera.position);
         prevCameraQuat.copy(camera.quaternion);
-        camera.position.lerp(camTargetPos.current, 0.08);
+        camera.position.lerp(camTargetPos.current, frameLerp(followCam ? 0.12 : 0.08, dt));
         camera.lookAt(camTargetLook.current);
         if (camera.position.distanceToSquared(prevCameraPos) > 1e-6 || 1 - Math.abs(camera.quaternion.dot(prevCameraQuat)) > 1e-6) needsRender = true;
         if (!needsRender) return;
@@ -854,5 +899,6 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
   useEffect(() => { R.current.n3 = n3; R.current._dirty = true; }, [n3]); useEffect(() => { R.current.n4 = n4; R.current._dirty = true; }, [n4]);
   useEffect(() => { cmRef.current = cam; R.current._dirty = true; }, [cam]);
   useEffect(() => { visibleRef.current = visible; R.current._dirty = true; }, [visible]);
+  useEffect(() => { R.current._speedRef = speedRef; R.current._dirty = true; }, [speedRef]);
   useEffect(() => { R.current._telData1 = telData1; R.current._dirty = true; }, [telData1]);
 }
