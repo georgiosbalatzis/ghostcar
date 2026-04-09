@@ -1,9 +1,9 @@
 import { useEffect, useRef, useMemo, memo } from "react";
 import { lerp, norm } from "../helpers.js";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 
 const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = false }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const ref = useRef(null);
   const staticCanvasRef = useRef(null);
   const nn1 = useMemo(() => l1 ? norm(l1, flip) : null, [l1, flip]);

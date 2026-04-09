@@ -1,9 +1,9 @@
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { encodeURL } from "../helpers.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function EmbedModal({ mob, year, selMt, selSe, d1, d2, sl1, sl2, onClose }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const embedUrl = encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 });
   const embedCode = `<iframe src="${embedUrl}&embed=1" width="100%" height="650" frameborder="0" style="border-radius:12px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>`;
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 
 const TOUR = [
   { text: "Welcome to Ghost Car Lab! Compare F1 laps in 3D with real telemetry." },
@@ -12,7 +12,7 @@ const TOUR = [
 ];
 
 export default function TourOverlay({ onClose }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const [step, setStep] = useState(0);
   const dismiss = () => { onClose(); try { localStorage.setItem("f1s-toured", "1"); } catch {} };
 

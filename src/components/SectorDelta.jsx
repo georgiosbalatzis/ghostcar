@@ -1,8 +1,8 @@
 import { memo } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 
 const SectorDelta = memo(function SD({ s, t1, t2, c1, c2 }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const d = t1 && t2 ? t1 - t2 : null;
   const sC = [F1.green, F1.yellow, F1.red];
   const faster1 = d !== null && d < 0;

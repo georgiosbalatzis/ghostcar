@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { CIRCUIT_DATA, DRIVER_NAME_BY_NUMBER, PRESETS } from "../constants.js";
 import { normalizeText } from "../helpers.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
@@ -34,7 +34,7 @@ function formatCircuitLabel(value) {
 }
 
 export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYears = [] }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const [query, setQuery] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
   const [driverFilter, setDriverFilter] = useState("all");

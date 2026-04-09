@@ -1,11 +1,11 @@
 import { memo, useMemo } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { TIRE_COLORS } from "../constants.js";
 import { telAt } from "../helpers.js";
 import TelChart from "./TelChart.jsx";
 
 const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers, numDrivers, di1, di2, co1, co2, li1, li2, s1, s2, laps1, st1, sl1 }) {
-  const F1 = getF1();
+  const F1 = useF1();
 
   // Live telemetry at current playback position — computed here so allDrivers can stay stable
   const currentTel = useMemo(
@@ -43,7 +43,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
 
   // Speed trap values — stable when telemetry arrays don't change
   const speedTraps = useMemo(() => {
-    if (!s1?.length > 10 || !s2?.length > 10) return null;
+    if ((s1?.length ?? 0) <= 10 || (s2?.length ?? 0) <= 10) return null;
     return [0.1, 0.25, 0.5, 0.75, 0.9].map((t, i) => {
       const v1 = s1[Math.floor(t * (s1.length - 1))] || 0;
       const v2 = s2[Math.floor(t * (s2.length - 1))] || 0;

@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onClose, inline }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const summary = useMemo(() => {
     if (!dashData?.length) return null;
     let w1 = 0;

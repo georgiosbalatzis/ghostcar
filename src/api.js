@@ -2,6 +2,30 @@ const API = "https://api.openf1.org/v1";
 const RESPONSE_CACHE_MAX = 120;
 const responseCache = new Map();
 
+function createAbortError() {
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError());
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(timer);
+      reject(createAbortError());
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 function getCacheKey(ep, params) {
   const query = new URLSearchParams();
   Object.entries(params)
@@ -30,7 +54,10 @@ export async function fetchJSON(ep, params = {}, options = {}) {
   for (let a = 0; a <= retries; a++) {
     try {
       const r = await fetch(url.toString(), { signal });
-      if (r.status === 429) { await new Promise((x) => setTimeout(x, 1500 * (a + 1))); continue; }
+      if (r.status === 429) {
+        await sleep(1500 * (a + 1), signal);
+        continue;
+      }
       if (!r.ok) throw new Error(`API ${r.status}`);
       const data = await r.json();
       if (cache) storeCachedResponse(cacheKey, data);
@@ -38,7 +65,7 @@ export async function fetchJSON(ep, params = {}, options = {}) {
     } catch (e) {
       if (e?.name === "AbortError") throw e;
       if (a === retries) throw e;
-      await new Promise((x) => setTimeout(x, 800 * (a + 1)));
+      await sleep(800 * (a + 1), signal);
     }
   }
 }

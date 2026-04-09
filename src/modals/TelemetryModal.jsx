@@ -1,9 +1,9 @@
 import TelemetryPanel from "../components/TelemetryPanel.jsx";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function TelemetryModal({ mob, onClose, panelProps }) {
-  const F1 = getF1();
+  const F1 = useF1();
 
   return (
     <div

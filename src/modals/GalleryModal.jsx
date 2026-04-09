@@ -1,8 +1,8 @@
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function GalleryModal({ mob, gallery, onClose, onClear }) {
-  const F1 = getF1();
+  const F1 = useF1();
   return (
     <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 500, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
