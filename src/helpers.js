@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 
+const DEFAULT_URL_BASE = "https://f1stories.gr/ghostcar/";
+
 // ─── Smooth cubic Catmull-Rom interpolation (replaces linear lerp) ───
 export function lerp(pts, t) {
   if (!pts?.length) return { x: 0, y: 0, z: 0 };
@@ -111,22 +113,75 @@ export function normalizeText(value) {
     .trim();
 }
 
-export function encodeURL(s) {
-  const p = new URLSearchParams();
+function getUrlBase(baseURL) {
+  if (baseURL) return baseURL;
+  if (typeof window !== "undefined") return `${window.location.origin}${window.location.pathname}`;
+  return DEFAULT_URL_BASE;
+}
+
+function parseUrl(input) {
+  if (input instanceof URL) return input;
+  if (typeof input === "string" && input) {
+    try {
+      return new URL(input, getUrlBase());
+    } catch {
+      return new URL(getUrlBase());
+    }
+  }
+  if (typeof window !== "undefined") return new URL(window.location.href);
+  return new URL(DEFAULT_URL_BASE);
+}
+
+export function encodeURL(s, options = {}) {
+  const url = new URL(getUrlBase(options.baseURL));
+  const p = url.searchParams;
   if (s.year) p.set("y", s.year);
   if (s.mk) p.set("mk", s.mk);
   if (s.sk) p.set("sk", s.sk);
   if (s.d1) p.set("d1", s.d1);
   if (s.d2) p.set("d2", s.d2);
+  if (s.d3) p.set("d3", s.d3);
+  if (s.d4) p.set("d4", s.d4);
   if (s.l1) p.set("l1", s.l1);
   if (s.l2) p.set("l2", s.l2);
-  return `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+  if (s.l3) p.set("l3", s.l3);
+  if (s.l4) p.set("l4", s.l4);
+  if (s.numDrivers && Number(s.numDrivers) > 2) p.set("nd", s.numDrivers);
+  if (s.trackView === "2d") p.set("tv", "2d");
+  if (s.cam && s.cam !== "orbit") p.set("cam", s.cam);
+  if (s.vizMode && s.vizMode !== "normal") p.set("vz", s.vizMode);
+  if (s.theme === "dark" || s.theme === "light") p.set("th", s.theme);
+  if (s.speed && Number(s.speed) !== 1) p.set("spd", s.speed);
+  if (s.loop) p.set("lp", "1");
+  if (s.tab && s.tab !== "3d") p.set("tab", s.tab);
+  if (s.embed) p.set("embed", "1");
+  if ([...p.keys()].length) p.set("v", "2");
+  return url.toString();
 }
 
-export function decodeURL() {
-  const p = new URLSearchParams(window.location.search);
+export function decodeURL(input) {
+  const p = parseUrl(input).searchParams;
   return {
-    year: p.get("y"), mk: p.get("mk"), sk: p.get("sk"),
-    d1: p.get("d1"), d2: p.get("d2"), l1: p.get("l1"), l2: p.get("l2"),
+    version: p.get("v") || "1",
+    year: p.get("y") || p.get("year"),
+    mk: p.get("mk"),
+    sk: p.get("sk"),
+    d1: p.get("d1"),
+    d2: p.get("d2"),
+    d3: p.get("d3"),
+    d4: p.get("d4"),
+    l1: p.get("l1"),
+    l2: p.get("l2"),
+    l3: p.get("l3"),
+    l4: p.get("l4"),
+    numDrivers: p.get("nd"),
+    trackView: p.get("tv"),
+    cam: p.get("cam"),
+    vizMode: p.get("vz"),
+    theme: p.get("th"),
+    speed: p.get("spd"),
+    loop: p.get("lp"),
+    tab: p.get("tab"),
+    embed: p.get("embed"),
   };
 }

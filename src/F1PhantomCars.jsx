@@ -16,6 +16,9 @@ const UNAVAILABLE_PRESET_YEARS = [2026];
 const DEFAULT_YEAR = 2025;
 const TRACK_VIEW_STORAGE_KEY = "f1s-track-view";
 const TRACK_VIEW_MODES = ["3d", "2d"];
+const INLINE_TABS = ["3d", "telemetry", "stats", "laps", "h2h", "season"];
+const VIZ_MODES = ["normal", "heatmap", "brake"];
+const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4];
 const SUPPORTED_SESSION_NAMES = ["Qualifying", "Race", "Sprint", "Sprint Qualifying", "Sprint Shootout", "Practice 1", "Practice 2", "Practice 3"];
 const LOGO_SRC = `${import.meta.env.BASE_URL}f1-stories-logo.svg`;
 const SceneStage3D = lazy(() => import("./components/SceneStage3D.jsx"));
@@ -78,13 +81,62 @@ function getComparisonCacheKey(year, d1, d2) {
   return `${year}:${d1}:${d2}`;
 }
 
+function normalizeTrackView(value) {
+  return value === "2d" ? "2d" : value === "3d" ? "3d" : null;
+}
+
+function normalizeCamMode(value) {
+  return CAM_MODES.includes(value) ? value : null;
+}
+
+function normalizeVizMode(value) {
+  return VIZ_MODES.includes(value) ? value : null;
+}
+
+function normalizeInlineTab(value) {
+  return INLINE_TABS.includes(value) ? value : "3d";
+}
+
+function normalizePlaybackSpeed(value) {
+  const parsed = Number(value);
+  return PLAYBACK_SPEEDS.includes(parsed) ? parsed : null;
+}
+
+function parseLoopFlag(value) {
+  return value === "1" || value === "true";
+}
+
+function parseThemeMode(value) {
+  if (value === "dark") return true;
+  if (value === "light") return false;
+  return null;
+}
+
+function createRestoreFlags() {
+  return {
+    meeting: false,
+    session: false,
+    drivers: false,
+    lap1: false,
+    lap2: false,
+    lap3: false,
+    lap4: false,
+  };
+}
+
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
-  const [isDark, setIsDark] = useState(() => { try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; } });
+  const [isDark, setIsDark] = useState(() => {
+    const urlTheme = parseThemeMode(initialURL.theme);
+    if (urlTheme !== null) return urlTheme;
+    try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; }
+  });
   const F1 = getThemePalette(isDark);
   const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
   const [trackView, setTrackView] = useState(() => {
+    const urlTrackView = normalizeTrackView(initialURL.trackView);
+    if (urlTrackView) return urlTrackView;
     try {
       return localStorage.getItem(TRACK_VIEW_STORAGE_KEY) === "2d" ? "2d" : "3d";
     } catch {
@@ -111,10 +163,19 @@ export default function App({ embed }) {
   const [circuitTurns, setCircuitTurns] = useState(20);
   const [st1, setSt1] = useState([]); const [st2, setSt2] = useState([]);
   const [st3, setSt3] = useState([]); const [st4, setSt4] = useState([]);
-  const [numDrivers, setNumDrivers] = useState(2);
+  const [numDrivers, setNumDrivers] = useState(() => {
+    const encodedCount = Number(initialURL.numDrivers);
+    if (encodedCount >= 2 && encodedCount <= 4) return encodedCount;
+    if (initialURL.d4) return 4;
+    if (initialURL.d3) return 3;
+    return 2;
+  });
   const [showDash, setShowDash] = useState(false); const [dashData, setDashData] = useState(null);
-  const [prog, setProg] = useState(0); const [play, setPlay] = useState(false); const [spd, setSpd] = useState(1); const [loop, setLoop] = useState(false);
-  const [cam, setCam] = useState("orbit"); const [vizMode, setVizMode] = useState("normal");
+  const [prog, setProg] = useState(0); const [play, setPlay] = useState(false);
+  const [spd, setSpd] = useState(() => normalizePlaybackSpeed(initialURL.speed) ?? 1);
+  const [loop, setLoop] = useState(() => parseLoopFlag(initialURL.loop));
+  const [cam, setCam] = useState(() => normalizeCamMode(initialURL.cam) ?? "orbit");
+  const [vizMode, setVizMode] = useState(() => normalizeVizMode(initialURL.vizMode) ?? "normal");
   const [showKeys, setShowKeys] = useState(false);
   const [showTour, setShowTour] = useState(() => { if (embed) return false; try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
   const [showH2H, setShowH2H] = useState(false); const [h2hData, setH2hData] = useState(null); const [h2hProgress, setH2hProgress] = useState(null);
@@ -125,7 +186,8 @@ export default function App({ embed }) {
   const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
   const [sceneErr, setSceneErr] = useState("");
   const [canCancelLoad, setCanCancelLoad] = useState(false);
-  const [showTel, setShowTel] = useState(!embed); const [mobTab, setMobTab] = useState("3d");
+  const [showTel, setShowTel] = useState(() => !embed || initialURL.tab === "telemetry");
+  const [mobTab, setMobTab] = useState(() => normalizeInlineTab(initialURL.tab));
   const [showTelOverlay, setShowTelOverlay] = useState(false);
   const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
@@ -142,8 +204,11 @@ export default function App({ embed }) {
   }, []);
   const selectorsRef = useRef(null);
   const yearSelectRef = useRef(null);
-  const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
+  const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(Boolean(initialURL.year && initialURL.mk));
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
+  const restoreStateRef = useRef(initialURL);
+  const restoreFlagsRef = useRef(createRestoreFlags());
+  const [restoreTick, setRestoreTick] = useState(0);
   const loadAbortRef = useRef(null);
   const auxAbortRef = useRef(null);
   const h2hCacheRef = useRef(new Map());
@@ -248,6 +313,30 @@ export default function App({ embed }) {
     const prefix = lap.lap_number === bestLapNumber ? "FASTEST • " : "";
     return `${prefix}L${lap.lap_number} • ${fmt(lap.lap_duration)}`;
   }, []);
+  const shareURLState = useMemo(() => ({
+    year,
+    mk: selMt?.meeting_key,
+    sk: selSe?.session_key,
+    d1,
+    d2,
+    d3: numDrivers >= 3 ? d3 : null,
+    d4: numDrivers >= 4 ? d4 : null,
+    l1: sl1,
+    l2: sl2,
+    l3: numDrivers >= 3 ? sl3 : null,
+    l4: numDrivers >= 4 ? sl4 : null,
+    numDrivers,
+    trackView,
+    cam,
+    vizMode,
+    theme: isDark ? "dark" : "light",
+    speed: spd,
+    loop,
+    tab: (mob || embed) ? mobTab : (showTel ? "telemetry" : "3d"),
+  }), [year, selMt, selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, numDrivers, trackView, cam, vizMode, isDark, spd, loop, mob, embed, mobTab, showTel]);
+  const shareUrl = useMemo(() => (
+    selMt?.meeting_key && selSe?.session_key ? encodeURL(shareURLState) : ""
+  ), [selMt, selSe, shareURLState]);
 
   // ─── Data loading effects ───
   useEffect(() => {
@@ -424,12 +513,67 @@ export default function App({ embed }) {
   useEffect(() => { if (lapSelect4.fastestLapNumber && !sl4) setSl4(lapSelect4.fastestLapNumber); }, [lapSelect4.fastestLapNumber, sl4]);
 
   // URL restore
-  useEffect(() => { if (urlLoaded.current) return; const u = decodeURL(); if (u.year && u.mk) { urlLoaded.current = true; setYear(Number(u.year)); } }, []);
-  useEffect(() => { const u = decodeURL(); if (u.mk && mts.length && !selMt) { const m = mts.find((x) => String(x.meeting_key) === u.mk); if (m) setSelMt(m); } }, [mts]);
-  useEffect(() => { const u = decodeURL(); if (u.sk && sess.length && !selSe) { const s = sess.find((x) => String(x.session_key) === u.sk); if (s) setSelSe(s); } }, [sess]);
-  useEffect(() => { const u = decodeURL(); if (u.d1 && u.d2 && drvs.length && !d1 && !d2) { setD1(Number(u.d1)); setD2(Number(u.d2)); } }, [drvs]);
-  useEffect(() => { const u = decodeURL(); if (u.l1 && laps1.length && !sl1) setSl1(Number(u.l1)); }, [laps1]);
-  useEffect(() => { const u = decodeURL(); if (u.l2 && laps2.length && !sl2) setSl2(Number(u.l2)); }, [laps2]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!u?.mk || !mts.length || restoreFlagsRef.current.meeting) return;
+    const m = mts.find((x) => String(x.meeting_key) === u.mk);
+    if (!m) return;
+    restoreFlagsRef.current.meeting = true;
+    setSelMt(m);
+  }, [mts, restoreTick]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!u?.sk || !sess.length || restoreFlagsRef.current.session) return;
+    const s = sess.find((x) => String(x.session_key) === u.sk);
+    if (!s) return;
+    restoreFlagsRef.current.session = true;
+    setSelSe(s);
+  }, [sess, restoreTick]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!drvs.length || restoreFlagsRef.current.drivers) return;
+    const nextDrivers = {
+      d1: u?.d1 ? Number(u.d1) : null,
+      d2: u?.d2 ? Number(u.d2) : null,
+      d3: u?.d3 ? Number(u.d3) : null,
+      d4: u?.d4 ? Number(u.d4) : null,
+    };
+    if (!nextDrivers.d1 && !nextDrivers.d2 && !nextDrivers.d3 && !nextDrivers.d4) return;
+    restoreFlagsRef.current.drivers = true;
+    setD1(nextDrivers.d1);
+    setD2(nextDrivers.d2);
+    setD3(nextDrivers.d3);
+    setD4(nextDrivers.d4);
+    const encodedCount = Number(u?.numDrivers);
+    const nextCount = encodedCount >= 2 && encodedCount <= 4
+      ? encodedCount
+      : nextDrivers.d4 ? 4 : nextDrivers.d3 ? 3 : 2;
+    setNumDrivers(nextCount);
+  }, [drvs, restoreTick]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!u?.l1 || !laps1.length || restoreFlagsRef.current.lap1) return;
+    restoreFlagsRef.current.lap1 = true;
+    setSl1(Number(u.l1));
+  }, [laps1, restoreTick]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!u?.l2 || !laps2.length || restoreFlagsRef.current.lap2) return;
+    restoreFlagsRef.current.lap2 = true;
+    setSl2(Number(u.l2));
+  }, [laps2, restoreTick]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!u?.l3 || !laps3.length || restoreFlagsRef.current.lap3) return;
+    restoreFlagsRef.current.lap3 = true;
+    setSl3(Number(u.l3));
+  }, [laps3, restoreTick]);
+  useEffect(() => {
+    const u = restoreStateRef.current;
+    if (!u?.l4 || !laps4.length || restoreFlagsRef.current.lap4) return;
+    restoreFlagsRef.current.lap4 = true;
+    setSl4(Number(u.l4));
+  }, [laps4, restoreTick]);
 
   useEffect(() => () => {
     loadAbortRef.current?.abort();
@@ -501,6 +645,72 @@ export default function App({ embed }) {
     setShareMsg(message);
     shareMsgTimerRef.current = window.setTimeout(() => setShareMsg(""), 2200);
   }, []);
+
+  const restoreComparisonFromUrl = useCallback((rawUrl) => {
+    const nextState = decodeURL(rawUrl);
+    if (!nextState?.year || !nextState?.mk) {
+      window.location.href = rawUrl;
+      return;
+    }
+    cancelLoading();
+    cancelAuxLoading();
+    cancelCountdown();
+    if (showreelTimerRef.current) {
+      window.clearTimeout(showreelTimerRef.current);
+      showreelTimerRef.current = null;
+    }
+    presetActiveRef.current = false;
+    autoLoadRef.current = false;
+    setShowreel(false);
+    setErr("");
+    setSceneErr("");
+    setShowMobMenu(false);
+    setShowPresets(false);
+    setShowStats(false);
+    setShowLaps(false);
+    setShowKeys(false);
+    setShowH2H(false);
+    setShowDash(false);
+    setH2hData(null);
+    setDashData(null);
+    setH2hProgress(null);
+    setShowGallery(false);
+    setShowEmbed(false);
+    setShowTelOverlay(false);
+    setShareDialogUrl("");
+    setShareDialogNotice("");
+    const nextTheme = parseThemeMode(nextState.theme);
+    if (nextTheme !== null) setIsDark(nextTheme);
+    const nextTrackView = normalizeTrackView(nextState.trackView);
+    if (nextTrackView) {
+      setTrackView(nextTrackView);
+      if (nextTrackView === "2d") setSceneErr("");
+    }
+    const nextCam = normalizeCamMode(nextState.cam);
+    if (nextCam) setCam(nextCam);
+    const nextVizMode = normalizeVizMode(nextState.vizMode);
+    if (nextVizMode) setVizMode(nextVizMode);
+    const nextSpeed = normalizePlaybackSpeed(nextState.speed);
+    if (nextSpeed) setSpd(nextSpeed);
+    if (nextState.loop != null) setLoop(parseLoopFlag(nextState.loop));
+    const nextTab = normalizeInlineTab(nextState.tab);
+    setMobTab(nextTab);
+    if (!embed && nextState.tab) setShowTel(nextTab === "telemetry");
+    restoreStateRef.current = nextState;
+    restoreFlagsRef.current = createRestoreFlags();
+    urlLoaded.current = true;
+    resetDriverSelections({ resetDriverCount: true });
+    setMts([]);
+    setSelMt(null);
+    setSess([]);
+    setSelSe(null);
+    setDrvs([]);
+    setYear(Number(nextState.year) || DEFAULT_YEAR);
+    const nextUrl = encodeURL(nextState);
+    window.history.replaceState(null, "", nextUrl.split(window.location.origin)[1]);
+    setRestoreTick((tick) => tick + 1);
+    pushToast("Comparison restored from gallery.", "success");
+  }, [cancelAuxLoading, cancelCountdown, cancelLoading, embed, pushToast, resetDriverSelections]);
 
   const changeMatchup = useCallback(() => {
     cancelLoading();
@@ -657,8 +867,8 @@ export default function App({ embed }) {
   }, [UNAVAILABLE_PRESET_YEARS, beginCancelableLoad, cancelAuxLoading, finishCancelableLoad, resetDriverSelections]);
 
   const share = useCallback(async () => {
-    if (!selMt || !selSe) return;
-    const url = encodeURL({ year, mk: selMt.meeting_key, sk: selSe.session_key, d1, d2, l1: sl1, l2: sl2 });
+    if (!selMt || !selSe || !shareUrl) return;
+    const url = shareUrl;
     window.history.replaceState(null, "", url.split(window.location.origin)[1]);
     const shareTitle = `${selMt.meeting_name} ${year} Ghost Car Lab`;
     if (navigator.share && mob && !embed) {
@@ -687,14 +897,14 @@ export default function App({ embed }) {
       bumpShareMsg("LINK READY");
       pushToast("Share link ready to copy.", "info");
     }
-  }, [year, selMt, selSe, d1, d2, sl1, sl2, mob, embed, bumpShareMsg, pushToast]);
+  }, [year, selMt, selSe, shareUrl, mob, embed, bumpShareMsg, pushToast]);
 
   const saveToGallery = useCallback(() => {
-    if (!di1 || !di2 || !selMt || !li1 || !li2) return;
-    const entry = { id: Date.now(), d1n: di1.name_acronym, d2n: di2.name_acronym, gp: selMt.meeting_name, year, delta: delta?.toFixed(3), t1: fmt(li1.lap_duration), t2: fmt(li2.lap_duration), c1: co1, c2: co2, url: encodeURL({ year, mk: selMt.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 }) };
+    if (!di1 || !di2 || !selMt || !li1 || !li2 || !shareUrl) return;
+    const entry = { id: Date.now(), d1n: di1.name_acronym, d2n: di2.name_acronym, gp: selMt.meeting_name, year, delta: delta?.toFixed(3), t1: fmt(li1.lap_duration), t2: fmt(li2.lap_duration), c1: co1, c2: co2, url: shareUrl };
     const newG = [entry, ...gallery].slice(0, 20); setGallery(newG); try { localStorage.setItem("f1s-gallery", JSON.stringify(newG)); } catch {}
     pushToast("Comparison saved to gallery.", "success");
-  }, [di1, di2, selMt, selSe, li1, li2, delta, co1, co2, year, d1, d2, sl1, sl2, gallery, pushToast]);
+  }, [di1, di2, selMt, li1, li2, delta, co1, co2, year, shareUrl, gallery, pushToast]);
 
   const generateSocialCard = useCallback(() => {
     const cv = document.createElement("canvas"); cv.width = 1200; cv.height = 630; const ctx = cv.getContext("2d");
@@ -1113,8 +1323,8 @@ export default function App({ embed }) {
         {showKeys && <KeysModal mob={mob} onClose={closeKeysModal} />}
         {showH2H && <H2HModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={closeH2HModal} />}
         {showDash && <DashModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={closeDashModal} />}
-        {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={closeGalleryModal} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} />}
-        {showEmbed && <EmbedModal mob={mob} year={year} selMt={selMt} selSe={selSe} d1={d1} d2={d2} sl1={sl1} sl2={sl2} onClose={closeEmbedModal} />}
+        {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={closeGalleryModal} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} onSelect={restoreComparisonFromUrl} />}
+        {showEmbed && <EmbedModal mob={mob} shareState={shareURLState} onClose={closeEmbedModal} />}
         {showTour && !embed && <TourOverlay onClose={() => setShowTour(false)} />}
       </Suspense>
       {shareDialogUrl && (
@@ -1206,15 +1416,15 @@ export default function App({ embed }) {
       {/* Mobile menu panel */}
       {mob && showMobMenu && !embed && (<>
         <div onClick={() => setShowMobMenu(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 49, backdropFilter: "blur(4px)" }} />
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 50, background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(59,130,246,0.2)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(59,130,246,0.2)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>TOOLS</span>
             <button title="Close tools menu" aria-label="Close tools menu" onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
             {[
-              { icon: "📈", label: "Stats", action: () => { setShowStats(true); setShowMobMenu(false); }, show: !!tp },
-              { icon: "⏱", label: "Laps", action: () => { setShowLaps(true); setShowMobMenu(false); }, show: !!tp },
+              { icon: "📈", label: "Stats", action: () => { selectComparisonTab("stats"); setShowMobMenu(false); }, show: !!tp },
+              { icon: "⏱", label: "Laps", action: () => { selectComparisonTab("laps"); setShowMobMenu(false); }, show: !!tp },
               { icon: "⚔️", label: "H2H", action: () => { selectComparisonTab("h2h"); setShowMobMenu(false); }, show: !!(tp && d1 && d2) },
               { icon: "🏆", label: "Season", action: () => { selectComparisonTab("season"); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
               { icon: "📂", label: "Gallery", action: () => { setShowGallery(true); setShowMobMenu(false); }, show: true },
@@ -1538,7 +1748,7 @@ export default function App({ embed }) {
         </select>
         {!mob && !embed && <button title={showTel ? "Hide telemetry side panel" : "Show telemetry side panel"} aria-label={showTel ? "Hide telemetry side panel" : "Show telemetry side panel"} onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>{showTel ? "📊 ON" : "📊 OFF"}</button>}
         {embed && !mob && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
-        {embed && <a href={encodeURL({ year, mk: selMt?.meeting_key, sk: selSe?.session_key, d1, d2, l1: sl1, l2: sl2 })} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "VIEW IN APP ↗"}</a>}
+        {embed && shareUrl && <a href={shareUrl} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "VIEW IN APP ↗"}</a>}
         {embed && !mob && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Powered by <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
       </div>}
 
