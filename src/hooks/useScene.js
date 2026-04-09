@@ -58,6 +58,13 @@ function disposeScene(root) {
   root.clear();
 }
 
+function freezeObjectTransform(object) {
+  if (!object) return object;
+  object.updateMatrix();
+  object.matrixAutoUpdate = false;
+  return object;
+}
+
 function buildColoredLineSegments(groups, opacity = 1) {
   const positions = [];
   const colors = [];
@@ -187,12 +194,12 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
 
     // ─── Ground — layered for depth ───
     // Base ground (dark)
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: isDark ? 0x0a0a14 : T.groundColor,
-      roughness: 0.95, metalness: 0.05
-    });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(ground);
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: isDark ? 0x0a0a14 : T.groundColor,
+        roughness: 0.95, metalness: 0.05
+      });
+      const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
+      ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(freezeObjectTransform(ground));
 
     // Lit area around track — soft radial glow on the ground
     if (isDark) {
@@ -208,9 +215,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         grad.addColorStop(1, "rgba(8,8,18,0)");
         ctx.fillStyle = grad; ctx.fillRect(0, 0, glowSize, glowSize);
         return new THREE.CanvasTexture(cv);
-      })();
+        })();
       const glowPlane = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }));
-      glowPlane.rotation.x = -Math.PI / 2; glowPlane.position.y = -0.18; scene.add(glowPlane);
+      glowPlane.rotation.x = -Math.PI / 2; glowPlane.position.y = -0.18; scene.add(freezeObjectTransform(glowPlane));
 
       // Subtle grid lines — skip on mobile (saves a 512×512 canvas + draw calls)
       if (!isMob) {
@@ -230,7 +237,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           new THREE.PlaneGeometry(400, 400),
           new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, depthWrite: false })
         );
-        gridPlane.rotation.x = -Math.PI / 2; gridPlane.position.y = -0.15; scene.add(gridPlane);
+        gridPlane.rotation.x = -Math.PI / 2; gridPlane.position.y = -0.15; scene.add(freezeObjectTransform(gridPlane));
       }
     }
 
@@ -265,7 +272,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       }
     }
     skyGeo.setAttribute("color", new THREE.Float32BufferAttribute(skyVColors, 3));
-    scene.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false })));
+    scene.add(freezeObjectTransform(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }))));
 
     // Stars (dark mode only)
     if (isDark) {
@@ -292,7 +299,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         fragmentShader: `varying float vAlpha; void main() { float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard; gl_FragColor = vec4(0.8, 0.85, 1.0, vAlpha * (1.0 - d * d)); }`,
       });
       const stars = new THREE.Points(starGeo, starMat);
-      scene.add(stars);
+      scene.add(freezeObjectTransform(stars));
       // Store for animation
       R.current._starMat = starMat;
     }
@@ -324,7 +331,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
     ribbonGeo.setAttribute("position", new THREE.Float32BufferAttribute(ribbonPos, 3));
     ribbonGeo.setAttribute("normal", new THREE.Float32BufferAttribute(ribbonNorm, 3));
     ribbonGeo.setIndex(ribbonIdx);
-    scene.add(new THREE.Mesh(ribbonGeo, new THREE.MeshStandardMaterial({ color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide })));
+    scene.add(freezeObjectTransform(new THREE.Mesh(ribbonGeo, new THREE.MeshStandardMaterial({ color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide }))));
 
     if (vizMode === "heatmap" && speedArr.length > 10) {
       const heatColors = new Float32Array((curvePts.length * 2) * 3);
@@ -344,7 +351,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       const heatGeo = ribbonGeo.clone();
       heatGeo.setAttribute("color", new THREE.Float32BufferAttribute(heatColors, 3));
       const heatMesh = new THREE.Mesh(heatGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
-      heatMesh.position.y += 0.01; scene.add(heatMesh);
+      heatMesh.position.y += 0.01; scene.add(freezeObjectTransform(heatMesh));
     }
 
     // Brake heatmap overlay
@@ -371,7 +378,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       const brakeGeo = ribbonGeo.clone();
       brakeGeo.setAttribute("color", new THREE.Float32BufferAttribute(brakeColors, 3));
       const brakeMesh = new THREE.Mesh(brakeGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
-      brakeMesh.position.y += 0.01; scene.add(brakeMesh);
+      brakeMesh.position.y += 0.01; scene.add(freezeObjectTransform(brakeMesh));
     }
 
     // Edge lines colored by sector
@@ -387,7 +394,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       }
     });
     const edgeLines = buildColoredLineSegments(edgeLineGroups, 0.6);
-    if (edgeLines) scene.add(edgeLines);
+    if (edgeLines) scene.add(freezeObjectTransform(edgeLines));
 
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
     const sColorCSS = ["#00d26a", "#ffd700", "#e10600"];
@@ -423,11 +430,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         const labelOff = perp2.clone().multiplyScalar(trackW / 2 + 1.8);
         label.position.set(sp.x + labelOff.x, sp.y + 1.0, sp.z + labelOff.z);
         label.scale.set(1.0, 0.5, 1);
-        scene.add(label);
+        scene.add(freezeObjectTransform(label));
       }
     });
     const sectorDividers = buildColoredLineSegments(sectorDividerGroups, 0.7);
-    if (sectorDividers) scene.add(sectorDividers);
+    if (sectorDividers) scene.add(freezeObjectTransform(sectorDividers));
     if (sectorMarkerDefs.length) {
       const markerGeometry = new THREE.CircleGeometry(isLowDetail ? 0.18 : 0.25, isLowDetail ? 10 : 16);
       const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: isLowDetail ? 0.72 : 0.82, side: THREE.DoubleSide, depthWrite: false });
@@ -464,29 +471,29 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
       const tan3 = curve.getTangentAt(c.t); const perp3 = new THREE.Vector3(-tan3.z, 0, tan3.x).normalize();
       const off = perp3.clone().multiplyScalar(trackW / 2 + 1.5);
-      sp.position.set(c.p.x + off.x, c.p.y + 1.5, c.p.z + off.z); sp.scale.set(1.3, 1.3, 1); scene.add(sp);
+      sp.position.set(c.p.x + off.x, c.p.y + 1.5, c.p.z + off.z); sp.scale.set(1.3, 1.3, 1); scene.add(freezeObjectTransform(sp));
     });
 
     const sf = curve.getPointAt(0), sfTan = curve.getTangentAt(0);
     const sfPerp = new THREE.Vector3(-sfTan.z, 0, sfTan.x).normalize();
     const sfL = sf.clone().add(sfPerp.clone().multiplyScalar(trackW / 2)); sfL.y += 0.03;
     const sfR = sf.clone().sub(sfPerp.clone().multiplyScalar(trackW / 2)); sfR.y += 0.03;
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sfL, sfR]), new THREE.LineBasicMaterial({ color: 0xffffff })));
+    scene.add(freezeObjectTransform(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sfL, sfR]), new THREE.LineBasicMaterial({ color: 0xffffff }))));
 
     function makeCarGroup(color, label, isGhost) {
       const g = new THREE.Group(); const col = new THREE.Color(color);
       const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.0, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
-      shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
+      shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(freezeObjectTransform(shadow));
       const glow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false }));
-      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(glow);
+      glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(freezeObjectTransform(glow));
       if (!isLowDetail && !isGhost) {
-        const carLight = new THREE.PointLight(col, 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(carLight);
+        const carLight = new THREE.PointLight(col, 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(freezeObjectTransform(carLight));
       }
       if (label && !isLowDetail) {
         // Vertical pole line from car to flag
         const poleGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(0, 2.0, 0)]);
         const pole = new THREE.Line(poleGeo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 }));
-        g.add(pole);
+        g.add(freezeObjectTransform(pole));
         // Flag-style name badge — tall, bold, high contrast
         const cv = document.createElement("canvas"); cv.width = 200; cv.height = 80; const ctx = cv.getContext("2d");
         // Dark background pill
@@ -500,7 +507,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 104, 44);
         const tex = new THREE.CanvasTexture(cv);
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-        sp.position.set(0, 2.3, 0); sp.scale.set(2.8, 1.1, 1); g.add(sp);
+        sp.position.set(0, 2.3, 0); sp.scale.set(2.8, 1.1, 1); g.add(freezeObjectTransform(sp));
       }
       g.userData = { color, isGhost, modelLoaded: false }; return g;
     }
@@ -517,16 +524,20 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           const col = new THREE.Color(group.userData.color);
           const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: group.userData.isGhost, opacity: group.userData.isGhost ? 0.5 : 1 }));
           mesh.position.y = 0.15;
-          group.add(mesh);
+          group.add(freezeObjectTransform(mesh));
           group.userData.modelLoaded = true;
         });
       };
       const shouldLoadDetailedCars = !isLowDetail;
       if (shouldLoadDetailedCars) {
         const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
-        import("three/examples/jsm/loaders/GLTFLoader.js").then(({ GLTFLoader }) => {
+        Promise.all([
+          import("three/examples/jsm/loaders/GLTFLoader.js"),
+          import("three/examples/jsm/libs/meshopt_decoder.module.js"),
+        ]).then(([{ GLTFLoader }, { MeshoptDecoder }]) => {
           if (!active || contextLost) return;
           const loader = new GLTFLoader();
+          loader.setMeshoptDecoder(MeshoptDecoder);
           loader.load(basePath, (gltf) => {
             if (!active) {
               disposeScene(gltf.scene);
@@ -576,11 +587,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       deltaPosAttr.setUsage(THREE.DynamicDrawUsage);
       deltaGeo.setAttribute("position", deltaPosAttr);
       const deltaLine = new THREE.Line(deltaGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
-      deltaLine.frustumCulled = false; scene.add(deltaLine);
+      deltaLine.frustumCulled = false; scene.add(freezeObjectTransform(deltaLine));
 
       if (!isLowDetail) {
         const rlLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
-        rlLine.position.y += 0.015; scene.add(rlLine);
+        rlLine.position.y += 0.015; scene.add(freezeObjectTransform(rlLine));
       }
 
       function makeTrail(color, ghost) {
@@ -599,13 +610,13 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
           fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
         });
-        const points = new THREE.Points(geo, mat); scene.add(points);
+        const points = freezeObjectTransform(new THREE.Points(geo, mat)); scene.add(points);
         return { mesh: points, positions: pos, alphas, max, count: 0 };
       }
       const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
       const tr3 = car3 ? makeTrail(c3, true) : null; const tr4 = car4 ? makeTrail(c4, true) : null;
 
-      R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorMarkers, fr: null };
+      R.current = { scene, camera, ren, car1, car2, car3, car4, tr1, tr2, tr3, tr4, n1, n2, n3, n4, curve, spot1, spot2, deltaLine, deltaPos, sectorMarkers, fr: null, _dirty: true };
 
       const cs = CS.current;
       let pinchDist = null;
@@ -615,9 +626,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           const dy = e.touches[0].clientY - e.touches[1].clientY;
           pinchDist = Math.sqrt(dx * dx + dy * dy);
           cs.drag = false;
+          R.current._dirty = true;
           return;
         }
         cs.drag = true; cs.lx = e.clientX ?? e.touches?.[0]?.clientX ?? 0; cs.ly = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+        R.current._dirty = true;
       };
       const onMove = (e) => {
         if (e.touches && e.touches.length === 2) {
@@ -627,12 +640,13 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           const newDist = Math.sqrt(dx * dx + dy * dy);
           if (pinchDist !== null) cs.dist = Math.max(15, Math.min(200, cs.dist * (pinchDist / newDist)));
           pinchDist = newDist;
+          R.current._dirty = true;
           return;
         }
-        if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2;
+        if (!cs.drag) return; const x2 = e.clientX ?? e.touches?.[0]?.clientX ?? 0, y2 = e.clientY ?? e.touches?.[0]?.clientY ?? 0; cs.angle += (x2 - cs.lx) * 0.005; cs.pitch = Math.max(0.1, Math.min(1.4, cs.pitch + (y2 - cs.ly) * 0.005)); cs.lx = x2; cs.ly = y2; R.current._dirty = true;
       };
-      const onUp = () => { cs.drag = false; pinchDist = null; };
-      const onWheel = (e) => { cs.dist = Math.max(15, Math.min(200, cs.dist + e.deltaY * 0.05)); };
+      const onUp = () => { cs.drag = false; pinchDist = null; R.current._dirty = true; };
+      const onWheel = (e) => { cs.dist = Math.max(15, Math.min(200, cs.dist + e.deltaY * 0.05)); R.current._dirty = true; };
       de.addEventListener("mousedown", onDown); de.addEventListener("mousemove", onMove); de.addEventListener("mouseup", onUp); de.addEventListener("mouseleave", onUp);
       de.addEventListener("wheel", onWheel, { passive: true }); de.addEventListener("touchstart", onDown, { passive: false }); de.addEventListener("touchmove", onMove, { passive: false }); de.addEventListener("touchend", onUp);
 
@@ -644,24 +658,48 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       const ACTIVE_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
       const IDLE_MS = isMob ? 100 : 66;
       const HIDDEN_MS = 220;
+      const prevCameraPos = new THREE.Vector3();
+      const prevCameraQuat = new THREE.Quaternion();
       let lastFrameTime = 0;
+      let lastProg = -1;
+      let lastSector = -1;
+      let lastCamMode = cmRef.current;
+      let lastPlayState = false;
+      let lastSceneVisible = false;
+      let hasRendered = false;
       function animate(now = performance.now()) {
         if (contextLost) return;
         R.current.fr = requestAnimationFrame(animate);
         const isSceneVisible = visibleRef.current && !document.hidden;
-        const isActive = !!(R.current._playRef?.current || cs.drag || pinchDist !== null);
+        const isPlaying = !!R.current._playRef?.current;
+        const isActive = !!(isPlaying || cs.drag || pinchDist !== null);
         const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
         if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
         lastFrameTime = now;
-        if (!isSceneVisible) return;
-        cs.cinT += 0.0003;
-        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = now * 0.001;
+        if (!isSceneVisible) {
+          lastSceneVisible = false;
+          return;
+        }
 
       // ─── Car updates (60fps, no React) ───
-      const prog = R.current._progRef?.current ?? 0;
+        const prog = R.current._progRef?.current ?? 0;
+        const progChanged = prog !== lastProg;
+        if (progChanged) lastProg = prog;
+        const cm = cmRef.current;
+        let needsRender = !hasRendered || !!R.current._dirty || progChanged || cm !== lastCamMode || isPlaying !== lastPlayState || !lastSceneVisible;
+        lastCamMode = cm;
+        lastPlayState = isPlaying;
+        lastSceneVisible = true;
+        if (isPlaying) {
+          cs.cinT += 0.0003;
+          needsRender = true;
+        }
       const { car1, car2, tr1, tr2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP, sectorMarkers, _telData1: td1 } = R.current;
       if (car1 && car2 && tp && tp.length >= 2) {
-        function updCar(car, trail, data, t, lateralOff) {
+        const rotSlerp = (cm === "follow1" || cm === "follow2") ? 0.18 : 0.12;
+        const headingHelper = R.current._headingHelper || (R.current._headingHelper = new THREE.Object3D());
+        function updCar(car, trail, data, t, lateralOff, updateTrail) {
+          let localDirty = false;
           const pts = data?.length >= 2 ? data : tp;
           const p = lerp(pts, t); if (isNaN(p.x)) return { x: 0, y: 0, z: 0 };
           const p2 = lerp(pts, Math.min(1, t + 0.01));
@@ -673,8 +711,16 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
             ox = (-dz / len) * lateralOff; oz = (dx / len) * lateralOff;
           }
           const tx = p.x + ox, ty = p.y + 0.2, tz = p.z + oz;
-          if (!car.userData.pos) car.userData.pos = { x: tx, y: ty, z: tz };
-          else { car.userData.pos.x += (tx - car.userData.pos.x) * 0.3; car.userData.pos.y += (ty - car.userData.pos.y) * 0.3; car.userData.pos.z += (tz - car.userData.pos.z) * 0.3; }
+          if (!car.userData.pos) { car.userData.pos = { x: tx, y: ty, z: tz }; localDirty = true; }
+          else {
+            const prevX = car.userData.pos.x;
+            const prevY = car.userData.pos.y;
+            const prevZ = car.userData.pos.z;
+            car.userData.pos.x += (tx - car.userData.pos.x) * 0.3;
+            car.userData.pos.y += (ty - car.userData.pos.y) * 0.3;
+            car.userData.pos.z += (tz - car.userData.pos.z) * 0.3;
+            if ((car.userData.pos.x - prevX) ** 2 + (car.userData.pos.y - prevY) ** 2 + (car.userData.pos.z - prevZ) ** 2 > 1e-6) localDirty = true;
+          }
           car.position.set(car.userData.pos.x, car.userData.pos.y, car.userData.pos.z);
           if (Math.abs(p2.x - p.x) + Math.abs(p2.z - p.z) > 0.0001 && !isNaN(p2.x)) {
             const fwdX = p2.x - p.x, fwdZ = p2.z - p.z;
@@ -683,17 +729,26 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
               const nx = fwdX / fLen, nz = fwdZ / fLen;
               if (!car.userData.fwd) car.userData.fwd = { x: nx, z: nz };
               else { car.userData.fwd.x += (nx - car.userData.fwd.x) * 0.08; car.userData.fwd.z += (nz - car.userData.fwd.z) * 0.08; }
-              car.lookAt(p.x + ox + car.userData.fwd.x, p.y + 0.2, p.z + oz + car.userData.fwd.z);
+              const prevQuat = car.userData.prevQuat || (car.userData.prevQuat = new THREE.Quaternion());
+              prevQuat.copy(car.quaternion);
+              headingHelper.position.copy(car.position);
+              headingHelper.lookAt(p.x + ox + car.userData.fwd.x, p.y + 0.2, p.z + oz + car.userData.fwd.z);
+              car.quaternion.slerp(headingHelper.quaternion, rotSlerp);
+              if (1 - Math.abs(car.quaternion.dot(prevQuat)) > 1e-6) localDirty = true;
             }
           }
-          if (trail) {
+          if (trail && updateTrail) {
             const c = Math.min(trail.count + 1, trail.max);
-            for (let i = (c - 1) * 3; i >= 3; i -= 3) { trail.positions[i] = trail.positions[i - 3]; trail.positions[i + 1] = trail.positions[i - 2]; trail.positions[i + 2] = trail.positions[i - 1]; }
+            if (c > 1) {
+              trail.positions.copyWithin(3, 0, (c - 1) * 3);
+              trail.alphas.copyWithin(1, 0, c - 1);
+            }
             trail.positions[0] = car.userData.pos.x; trail.positions[1] = car.userData.pos.y - 0.15; trail.positions[2] = car.userData.pos.z;
-            for (let i = c - 1; i >= 1; i--) trail.alphas[i] = trail.alphas[i - 1] * 0.97; trail.alphas[0] = 1.0; trail.count = c;
+            for (let i = c - 1; i >= 1; i--) trail.alphas[i] *= 0.97; trail.alphas[0] = 1.0; trail.count = c;
             trail.mesh.geometry.attributes.position.needsUpdate = true; trail.mesh.geometry.attributes.alpha.needsUpdate = true; trail.mesh.geometry.setDrawRange(0, c);
+            localDirty = true;
           }
-          return { x: car.userData.pos.x, y: car.userData.pos.y - 0.2, z: car.userData.pos.z };
+          return { x: car.userData.pos.x, y: car.userData.pos.y - 0.2, z: car.userData.pos.z, dirty: localDirty };
         }
 
         // Calculate proximity — if cars are close, offset them laterally
@@ -704,20 +759,30 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         const maxOffset = 0.7; // max lateral offset
         const proximity = Math.max(0, 1 - dist / closeThreshold);
         const lateralOff = proximity * maxOffset;
+        const shouldAdvanceTrail = isPlaying || progChanged;
 
-        const p1 = updCar(car1, tr1, R.current.n1, prog, lateralOff);
-        const p2 = updCar(car2, tr2, R.current.n2, prog, -lateralOff);
-        if (R.current.car3) updCar(R.current.car3, R.current.tr3, R.current.n3, prog, lateralOff * 0.5);
-        if (R.current.car4) updCar(R.current.car4, R.current.tr4, R.current.n4, prog, -lateralOff * 0.5);
+        const p1 = updCar(car1, tr1, R.current.n1, prog, lateralOff, shouldAdvanceTrail);
+        const p2 = updCar(car2, tr2, R.current.n2, prog, -lateralOff, shouldAdvanceTrail);
+        needsRender = needsRender || p1.dirty || p2.dirty;
+        if (R.current.car3) {
+          const p3 = updCar(R.current.car3, R.current.tr3, R.current.n3, prog, lateralOff * 0.5, shouldAdvanceTrail);
+          needsRender = needsRender || p3.dirty;
+        }
+        if (R.current.car4) {
+          const p4 = updCar(R.current.car4, R.current.tr4, R.current.n4, prog, -lateralOff * 0.5, shouldAdvanceTrail);
+          needsRender = needsRender || p4.dirty;
+        }
 
         if (sp1) sp1.position.set(p1.x, p1.y + 12, p1.z);
         if (sp2) sp2.position.set(p2.x, p2.y + 12, p2.z);
         if (dL && dP) { dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z; dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z; dL.geometry.attributes.position.needsUpdate = true; const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2); dL.material.opacity = Math.min(0.6, gap * 0.08); }
         const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
-        if (sectorMarkers?.mesh && sectorMarkers?.defs?.length) {
+        const sectorChanged = curSector !== lastSector;
+        if (sectorChanged) lastSector = curSector;
+        if (sectorMarkers?.mesh && sectorMarkers?.defs?.length && (sectorChanged || isPlaying || !hasRendered)) {
           const markerDummy = R.current._markerDummy || (R.current._markerDummy = new THREE.Object3D());
           sectorMarkers.defs.forEach((marker, index) => {
-            const pulse = marker.sector === curSector ? 1.12 + Math.sin(now * 0.006) * 0.08 : 0.82;
+            const pulse = marker.sector === curSector ? (isPlaying ? 1.12 + Math.sin(now * 0.006) * 0.08 : 1.12) : 0.82;
             markerDummy.position.copy(marker.position);
             markerDummy.rotation.set(-Math.PI / 2, 0, 0);
             markerDummy.scale.setScalar(marker.baseScale * pulse);
@@ -725,10 +790,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
             sectorMarkers.mesh.setMatrixAt(index, markerDummy.matrix);
           });
           sectorMarkers.mesh.instanceMatrix.needsUpdate = true;
+          needsRender = true;
         }
 
         // Camera follow
-        const cm = cmRef.current;
         if (cm === "follow1" || cm === "follow2") {
           const tgt = cm === "follow1" ? p1 : p2; const pts = cm === "follow1" ? (R.current.n1 || tp) : (R.current.n2 || tp);
           const ah = lerp(pts, Math.min(1, prog + 0.02)); const dx = ah.x - tgt.x, dz = ah.z - tgt.z, len = Math.sqrt(dx * dx + dz * dz) || 1;
@@ -744,12 +809,25 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         }
       }
 
-        const cm = cmRef.current;
-        if (cm === "orbit") { if (!cs.drag) cs.angle += 0.0008; camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camTargetLook.current.set(0, 0, 0); }
+        if (cm === "orbit") {
+          if (!cs.drag && isPlaying) {
+            cs.angle += 0.0008;
+            needsRender = true;
+          }
+          camTargetPos.current.set(Math.cos(cs.angle) * cs.dist * Math.cos(cs.pitch), cs.dist * Math.sin(cs.pitch), Math.sin(cs.angle) * cs.dist * Math.cos(cs.pitch)); camTargetLook.current.set(0, 0, 0);
+        }
         else if (cm === "top") { camTargetPos.current.set(0, 65, 0.01); camTargetLook.current.set(0, 0, 0); }
-        camera.position.lerp(camTargetPos.current, 0.08); camera.lookAt(camTargetLook.current);
+        prevCameraPos.copy(camera.position);
+        prevCameraQuat.copy(camera.quaternion);
+        camera.position.lerp(camTargetPos.current, 0.08);
+        camera.lookAt(camTargetLook.current);
+        if (camera.position.distanceToSquared(prevCameraPos) > 1e-6 || 1 - Math.abs(camera.quaternion.dot(prevCameraQuat)) > 1e-6) needsRender = true;
+        if (!needsRender) return;
+        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = now * 0.001;
         try {
           ren.render(scene, camera);
+          hasRendered = true;
+          R.current._dirty = false;
         } catch (error) {
           contextLost = true;
           fail(error);
@@ -757,7 +835,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       }
       animate();
 
-      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1); camera.updateProjectionMatrix(); ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1)); }, 100); };
+      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1); camera.updateProjectionMatrix(); ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1)); R.current._dirty = true; }, 100); };
       window.addEventListener("resize", onR);
       return () => {
         active = false;
@@ -772,9 +850,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
     }
   }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, brakeArr, isDark, l3, l4, c3, c4, lab3, lab4, onError, enabled]);
 
-  useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
-  useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
-  useEffect(() => { cmRef.current = cam; }, [cam]);
-  useEffect(() => { visibleRef.current = visible; }, [visible]);
-  useEffect(() => { R.current._telData1 = telData1; }, [telData1]);
+  useEffect(() => { R.current.n1 = n1; R.current._dirty = true; }, [n1]); useEffect(() => { R.current.n2 = n2; R.current._dirty = true; }, [n2]);
+  useEffect(() => { R.current.n3 = n3; R.current._dirty = true; }, [n3]); useEffect(() => { R.current.n4 = n4; R.current._dirty = true; }, [n4]);
+  useEffect(() => { cmRef.current = cam; R.current._dirty = true; }, [cam]);
+  useEffect(() => { visibleRef.current = visible; R.current._dirty = true; }, [visible]);
+  useEffect(() => { R.current._telData1 = telData1; R.current._dirty = true; }, [telData1]);
 }
