@@ -58,8 +58,9 @@ function disposeScene(root) {
   root.clear();
 }
 
-export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true) {
+export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true, visible = true) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
+  const visibleRef = useRef(visible);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
   const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
   const n1 = useMemo(() => l1 ? smoothPath(norm(l1, circuitFlip)) : null, [l1, circuitFlip]); const n2 = useMemo(() => l2 ? smoothPath(norm(l2, circuitFlip)) : null, [l2, circuitFlip]);
@@ -520,9 +521,13 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
 
       const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1); spot1.position.set(0, 12, 0); scene.add(spot1);
       const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1); spot2.position.set(0, 12, 0); scene.add(spot2);
+      spot1.target = car1;
+      spot2.target = car2;
 
       const deltaGeo = new THREE.BufferGeometry(); const deltaPos = new Float32Array(6);
-      deltaGeo.setAttribute("position", new THREE.Float32BufferAttribute(deltaPos, 3));
+      const deltaPosAttr = new THREE.Float32BufferAttribute(deltaPos, 3);
+      deltaPosAttr.setUsage(THREE.DynamicDrawUsage);
+      deltaGeo.setAttribute("position", deltaPosAttr);
       const deltaLine = new THREE.Line(deltaGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
       deltaLine.frustumCulled = false; scene.add(deltaLine);
 
@@ -530,9 +535,16 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       rlLine.position.y += 0.015; scene.add(rlLine);
 
       function makeTrail(color, ghost) {
-        const max = 120, pos = new Float32Array(max * 3);
-        const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-        const alphas = new Float32Array(max); alphas.fill(0); geo.setAttribute("alpha", new THREE.BufferAttribute(alphas, 1)); geo.setDrawRange(0, 0);
+        const max = isMob ? 72 : 120, pos = new Float32Array(max * 3);
+        const geo = new THREE.BufferGeometry();
+        const posAttr = new THREE.BufferAttribute(pos, 3);
+        posAttr.setUsage(THREE.DynamicDrawUsage);
+        geo.setAttribute("position", posAttr);
+        const alphas = new Float32Array(max); alphas.fill(0);
+        const alphaAttr = new THREE.BufferAttribute(alphas, 1);
+        alphaAttr.setUsage(THREE.DynamicDrawUsage);
+        geo.setAttribute("alpha", alphaAttr);
+        geo.setDrawRange(0, 0);
         const mat = new THREE.ShaderMaterial({
           transparent: true, depthWrite: false, uniforms: { uColor: { value: new THREE.Color(color) } },
           vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
@@ -577,20 +589,24 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
 
       // Store progRef for render loop access
       R.current._progRef = progRef;
+      R.current._playRef = playRef;
       R.current._telData1 = telData1;
 
-      const TARGET_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
+      const ACTIVE_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
+      const IDLE_MS = isMob ? 100 : 66;
+      const HIDDEN_MS = 220;
       let lastFrameTime = 0;
-      function animate() {
+      function animate(now = performance.now()) {
         if (contextLost) return;
         R.current.fr = requestAnimationFrame(animate);
-        if (isMob) {
-          const now = performance.now();
-          if (now - lastFrameTime < TARGET_MS) return;
-          lastFrameTime = now;
-        }
+        const isSceneVisible = visibleRef.current && !document.hidden;
+        const isActive = !!(R.current._playRef?.current || cs.drag || pinchDist !== null);
+        const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
+        if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
+        lastFrameTime = now;
+        if (!isSceneVisible) return;
         cs.cinT += 0.0003;
-        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = performance.now() * 0.001;
+        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = now * 0.001;
 
       // ─── Car updates (60fps, no React) ───
       const prog = R.current._progRef?.current ?? 0;
@@ -645,11 +661,11 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
         if (R.current.car3) updCar(R.current.car3, R.current.tr3, R.current.n3, prog, lateralOff * 0.5);
         if (R.current.car4) updCar(R.current.car4, R.current.tr4, R.current.n4, prog, -lateralOff * 0.5);
 
-        if (sp1) { sp1.position.set(p1.x, p1.y + 12, p1.z); sp1.target = car1; }
-        if (sp2) { sp2.position.set(p2.x, p2.y + 12, p2.z); sp2.target = car2; }
+        if (sp1) sp1.position.set(p1.x, p1.y + 12, p1.z);
+        if (sp2) sp2.position.set(p2.x, p2.y + 12, p2.z);
         if (dL && dP) { dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z; dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z; dL.geometry.attributes.position.needsUpdate = true; const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2); dL.material.opacity = Math.min(0.6, gap * 0.08); }
         const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
-        if (sectorMarkers) sectorMarkers.forEach((sm) => { sm.mesh.material.opacity = sm.sector === curSector ? 0.9 + Math.sin(Date.now() * 0.006) * 0.1 : 0.4; });
+        if (sectorMarkers) sectorMarkers.forEach((sm) => { sm.mesh.material.opacity = sm.sector === curSector ? 0.9 + Math.sin(now * 0.006) * 0.1 : 0.4; });
 
         // Camera follow
         const cm = cmRef.current;
@@ -699,5 +715,6 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);
   useEffect(() => { cmRef.current = cam; }, [cam]);
+  useEffect(() => { visibleRef.current = visible; }, [visible]);
   useEffect(() => { R.current._telData1 = telData1; }, [telData1]);
 }
