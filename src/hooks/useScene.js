@@ -23,6 +23,42 @@ function formatSceneError(error) {
   return `Unable to start the 3D scene. ${message}`;
 }
 
+function disposeMaterial(material, disposedTextures) {
+  if (!material) return;
+  if (Array.isArray(material)) {
+    material.forEach((entry) => disposeMaterial(entry, disposedTextures));
+    return;
+  }
+  Object.values(material).forEach((value) => {
+    if (value?.isTexture && !disposedTextures.has(value)) {
+      disposedTextures.add(value);
+      value.dispose();
+    }
+  });
+  material.dispose?.();
+}
+
+function disposeScene(root) {
+  if (!root) return;
+  const disposedGeometries = new Set();
+  const disposedMaterials = new Set();
+  const disposedTextures = new Set();
+  root.traverse((obj) => {
+    if (obj.geometry && !disposedGeometries.has(obj.geometry)) {
+      disposedGeometries.add(obj.geometry);
+      obj.geometry.dispose();
+    }
+    const materials = obj.material ? (Array.isArray(obj.material) ? obj.material : [obj.material]) : [];
+    materials.forEach((material) => {
+      if (material && !disposedMaterials.has(material)) {
+        disposedMaterials.add(material);
+        disposeMaterial(material, disposedTextures);
+      }
+    });
+  });
+  root.clear();
+}
+
 export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
@@ -52,14 +88,26 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
     let ren;
     let de;
     let rt;
+    let scene;
     let contextLost = false;
     let onContextLost;
+    let active = true;
 
     const clearRenderer = () => {
       if (R.current.fr) cancelAnimationFrame(R.current.fr);
+      R.current.fr = null;
       if (de && onContextLost) de.removeEventListener("webglcontextlost", onContextLost);
-      if (ren) ren.dispose();
       if (el && ren?.domElement && el.contains(ren.domElement)) el.removeChild(ren.domElement);
+      disposeScene(scene);
+      if (ren) {
+        ren.renderLists?.dispose?.();
+        ren.forceContextLoss?.();
+        ren.dispose();
+      }
+      scene = null;
+      ren = null;
+      de = null;
+      R.current = {};
     };
 
     const fail = (error) => {
@@ -67,13 +115,10 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       onError?.(formatSceneError(error));
     };
 
-    if (R.current.ren) { R.current.ren.dispose(); if (el.contains(R.current.ren.domElement)) el.removeChild(R.current.ren.domElement); }
-    if (R.current.fr) cancelAnimationFrame(R.current.fr);
-
     try {
       const w = Math.max(el.clientWidth, 1), h = Math.max(el.clientHeight, 1);
       const isMob = w < 768;
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       const T = isDark ? F1_DARK : F1_LIGHT;
 
       if (isDark) {
@@ -85,7 +130,11 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       }
 
       const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-      ren = new THREE.WebGLRenderer({ antialias: !isMob, preserveDrawingBuffer: true });
+      ren = new THREE.WebGLRenderer({
+        antialias: !isMob,
+        powerPreference: isMob ? "low-power" : "high-performance",
+        preserveDrawingBuffer: !isMob,
+      });
       ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, isMob ? 1.5 : 2));
       ren.toneMapping = THREE.ACESFilmicToneMapping;
       ren.toneMappingExposure = isDark ? 1.1 : 1.0;
@@ -417,6 +466,10 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       const loader = new GLTFLoader();
       const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
       loader.load(basePath, (gltf) => {
+        if (!active) {
+          disposeScene(gltf.scene);
+          return;
+        }
         const template = gltf.scene; const modelScale = 0.12;
         function applyModel(carGroup) {
           if (!carGroup) return;
@@ -440,6 +493,7 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
         }
         applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
       }, undefined, () => {
+        if (!active) return;
         [car1, car2, car3, car4].filter(Boolean).forEach((g) => {
           const col = new THREE.Color(g.userData.color);
           const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: g.userData.isGhost, opacity: g.userData.isGhost ? 0.5 : 1 }));
@@ -613,16 +667,17 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
       const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1); camera.updateProjectionMatrix(); ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1)); }, 100); };
       window.addEventListener("resize", onR);
       return () => {
+        active = false;
         clearTimeout(rt);
         window.removeEventListener("resize", onR);
-        de.removeEventListener("mousedown", onDown); de.removeEventListener("mousemove", onMove); de.removeEventListener("mouseup", onUp); de.removeEventListener("mouseleave", onUp); de.removeEventListener("wheel", onWheel); de.removeEventListener("touchstart", onDown); de.removeEventListener("touchmove", onMove); de.removeEventListener("touchend", onUp);
+        de?.removeEventListener("mousedown", onDown); de?.removeEventListener("mousemove", onMove); de?.removeEventListener("mouseup", onUp); de?.removeEventListener("mouseleave", onUp); de?.removeEventListener("wheel", onWheel); de?.removeEventListener("touchstart", onDown); de?.removeEventListener("touchmove", onMove); de?.removeEventListener("touchend", onUp);
         clearRenderer();
       };
     } catch (error) {
       fail(error);
       return;
     }
-  }, [tp, c1, c2, cam, lab1, lab2, vizMode, speedArr, brakeArr, isDark, l3, l4, c3, c4, lab3, lab4, onError, enabled]);
+  }, [tp, c1, c2, lab1, lab2, vizMode, speedArr, brakeArr, isDark, l3, l4, c3, c4, lab3, lab4, onError, enabled]);
 
   useEffect(() => { R.current.n1 = n1; }, [n1]); useEffect(() => { R.current.n2 = n2; }, [n2]);
   useEffect(() => { R.current.n3 = n3; }, [n3]); useEffect(() => { R.current.n4 = n4; }, [n4]);

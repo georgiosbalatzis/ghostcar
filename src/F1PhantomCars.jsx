@@ -427,6 +427,10 @@ export default function App({ embed }) {
   }, [di1, di2, selMt, li1, li2, delta, co1, co2, pushToast]);
 
   const takeScreenshot = useCallback(() => {
+    if (mob && !is2DView) {
+      pushToast("3D screenshots are disabled on mobile to keep playback smooth. Switch to 2D or use desktop.", "info");
+      return;
+    }
     const el = cRef.current;
     if (!el) return;
     const canvas = el.querySelector("canvas");
@@ -453,7 +457,7 @@ export default function App({ embed }) {
       return;
     }
     pushToast("Nothing to capture yet.", "info");
-  }, [pushToast]);
+  }, [is2DView, mob, pushToast]);
 
   const loadH2H = useCallback(async () => {
     if (!d1 || !d2) return; setShowH2H(true); setH2hData(null); setH2hProgress({ checked: 0, total: 0, currentGp: "", found: 0 });
@@ -611,15 +615,22 @@ export default function App({ embed }) {
       {mode.toUpperCase()}
     </button>
   ));
+  const shellClassName = embed ? "app-shell app-shell-embed" : mob ? "app-shell app-shell-mobile" : "app-shell";
 
   // ─── RENDER ───
   return (
-    <div style={{ width: "100%", minHeight: (embed || mob) ? "auto" : "100vh", height: (embed || mob) ? "100vh" : "auto", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflow: "hidden", display: (embed || mob) ? "flex" : "block", flexDirection: (embed || mob) ? "column" : undefined }}>
+    <div className={shellClassName} style={{ width: "100%", minHeight: embed || mob ? "100vh" : "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflowX: "hidden", display: (embed || mob) ? "flex" : "block", flexDirection: (embed || mob) ? "column" : undefined }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
         *{box-sizing:border-box;margin:0;padding:0}
+        .app-shell-mobile{overflow-y:auto}
+        .app-shell-embed{height:100vh;overflow:hidden}
+        @supports (min-height: 100dvh){
+          .app-shell-mobile{min-height:100dvh}
+          .app-shell-embed{min-height:100dvh;height:100dvh}
+        }
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${F1.blue}44;border-radius:2px}
         select,button{font-family:${F1.sans}}
         select{background:${F1.inputBg};color:${F1.text};border:1px solid ${F1.border};border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;outline:none;transition:border-color .15s;font-weight:600;letter-spacing:0.02em}
@@ -836,7 +847,7 @@ export default function App({ embed }) {
       </div>}
 
       {/* Main area */}
-      <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
         {/* Track stage */}
         <div style={{ flex: 1, position: "relative", minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
             <div
@@ -990,21 +1001,21 @@ export default function App({ embed }) {
 
         {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
         {((!mob && !embed && showTel && tp && !effectiveSceneErr) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
-          <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: (embed || mob) ? 1 : undefined, maxHeight: (!mob && !embed) ? "auto" : undefined, overflow: "auto", animation: "fadeIn .2s" }}>
+          <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, maxHeight: (!mob && !embed) ? "auto" : undefined, overflow: "auto", animation: "fadeIn .2s" }}>
             <TelemetryPanel mob={mob || embed} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
           </div>
         )}
 
         {/* Inline Stats tab (embed + mobile) */}
         {(embed || mob) && mobTab === "stats" && tp && (
-          <div style={{ flex: 1, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
             <StatsModal mob={true} allDrivers={allDrivers} onClose={() => setMobTab("3d")} inline />
           </div>
         )}
 
         {/* Inline Laps tab */}
         {(embed || mob) && mobTab === "laps" && tp && (
-          <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
             <LapsModal mob={true} onClose={() => setMobTab("3d")} inline drivers={[
               { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
               { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
@@ -1014,14 +1025,14 @@ export default function App({ embed }) {
 
         {/* Inline H2H tab */}
         {(embed || mob) && mobTab === "h2h" && tp && (
-          <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
             <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={() => { setMobTab("3d"); setH2hProgress(null); }} inline />
           </div>
         )}
 
         {/* Inline Season tab */}
         {(embed || mob) && mobTab === "season" && tp && (
-          <div style={{ flex: 1, overflow: "auto", animation: "fadeIn .2s" }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
             <DashModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={() => setMobTab("3d")} inline />
           </div>
         )}
