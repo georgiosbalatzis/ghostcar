@@ -203,6 +203,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       ren.toneMappingExposure = isDark ? 1.1 : 1.0;
       el.appendChild(ren.domElement);
       de = ren.domElement;
+      // Fill container immediately so the canvas isn't a 1px stub while ResizeObserver fires
+      de.style.display = "block";
+      de.style.width = "100%";
+      de.style.height = "100%";
       onContextLost = (event) => {
         event.preventDefault();
         contextLost = true;
@@ -724,7 +728,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
             ? Math.max(0.75, basePixelRatio - 0.25)
             : Math.max(0.75, basePixelRatio - 0.5);
         ren.setPixelRatio(pr);
-        if (el && !contextLost) ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1));
+        if (el && !contextLost && el.clientWidth && el.clientHeight) ren.setSize(el.clientWidth, el.clientHeight);
         R.current._starFrozen = tier >= 2;
         R.current._dirty = true;
       }
@@ -950,12 +954,20 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       }
       animate();
 
-      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1); camera.updateProjectionMatrix(); ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1)); R.current._dirty = true; }, 100); };
-      window.addEventListener("resize", onR);
+      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; const cw = el.clientWidth, ch = el.clientHeight; if (!cw || !ch) return; camera.aspect = cw / ch; camera.updateProjectionMatrix(); ren.setSize(cw, ch); R.current._dirty = true; }, 50); };
+      // ResizeObserver fires when the flex container distributes its height on mobile,
+      // and also on window resize — strictly better than window.addEventListener("resize").
+      let ro;
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(onR);
+        ro.observe(el);
+      } else {
+        window.addEventListener("resize", onR);
+      }
       return () => {
         active = false;
         clearTimeout(rt);
-        window.removeEventListener("resize", onR);
+        if (ro) { ro.disconnect(); } else { window.removeEventListener("resize", onR); }
         de?.removeEventListener("mousedown", onDown); de?.removeEventListener("mousemove", onMove); de?.removeEventListener("mouseup", onUp); de?.removeEventListener("mouseleave", onUp); de?.removeEventListener("wheel", onWheel); de?.removeEventListener("touchstart", onDown); de?.removeEventListener("touchmove", onMove); de?.removeEventListener("touchend", onUp);
         clearRenderer();
       };

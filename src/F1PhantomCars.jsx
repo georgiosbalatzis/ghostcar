@@ -692,7 +692,7 @@ export default function App({ embed }) {
   const restoreComparisonFromUrl = useCallback((rawUrl) => {
     const nextState = decodeURL(rawUrl);
     if (!nextState?.year || !nextState?.mk) {
-      window.location.href = rawUrl;
+      pushToast("This saved comparison can't be restored — the link may be outdated.", "info");
       return;
     }
     cancelLoading();
