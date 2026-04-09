@@ -1585,6 +1585,7 @@ export default function App({ embed }) {
                     l2={loc2}
                     progRef={progRef}
                     playRef={playRef}
+                    speedRef={spdRef}
                     c1={co1}
                     c2={co2}
                     cam={cam}

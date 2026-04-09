@@ -84,7 +84,11 @@ export function useIsMobile() {
 
 // Resample a path to n evenly-spaced points using Catmull-Rom.
 // Call once at load time so per-frame lerp is always between closely-packed smooth points.
-export function smoothPath(pts, n = 1200) {
+export function getSmoothPathPointCount(isMobile = typeof window !== "undefined" ? window.innerWidth < 768 : false) {
+  return isMobile ? 1200 : 2400;
+}
+
+export function smoothPath(pts, n = getSmoothPathPointCount()) {
   if (!pts?.length || pts.length < 2) return pts || [];
   const out = new Array(n + 1);
   for (let i = 0; i <= n; i++) out[i] = lerp(pts, i / n);
