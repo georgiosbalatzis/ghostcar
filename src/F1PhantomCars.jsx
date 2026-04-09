@@ -1,29 +1,14 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { F1_DARK, F1_LIGHT, TIRE_COLORS, getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
 import { lerp, norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
 import { setThemeMode, getF1 } from "./theme.js";
-
-// Hooks
-import useScene from "./hooks/useScene.js";
 
 // Components
 import MiniMap from "./components/MiniMap.jsx";
 import SectorDelta from "./components/SectorDelta.jsx";
 import TelemetryPanel from "./components/TelemetryPanel.jsx";
 import TrackReplay2D from "./components/TrackReplay2D.jsx";
-
-// Modals
-import PresetsModal from "./modals/PresetsModal.jsx";
-import StatsModal from "./modals/StatsModal.jsx";
-import LapsModal from "./modals/LapsModal.jsx";
-import KeysModal from "./modals/KeysModal.jsx";
-import H2HModal from "./modals/H2HModal.jsx";
-import DashModal from "./modals/DashModal.jsx";
-import GalleryModal from "./modals/GalleryModal.jsx";
-import EmbedModal from "./modals/EmbedModal.jsx";
-import TelemetryModal from "./modals/TelemetryModal.jsx";
-import TourOverlay from "./modals/TourOverlay.jsx";
 import { getModalCloseButtonStyle } from "./modals/modalStyles.js";
 
 const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
@@ -31,6 +16,41 @@ const UNAVAILABLE_PRESET_YEARS = [2026];
 const DEFAULT_YEAR = 2025;
 const TRACK_VIEW_STORAGE_KEY = "f1s-track-view";
 const TRACK_VIEW_MODES = ["3d", "2d"];
+const SceneStage3D = lazy(() => import("./components/SceneStage3D.jsx"));
+const PresetsModal = lazy(() => import("./modals/PresetsModal.jsx"));
+const StatsModal = lazy(() => import("./modals/StatsModal.jsx"));
+const LapsModal = lazy(() => import("./modals/LapsModal.jsx"));
+const KeysModal = lazy(() => import("./modals/KeysModal.jsx"));
+const H2HModal = lazy(() => import("./modals/H2HModal.jsx"));
+const DashModal = lazy(() => import("./modals/DashModal.jsx"));
+const GalleryModal = lazy(() => import("./modals/GalleryModal.jsx"));
+const EmbedModal = lazy(() => import("./modals/EmbedModal.jsx"));
+const TelemetryModal = lazy(() => import("./modals/TelemetryModal.jsx"));
+const TourOverlay = lazy(() => import("./modals/TourOverlay.jsx"));
+
+function createAbortError() {
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function abortableSleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError());
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(createAbortError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 
 export default function App({ embed }) {
   const mob = useIsMobile();
@@ -100,9 +120,11 @@ export default function App({ embed }) {
   const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(false);
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
   const loadAbortRef = useRef(null);
+  const auxAbortRef = useRef(null);
   const toastTimerRef = useRef(null);
   const shareMsgTimerRef = useRef(null);
   const highlightConfigTimerRef = useRef(null);
+  const touchScrubRef = useRef({ active: false, x: 0, y: 0 });
 
   // ─── Derived ───
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
@@ -191,6 +213,7 @@ export default function App({ embed }) {
 
   useEffect(() => () => {
     loadAbortRef.current?.abort();
+    auxAbortRef.current?.abort();
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
     if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
     if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
@@ -209,6 +232,23 @@ export default function App({ embed }) {
   const finishCancelableLoad = useCallback((controller) => {
     if (loadAbortRef.current === controller) loadAbortRef.current = null;
     setCanCancelLoad(false);
+  }, []);
+
+  const beginAuxLoad = useCallback(() => {
+    auxAbortRef.current?.abort();
+    const controller = new AbortController();
+    auxAbortRef.current = controller;
+    return controller;
+  }, []);
+
+  const finishAuxLoad = useCallback((controller) => {
+    if (auxAbortRef.current === controller) auxAbortRef.current = null;
+  }, []);
+
+  const cancelAuxLoading = useCallback(() => {
+    auxAbortRef.current?.abort();
+    auxAbortRef.current = null;
+    setH2hProgress(null);
   }, []);
 
   const cancelLoading = useCallback(() => {
@@ -243,6 +283,7 @@ export default function App({ embed }) {
   }, []);
 
   const changeMatchup = useCallback(() => {
+    cancelAuxLoading();
     setPlay(false);
     setTp(null);
     setSceneErr("");
@@ -264,7 +305,7 @@ export default function App({ embed }) {
     highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
     focusConfiguration();
     pushToast("Selector bar ready. Choose a new season, circuit or driver matchup.", "info");
-  }, [embed, mob, focusConfiguration, pushToast]);
+  }, [cancelAuxLoading, embed, mob, focusConfiguration, pushToast]);
 
   const openAuxView = useCallback((mode) => {
     if (mode === "telemetry" && !embed && !mob) {
@@ -274,12 +315,13 @@ export default function App({ embed }) {
       return;
     }
     if (embed || mob) {
+      if (mode !== "h2h" && mode !== "season") cancelAuxLoading();
       setMobTab(mode);
       return;
     }
     if (mode === "stats") setShowStats(true);
     if (mode === "laps") setShowLaps(true);
-  }, [embed, mob, pushToast]);
+  }, [cancelAuxLoading, embed, mob, pushToast]);
 
   // ─── Actions ───
   const loadData = useCallback(async () => {
@@ -460,56 +502,146 @@ export default function App({ embed }) {
   }, [is2DView, mob, pushToast]);
 
   const loadH2H = useCallback(async () => {
-    if (!d1 || !d2) return; setShowH2H(true); setH2hData(null); setH2hProgress({ checked: 0, total: 0, currentGp: "", found: 0 });
+    if (!d1 || !d2) return;
+    const controller = beginAuxLoad();
+    const reqOptions = { signal: controller.signal };
+    if (!mob && !embed) setShowH2H(true);
+    setH2hData(null);
+    setH2hProgress({ checked: 0, total: 0, currentGp: "", found: 0 });
     try {
-      const allMts = await fetchMeetings(year);
+      const allMts = await fetchMeetings(year, reqOptions);
       const validMts = allMts.filter((m) => m.meeting_name);
       const results = [];
       setH2hProgress({ checked: 0, total: validMts.length, currentGp: validMts[0]?.meeting_name || "", found: 0 });
       for (let i = 0; i < validMts.length && results.length < 12; i++) {
+        if (controller.signal.aborted) throw createAbortError();
         const mt = validMts[i];
         setH2hProgress({ checked: i, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
         try {
-          if (i > 0 && i % 3 === 0) await new Promise((r) => setTimeout(r, 1200));
-          const ss = await fetchSessions(mt.meeting_key);
+          if (i > 0 && i % 3 === 0) await abortableSleep(1200, controller.signal);
+          const ss = await fetchSessions(mt.meeting_key, reqOptions);
           const q = ss.find((s) => s.session_name === "Qualifying");
           if (!q) {
             setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
             continue;
           }
-          await new Promise((r) => setTimeout(r, 400));
-          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]);
+          await abortableSleep(400, controller.signal);
+          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1, reqOptions), fetchLaps(q.session_key, d2, reqOptions)]);
           const b1 = bestLap(l1d), b2 = bestLap(l2d);
           if (b1 && b2) {
             results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration });
-            setH2hData([...results]);
+            startTransition(() => setH2hData([...results]));
           }
         } catch (e) {
-          if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 3000));
+          if (isAbortError(e)) throw e;
+          if (String(e).includes("429")) await abortableSleep(3000, controller.signal);
         } finally {
-          setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
+          if (!controller.signal.aborted) setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
         }
       }
-      if (results.length === 0) setH2hData([]);
-    } catch {
-      setH2hData([]);
+      if (!controller.signal.aborted && results.length === 0) setH2hData([]);
+    } catch (e) {
+      if (!isAbortError(e)) setH2hData([]);
     } finally {
-      setH2hProgress((prev) => prev ? { ...prev, currentGp: "" } : null);
+      if (!controller.signal.aborted) setH2hProgress((prev) => prev ? { ...prev, currentGp: "" } : null);
+      finishAuxLoad(controller);
     }
-  }, [year, d1, d2]);
+  }, [year, d1, d2, beginAuxLoad, finishAuxLoad, isAbortError, mob, embed]);
 
   const loadSeasonDash = useCallback(async () => {
-    if (!d1 || !d2) return; setShowDash(true); setDashData(null);
-    try { const allMts = await fetchMeetings(year); const results = [];
-      for (let i = 0; i < allMts.length && results.length < 15; i++) { const mt = allMts[i]; if (!mt.meeting_name) continue; try { if (i > 0 && i % 3 === 0) await new Promise((r) => setTimeout(r, 1200)); const ss = await fetchSessions(mt.meeting_key); const q = ss.find((s) => s.session_name === "Qualifying"); if (!q) continue; await new Promise((r) => setTimeout(r, 400)); const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1), fetchLaps(q.session_key, d2)]); const b1 = bestLap(l1d), b2 = bestLap(l2d); if (b1 && b2) { results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration, d: b1.lap_duration - b2.lap_duration }); setDashData([...results]); } } catch (e) { if (String(e).includes("429")) await new Promise((r) => setTimeout(r, 3000)); } }
-      if (results.length === 0) setDashData([]);
-    } catch { setDashData([]); }
-  }, [year, d1, d2]);
+    if (!d1 || !d2) return;
+    const controller = beginAuxLoad();
+    const reqOptions = { signal: controller.signal };
+    if (!mob && !embed) setShowDash(true);
+    setDashData(null);
+    try {
+      const allMts = await fetchMeetings(year, reqOptions);
+      const results = [];
+      for (let i = 0; i < allMts.length && results.length < 15; i++) {
+        if (controller.signal.aborted) throw createAbortError();
+        const mt = allMts[i];
+        if (!mt.meeting_name) continue;
+        try {
+          if (i > 0 && i % 3 === 0) await abortableSleep(1200, controller.signal);
+          const ss = await fetchSessions(mt.meeting_key, reqOptions);
+          const q = ss.find((s) => s.session_name === "Qualifying");
+          if (!q) continue;
+          await abortableSleep(400, controller.signal);
+          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1, reqOptions), fetchLaps(q.session_key, d2, reqOptions)]);
+          const b1 = bestLap(l1d), b2 = bestLap(l2d);
+          if (b1 && b2) {
+            results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration, d: b1.lap_duration - b2.lap_duration });
+            startTransition(() => setDashData([...results]));
+          }
+        } catch (e) {
+          if (isAbortError(e)) throw e;
+          if (String(e).includes("429")) await abortableSleep(3000, controller.signal);
+        }
+      }
+      if (!controller.signal.aborted && results.length === 0) setDashData([]);
+    } catch (e) {
+      if (!isAbortError(e)) setDashData([]);
+    } finally {
+      finishAuxLoad(controller);
+    }
+  }, [year, d1, d2, beginAuxLoad, finishAuxLoad, isAbortError, mob, embed]);
 
   // ─── Scene — pass progRef for direct 60fps reads ───
   const progRef = useRef(0);
   progRef.current = prog;
-  useScene(cRef, tp, loc1, loc2, progRef, co1, co2, cam, di1?.name_acronym || "", di2?.name_acronym || "", tel1, vizMode, isDark, loc3, loc4, co3, co4, di3?.name_acronym || "", di4?.name_acronym || "", setSceneErr, circuitFlip, circuitTurns, !is2DView);
+  const selectComparisonTab = useCallback((tabId) => {
+    if (tabId !== "h2h" && tabId !== "season") cancelAuxLoading();
+    setMobTab(tabId);
+    if (tabId === "h2h" && !h2hData) loadH2H();
+    if (tabId === "season" && !dashData) loadSeasonDash();
+    if (tabId === "3d") window.setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+  }, [cancelAuxLoading, dashData, h2hData, loadH2H, loadSeasonDash]);
+  const closeStatsModal = useCallback(() => setShowStats(false), []);
+  const closeLapsModal = useCallback(() => setShowLaps(false), []);
+  const closeKeysModal = useCallback(() => setShowKeys(false), []);
+  const closePresetsModal = useCallback(() => setShowPresets(false), []);
+  const closeGalleryModal = useCallback(() => setShowGallery(false), []);
+  const closeEmbedModal = useCallback(() => setShowEmbed(false), []);
+  const closeTelemetryOverlay = useCallback(() => setShowTelOverlay(false), []);
+  const closeH2HModal = useCallback(() => {
+    cancelAuxLoading();
+    setShowH2H(false);
+  }, [cancelAuxLoading]);
+  const closeDashModal = useCallback(() => {
+    cancelAuxLoading();
+    setShowDash(false);
+  }, [cancelAuxLoading]);
+  const closeInlineTab = useCallback(() => selectComparisonTab("3d"), [selectComparisonTab]);
+  const lapModalDrivers = useMemo(() => ([
+    { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
+    { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
+  ]), [di1, co1, laps1, sl1, di2, co2, laps2, sl2]);
+  const handleReplayTouchStart = useCallback((e) => {
+    if (!mob || !tp || !is2DView) return;
+    const target = e.target;
+    if (target instanceof Element && target.closest("button,a,input,select,textarea,label,[data-no-track-scrub='true']")) return;
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    touchScrubRef.current = { active: true, x: touch.clientX, y: touch.clientY };
+  }, [is2DView, mob, tp]);
+  const handleReplayTouchEnd = useCallback((e) => {
+    const gesture = touchScrubRef.current;
+    touchScrubRef.current = { active: false, x: 0, y: 0 };
+    if (!gesture.active) return;
+    const touch = e.changedTouches?.[0];
+    if (!touch) return;
+    const dx = touch.clientX - gesture.x;
+    const dy = Math.abs(touch.clientY - gesture.y);
+    if (Math.abs(dx) <= 50 || Math.abs(dx) <= dy) return;
+    setProg((p) => {
+      const next = Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03)));
+      progRef.current = next;
+      return next;
+    });
+  }, []);
+  const handleReplayTouchCancel = useCallback(() => {
+    touchScrubRef.current = { active: false, x: 0, y: 0 };
+  }, []);
 
   // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
   const spdRef = useRef(spd); spdRef.current = spd;
@@ -538,6 +670,7 @@ export default function App({ embed }) {
   // ─── Modal backdrop ───
   const anyModal = showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash || showTelOverlay || !!shareDialogUrl;
   const closeAll = useCallback(() => {
+    cancelAuxLoading();
     setShowPresets(false);
     setShowStats(false);
     setShowLaps(false);
@@ -550,7 +683,7 @@ export default function App({ embed }) {
     setShowTelOverlay(false);
     setShareDialogUrl("");
     setShareDialogNotice("");
-  }, []);
+  }, [cancelAuxLoading]);
 
   // ─── Keyboard ───
   const lastLeftRef = useRef(0);
@@ -590,9 +723,6 @@ export default function App({ embed }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [tp, startWithCountdown, showMobMenu, showTour, anyModal, closeAll, mob, embed, mobTab, showTel, toggleTheme, setTrackViewMode, is2DView]);
-
-  // Mobile swipe
-  useEffect(() => { if (!mob || !tp) return; let sx = 0; const onTS = (e) => { sx = e.touches[0].clientX; }; const onTE = (e) => { const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 50) setProg((p) => Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03)))); }; document.addEventListener("touchstart", onTS, { passive: true }); document.addEventListener("touchend", onTE, { passive: true }); return () => { document.removeEventListener("touchstart", onTS); document.removeEventListener("touchend", onTE); }; }, [mob, tp]);
 
   // Showreel
   useEffect(() => { if (!showreel) { showreelRef.current = false; return; } showreelRef.current = true; let idx = 0; async function next() { if (!showreelRef.current || idx >= playablePresets.length) { setShowreel(false); return; } await loadPreset(playablePresets[idx]); setPlay(true); idx++; setTimeout(() => { setPlay(false); if (showreelRef.current) next(); }, 12000); } next(); return () => { showreelRef.current = false; }; }, [showreel, loadPreset, playablePresets]);
@@ -655,19 +785,18 @@ export default function App({ embed }) {
 
       {/* Modals */}
       {anyModal && <div onClick={closeAll} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />}
-      {showPresets && <PresetsModal mob={mob} onClose={() => setShowPresets(false)} onLoadPreset={loadPreset} unavailableYears={UNAVAILABLE_PRESET_YEARS} />}
-      {showTelOverlay && <TelemetryModal mob={mob} onClose={() => setShowTelOverlay(false)} panelProps={{ mob, tp, prog, allDrivers, numDrivers, di1, di2, co1, co2, li1, li2, s1, s2, laps1, st1, sl1 }} />}
-      {showStats && tp && <StatsModal mob={mob} allDrivers={allDrivers} onClose={() => setShowStats(false)} />}
-      {showLaps && <LapsModal mob={mob} onClose={() => setShowLaps(false)} drivers={[
-        { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
-        { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
-      ]} />}
-      {showKeys && <KeysModal mob={mob} onClose={() => setShowKeys(false)} />}
-      {showH2H && <H2HModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={() => { setShowH2H(false); setH2hProgress(null); }} />}
-      {showDash && <DashModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={() => setShowDash(false)} />}
-      {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={() => setShowGallery(false)} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} />}
-      {showEmbed && <EmbedModal mob={mob} year={year} selMt={selMt} selSe={selSe} d1={d1} d2={d2} sl1={sl1} sl2={sl2} onClose={() => setShowEmbed(false)} />}
-      {showTour && !embed && <TourOverlay onClose={() => setShowTour(false)} />}
+      <Suspense fallback={null}>
+        {showPresets && <PresetsModal mob={mob} onClose={closePresetsModal} onLoadPreset={loadPreset} unavailableYears={UNAVAILABLE_PRESET_YEARS} />}
+        {showTelOverlay && <TelemetryModal mob={mob} onClose={closeTelemetryOverlay} panelProps={{ mob, tp, prog, allDrivers, numDrivers, di1, di2, co1, co2, li1, li2, s1, s2, laps1, st1, sl1 }} />}
+        {showStats && tp && <StatsModal mob={mob} allDrivers={allDrivers} onClose={closeStatsModal} />}
+        {showLaps && <LapsModal mob={mob} onClose={closeLapsModal} drivers={lapModalDrivers} />}
+        {showKeys && <KeysModal mob={mob} onClose={closeKeysModal} />}
+        {showH2H && <H2HModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={closeH2HModal} />}
+        {showDash && <DashModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={closeDashModal} />}
+        {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={closeGalleryModal} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} />}
+        {showEmbed && <EmbedModal mob={mob} year={year} selMt={selMt} selSe={selSe} d1={d1} d2={d2} sl1={sl1} sl2={sl2} onClose={closeEmbedModal} />}
+        {showTour && !embed && <TourOverlay onClose={() => setShowTour(false)} />}
+      </Suspense>
       {shareDialogUrl && (
         <div role="dialog" aria-modal="true" aria-label="Share link" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxWidth: "calc(100vw - 24px)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px rgba(0,0,0,0.4)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
@@ -766,8 +895,8 @@ export default function App({ embed }) {
             {[
               { icon: "📈", label: "Stats", action: () => { setShowStats(true); setShowMobMenu(false); }, show: !!tp },
               { icon: "⏱", label: "Laps", action: () => { setShowLaps(true); setShowMobMenu(false); }, show: !!tp },
-              { icon: "⚔️", label: "H2H", action: () => { loadH2H(); setShowMobMenu(false); }, show: !!(tp && d1 && d2) },
-              { icon: "🏆", label: "Season", action: () => { loadSeasonDash(); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
+              { icon: "⚔️", label: "H2H", action: () => { selectComparisonTab("h2h"); setShowMobMenu(false); }, show: !!(tp && d1 && d2) },
+              { icon: "🏆", label: "Season", action: () => { selectComparisonTab("season"); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
               { icon: "📂", label: "Gallery", action: () => { setShowGallery(true); setShowMobMenu(false); }, show: true },
               { icon: "🖼️", label: "Social", action: () => { generateSocialCard(); setShowMobMenu(false); }, show: !!tp },
               { icon: "</>", label: "Embed", action: () => { setShowEmbed(true); setShowMobMenu(false); }, show: !!(tp && selSe) },
@@ -831,7 +960,7 @@ export default function App({ embed }) {
           { id: "laps", label: "⏱ Laps" },
           { id: "h2h", label: "⚔️ H2H" },
           { id: "season", label: "🏆 Season" },
-        ].map((tab) => <button key={tab.id} onClick={() => { setMobTab(tab.id); if (tab.id === "h2h" && !h2hData) loadH2H(); if (tab.id === "season" && !dashData) loadSeasonDash(); if (tab.id === "3d") setTimeout(() => window.dispatchEvent(new Event("resize")), 50); }} style={{ flex: "0 0 auto", borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 10px", textTransform: "none", whiteSpace: "nowrap", color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
+        ].map((tab) => <button key={tab.id} onClick={() => selectComparisonTab(tab.id)} style={{ flex: "0 0 auto", borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 10px", textTransform: "none", whiteSpace: "nowrap", color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
       </div>}
 
       {/* Embed tab bar */}
@@ -843,7 +972,7 @@ export default function App({ embed }) {
           { id: "laps", label: mob ? "⏱" : "⏱ Laps", title: "Laps" },
           { id: "h2h", label: mob ? "⚔️" : "⚔️ H2H", title: "H2H" },
           { id: "season", label: mob ? "🏆" : "🏆 Season", title: "Season" },
-        ].map((tab) => <button key={tab.id} title={tab.title} onClick={() => { setMobTab(tab.id); if (tab.id === "h2h" && !h2hData) loadH2H(); if (tab.id === "season" && !dashData) loadSeasonDash(); if (tab.id === "3d") setTimeout(() => window.dispatchEvent(new Event("resize")), 50); }} style={{ flex: mob ? "1 0 auto" : 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: mob ? 16 : 10, padding: mob ? "8px 0" : "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: mob ? 0 : undefined, color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
+        ].map((tab) => <button key={tab.id} title={tab.title} onClick={() => selectComparisonTab(tab.id)} style={{ flex: mob ? "1 0 auto" : 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: mob ? 16 : 10, padding: mob ? "8px 0" : "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: mob ? 0 : undefined, color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
       </div>}
 
       {/* Main area */}
@@ -866,6 +995,35 @@ export default function App({ embed }) {
                 overflow: is2DView ? "auto" : "hidden",
               }}
             >
+              {tp && !is2DView && (
+                <Suspense fallback={null}>
+                  <SceneStage3D
+                    containerRef={cRef}
+                    tp={tp}
+                    l1={loc1}
+                    l2={loc2}
+                    progRef={progRef}
+                    c1={co1}
+                    c2={co2}
+                    cam={cam}
+                    lab1={di1?.name_acronym || ""}
+                    lab2={di2?.name_acronym || ""}
+                    telData1={tel1}
+                    vizMode={vizMode}
+                    isDark={isDark}
+                    l3={loc3}
+                    l4={loc4}
+                    c3={co3}
+                    c4={co4}
+                    lab3={di3?.name_acronym || ""}
+                    lab4={di4?.name_acronym || ""}
+                    onError={setSceneErr}
+                    circuitFlip={circuitFlip}
+                    circuitTurns={circuitTurns}
+                    enabled={!is2DView}
+                  />
+                </Suspense>
+              )}
               {tp && is2DView && (
                 <div style={{ width: "min(1080px, 100%)", display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0, 1fr) 304px", gap: mob ? 14 : 18, alignItems: "start", animation: "fadeIn .25s" }}>
                   <div style={{ minWidth: 0 }}>
@@ -878,7 +1036,9 @@ export default function App({ embed }) {
                         {renderTrackViewButtons()}
                       </div>
                     </div>
-                    <TrackReplay2D tp={tp} drivers={fallbackDrivers} prog={prog} flip={circuitFlip} />
+                    <div onTouchStart={handleReplayTouchStart} onTouchEnd={handleReplayTouchEnd} onTouchCancel={handleReplayTouchCancel}>
+                      <TrackReplay2D tp={tp} drivers={fallbackDrivers} prog={prog} flip={circuitFlip} />
+                    </div>
                     <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below still drive the replay, and telemetry, stats and lap tables remain available.</div>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
@@ -1008,33 +1168,38 @@ export default function App({ embed }) {
 
         {/* Inline Stats tab (embed + mobile) */}
         {(embed || mob) && mobTab === "stats" && tp && (
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
-            <StatsModal mob={true} allDrivers={allDrivers} onClose={() => setMobTab("3d")} inline />
-          </div>
+          <Suspense fallback={null}>
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
+              <StatsModal mob={true} allDrivers={allDrivers} onClose={closeInlineTab} inline />
+            </div>
+          </Suspense>
         )}
 
         {/* Inline Laps tab */}
         {(embed || mob) && mobTab === "laps" && tp && (
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
-            <LapsModal mob={true} onClose={() => setMobTab("3d")} inline drivers={[
-              { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
-              { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
-            ]} />
-          </div>
+          <Suspense fallback={null}>
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
+              <LapsModal mob={true} onClose={closeInlineTab} inline drivers={lapModalDrivers} />
+            </div>
+          </Suspense>
         )}
 
         {/* Inline H2H tab */}
         {(embed || mob) && mobTab === "h2h" && tp && (
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
-            <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={() => { setMobTab("3d"); setH2hProgress(null); }} inline />
-          </div>
+          <Suspense fallback={null}>
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
+              <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={closeInlineTab} inline />
+            </div>
+          </Suspense>
         )}
 
         {/* Inline Season tab */}
         {(embed || mob) && mobTab === "season" && tp && (
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
-            <DashModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={() => setMobTab("3d")} inline />
-          </div>
+          <Suspense fallback={null}>
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
+              <DashModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={closeInlineTab} inline />
+            </div>
+          </Suspense>
         )}
       </div>
 

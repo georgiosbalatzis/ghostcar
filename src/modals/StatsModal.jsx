@@ -1,17 +1,18 @@
+import { memo, useMemo } from "react";
 import { getF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
-export default function StatsModal({ mob, allDrivers, onClose, inline }) {
+const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }) {
   const F1 = getF1();
-  const stats = allDrivers.map((d) => {
+  const stats = useMemo(() => allDrivers.map((d) => {
     const topSpd = d.tel?.length ? Math.max(...d.tel.map((t) => t.speed || 0)) : 0;
     const avgSpd = d.tel?.length ? d.tel.reduce((a, t) => a + (t.speed || 0), 0) / d.tel.length : 0;
     const fThr = d.tel?.length ? d.tel.filter((t) => t.throttle >= 95).length / d.tel.length * 100 : 0;
     const brk = d.tel?.length ? d.tel.filter((t) => t.brake > 0).length / d.tel.length * 100 : 0;
     return { lapTime: d.li?.lap_duration, topSpd, avgSpd, fThr, brk, s1: d.li?.duration_sector_1, s2: d.li?.duration_sector_2, s3: d.li?.duration_sector_3, tire: d.tire };
-  });
-  const rows = [
+  }), [allDrivers]);
+  const rows = useMemo(() => [
     { m: "LAP TIME", vals: stats.map((s) => s.lapTime ? fmt(s.lapTime) : "—"), raw: stats.map((s) => s.lapTime || 999), lower: true },
     { m: "TOP SPEED", vals: stats.map((s) => Math.round(s.topSpd)), raw: stats.map((s) => s.topSpd), lower: false },
     { m: "AVG SPEED", vals: stats.map((s) => Math.round(s.avgSpd)), raw: stats.map((s) => s.avgSpd), lower: false },
@@ -21,7 +22,7 @@ export default function StatsModal({ mob, allDrivers, onClose, inline }) {
     { m: "FULL THROTTLE", vals: stats.map((s) => `${s.fThr.toFixed(1)}%`), raw: stats.map((s) => s.fThr), lower: false },
     { m: "BRAKING", vals: stats.map((s) => `${s.brk.toFixed(1)}%`), raw: stats.map((s) => s.brk), lower: true },
     { m: "TYRE", vals: stats.map((s) => s.tire || "—"), raw: null },
-  ];
+  ], [stats]);
 
   const wrapStyle = inline
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
@@ -55,4 +56,6 @@ export default function StatsModal({ mob, allDrivers, onClose, inline }) {
       </div>
     </div>
   );
-}
+});
+
+export default StatsModal;
