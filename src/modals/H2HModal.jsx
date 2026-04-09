@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progress, onClose, inline }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const progressPct = progress?.total ? (progress.checked / progress.total) * 100 : 0;
   const progressActive = progress?.total > 0 && progress.checked < progress.total;
   const chartData = useMemo(() => {

@@ -1,4 +1,4 @@
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 const SHORTCUTS = [
@@ -8,7 +8,7 @@ const SHORTCUTS = [
 ];
 
 export default function KeysModal({ mob, onClose }) {
-  const F1 = getF1();
+  const F1 = useF1();
   return (
     <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 24, zIndex: 100, width: mob ? "92%" : 380, animation: "fadeIn .2s" }}>
       <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>

@@ -1,8 +1,8 @@
 import { memo, useMemo } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 
 const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
-  const F1 = getF1();
+  const F1 = useF1();
   if (!traces?.length) return null;
   const H = ch || 45, W = 300;
 

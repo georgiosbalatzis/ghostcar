@@ -1,10 +1,10 @@
 import { memo, useMemo, useState } from "react";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
 const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const [sortMode, setSortMode] = useState("time");
   const preparedDrivers = useMemo(() => drivers.map((drv) => {
     const validLaps = drv.laps.filter((l) => l.lap_duration > 10);

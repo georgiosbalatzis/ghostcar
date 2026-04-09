@@ -1,6 +1,6 @@
 import { memo, useId, useMemo } from "react";
 import { norm } from "../helpers.js";
-import { getF1 } from "../theme.js";
+import { useF1 } from "../theme.js";
 
 const WIDTH = 720;
 const HEIGHT = 360;
@@ -32,7 +32,7 @@ function lerpPoint(points, t) {
 }
 
 export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
-  const F1 = getF1();
+  const F1 = useF1();
   const gradientId = useId().replace(/:/g, "");
 
   const geometry = useMemo(() => {
