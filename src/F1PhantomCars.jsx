@@ -212,6 +212,7 @@ export default function App({ embed }) {
   const [restoreTick, setRestoreTick] = useState(0);
   const loadAbortRef = useRef(null);
   const auxAbortRef = useRef(null);
+  const selectorRequestIdsRef = useRef({ meetings: 0, sessions: 0, drivers: 0, laps1: 0, laps2: 0, laps3: 0, laps4: 0 });
   const h2hCacheRef = useRef(new Map());
   const dashCacheRef = useRef(new Map());
   const toastTimerRef = useRef(null);
@@ -246,6 +247,17 @@ export default function App({ embed }) {
     }
     setCountdown(null);
   }, []);
+
+  const nextSelectorRequestId = useCallback((key) => {
+    const next = (selectorRequestIdsRef.current[key] || 0) + 1;
+    selectorRequestIdsRef.current[key] = next;
+    return next;
+  }, []);
+
+  const isCurrentSelectorRequest = useCallback(
+    (key, requestId) => selectorRequestIdsRef.current[key] === requestId,
+    []
+  );
 
   // ─── Derived ───
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
@@ -340,10 +352,20 @@ export default function App({ embed }) {
     selMt?.meeting_key && selSe?.session_key ? encodeURL(shareURLState) : ""
   ), [selMt, selSe, shareURLState]);
 
+  useEffect(() => {
+    if (numDrivers < 4) {
+      setD4(null); setSl4(null); setLaps4([]); setSt4([]); setLoc4(null); setTel4(null);
+    }
+    if (numDrivers < 3) {
+      setD3(null); setSl3(null); setLaps3([]); setSt3([]); setLoc3(null); setTel3(null);
+    }
+  }, [numDrivers]);
+
   // ─── Data loading effects ───
   useEffect(() => {
     if (presetActiveRef.current) return;
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("meetings");
     setLoading("Loading...");
     setErr("");
     setSceneErr("");
@@ -354,16 +376,16 @@ export default function App({ embed }) {
     setDrvs([]);
     resetDriverSelections();
     fetchMeetings(year, { signal: controller.signal }).then((d) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("meetings", requestId)) return;
       setMts(d.filter((m) => m.meeting_name));
       setLoading("");
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("meetings", requestId)) return;
       setErr(e.message);
       setLoading("");
     });
     return () => controller.abort();
-  }, [year, resetDriverSelections]);
+  }, [year, isCurrentSelectorRequest, nextSelectorRequestId, resetDriverSelections]);
   useEffect(() => {
     if (presetActiveRef.current) return;
     if (!selMt) {
@@ -374,22 +396,23 @@ export default function App({ embed }) {
       return;
     }
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("sessions");
     setLoading("Loading sessions...");
     setErr("");
     setDrvs([]);
     setSelSe(null);
     resetDriverSelections();
     fetchSessions(selMt.meeting_key, { signal: controller.signal }).then((d) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("sessions", requestId)) return;
       setSess(d.filter((s) => SUPPORTED_SESSION_NAMES.includes(s.session_name)));
       setLoading("");
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("sessions", requestId)) return;
       setErr(e.message);
       setLoading("");
     });
     return () => controller.abort();
-  }, [selMt, resetDriverSelections]);
+  }, [selMt, isCurrentSelectorRequest, nextSelectorRequestId, resetDriverSelections]);
   useEffect(() => {
     if (presetActiveRef.current) return;
     if (!selSe) {
@@ -398,11 +421,12 @@ export default function App({ embed }) {
       return;
     }
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("drivers");
     setLoading("Loading drivers...");
     setErr("");
     resetDriverSelections();
     fetchDrivers(selSe.session_key, { signal: controller.signal }).then((d) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("drivers", requestId)) return;
       const seen = new Set();
       setDrvs(d.filter((x) => {
         if (seen.has(x.driver_number)) return false;
@@ -411,12 +435,12 @@ export default function App({ embed }) {
       }));
       setLoading("");
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("drivers", requestId)) return;
       setErr(e.message);
       setLoading("");
     });
     return () => controller.abort();
-  }, [selSe, resetDriverSelections]);
+  }, [selSe, isCurrentSelectorRequest, nextSelectorRequestId, resetDriverSelections]);
   useEffect(() => {
     if (presetActiveRef.current) return;
     if (!selSe || !d1) {
@@ -424,22 +448,23 @@ export default function App({ embed }) {
       return;
     }
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("laps1");
     fetchLaps(selSe.session_key, d1, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps1", requestId)) return;
       setLaps1(l); setSl1(null);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps1", requestId)) return;
       setLaps1([]);
     });
     fetchStints(selSe.session_key, d1, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps1", requestId)) return;
       setSt1(stints);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps1", requestId)) return;
       setSt1([]);
     });
     return () => controller.abort();
-  }, [selSe, d1]);
+  }, [selSe, d1, isCurrentSelectorRequest, nextSelectorRequestId]);
   useEffect(() => {
     if (presetActiveRef.current) return;
     if (!selSe || !d2) {
@@ -447,22 +472,23 @@ export default function App({ embed }) {
       return;
     }
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("laps2");
     fetchLaps(selSe.session_key, d2, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps2", requestId)) return;
       setLaps2(l); setSl2(null);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps2", requestId)) return;
       setLaps2([]);
     });
     fetchStints(selSe.session_key, d2, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps2", requestId)) return;
       setSt2(stints);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps2", requestId)) return;
       setSt2([]);
     });
     return () => controller.abort();
-  }, [selSe, d2]);
+  }, [selSe, d2, isCurrentSelectorRequest, nextSelectorRequestId]);
   useEffect(() => {
     if (presetActiveRef.current) return;
     if (!selSe || !d3) {
@@ -470,22 +496,23 @@ export default function App({ embed }) {
       return;
     }
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("laps3");
     fetchLaps(selSe.session_key, d3, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps3", requestId)) return;
       setLaps3(l); setSl3(null);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps3", requestId)) return;
       setLaps3([]);
     });
     fetchStints(selSe.session_key, d3, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps3", requestId)) return;
       setSt3(stints);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps3", requestId)) return;
       setSt3([]);
     });
     return () => controller.abort();
-  }, [selSe, d3]);
+  }, [selSe, d3, isCurrentSelectorRequest, nextSelectorRequestId]);
   useEffect(() => {
     if (presetActiveRef.current) return;
     if (!selSe || !d4) {
@@ -493,22 +520,23 @@ export default function App({ embed }) {
       return;
     }
     const controller = new AbortController();
+    const requestId = nextSelectorRequestId("laps4");
     fetchLaps(selSe.session_key, d4, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps4", requestId)) return;
       setLaps4(l); setSl4(null);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps4", requestId)) return;
       setLaps4([]);
     });
     fetchStints(selSe.session_key, d4, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentSelectorRequest("laps4", requestId)) return;
       setSt4(stints);
     }).catch((e) => {
-      if (isAbortError(e)) return;
+      if (isAbortError(e) || !isCurrentSelectorRequest("laps4", requestId)) return;
       setSt4([]);
     });
     return () => controller.abort();
-  }, [selSe, d4]);
+  }, [selSe, d4, isCurrentSelectorRequest, nextSelectorRequestId]);
   useEffect(() => { if (lapSelect1.fastestLapNumber && !sl1) setSl1(lapSelect1.fastestLapNumber); }, [lapSelect1.fastestLapNumber, sl1]);
   useEffect(() => { if (lapSelect2.fastestLapNumber && !sl2) setSl2(lapSelect2.fastestLapNumber); }, [lapSelect2.fastestLapNumber, sl2]);
   useEffect(() => { if (lapSelect3.fastestLapNumber && !sl3) setSl3(lapSelect3.fastestLapNumber); }, [lapSelect3.fastestLapNumber, sl3]);
@@ -628,6 +656,19 @@ export default function App({ embed }) {
     setPlay(false);
   }, []);
 
+  const clearShowreelTimer = useCallback(() => {
+    if (!showreelTimerRef.current) return;
+    window.clearTimeout(showreelTimerRef.current);
+    showreelTimerRef.current = null;
+  }, []);
+
+  const stopShowreelRuntime = useCallback((abortLoad = false) => {
+    showreelRef.current = false;
+    clearShowreelTimer();
+    if (abortLoad) cancelLoading();
+    setPlay(false);
+  }, [cancelLoading, clearShowreelTimer]);
+
   const focusConfiguration = useCallback(() => {
     const top = selectorsRef.current ? selectorsRef.current.getBoundingClientRect().top + window.scrollY - 12 : 0;
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
@@ -657,10 +698,7 @@ export default function App({ embed }) {
     cancelLoading();
     cancelAuxLoading();
     cancelCountdown();
-    if (showreelTimerRef.current) {
-      window.clearTimeout(showreelTimerRef.current);
-      showreelTimerRef.current = null;
-    }
+    stopShowreelRuntime(false);
     presetActiveRef.current = false;
     autoLoadRef.current = false;
     setShowreel(false);
@@ -712,16 +750,13 @@ export default function App({ embed }) {
     window.history.replaceState(null, "", nextUrl.split(window.location.origin)[1]);
     setRestoreTick((tick) => tick + 1);
     pushToast("Comparison restored from gallery.", "success");
-  }, [cancelAuxLoading, cancelCountdown, cancelLoading, embed, pushToast, resetDriverSelections]);
+  }, [cancelAuxLoading, cancelCountdown, cancelLoading, embed, pushToast, resetDriverSelections, stopShowreelRuntime]);
 
   const changeMatchup = useCallback(() => {
     cancelLoading();
     cancelAuxLoading();
     cancelCountdown();
-    if (showreelTimerRef.current) {
-      window.clearTimeout(showreelTimerRef.current);
-      showreelTimerRef.current = null;
-    }
+    stopShowreelRuntime(false);
     setShowreel(false);
     clearReplayData();
     setSceneErr("");
@@ -743,7 +778,7 @@ export default function App({ embed }) {
     highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
     focusConfiguration();
     pushToast("Selector bar ready. Choose a new season, circuit or driver matchup.", "info");
-  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearReplayData, embed, mob, focusConfiguration, pushToast]);
+  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearReplayData, embed, mob, focusConfiguration, pushToast, stopShowreelRuntime]);
 
   const openAuxView = useCallback((mode) => {
     if (mode === "telemetry" && !embed && !mob) {
@@ -764,6 +799,11 @@ export default function App({ embed }) {
   // ─── Actions ───
   const loadData = useCallback(async () => {
     if (!selSe || !d1 || !d2 || !sl1 || !sl2) return;
+    cancelCountdown();
+    if (showreelRef.current) {
+      stopShowreelRuntime(false);
+      setShowreel(false);
+    }
     const controller = beginCancelableLoad();
     setLoading("Fetching telemetry...");
     setErr("");
@@ -779,9 +819,9 @@ export default function App({ embed }) {
       const reqOptions = { signal: controller.signal };
       const locProms = [fetchLocation(sk, d1, la1.date_start, e1, reqOptions), fetchLocation(sk, d2, la2.date_start, e2, reqOptions)];
       const telProms = [fetchCarData(sk, d1, la1.date_start, e1, reqOptions), fetchCarData(sk, d2, la2.date_start, e2, reqOptions)];
-      const la3 = d3 && sl3 ? laps3.find((l) => l.lap_number === sl3) : null;
+      const la3 = numDrivers >= 3 && d3 && sl3 ? laps3.find((l) => l.lap_number === sl3) : null;
       if (la3?.date_start) { const e3 = new Date(new Date(la3.date_start).getTime() + (la3.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d3, la3.date_start, e3, reqOptions)); telProms.push(fetchCarData(sk, d3, la3.date_start, e3, reqOptions)); }
-      const la4 = d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
+      const la4 = numDrivers >= 4 && d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
       if (la4?.date_start) { const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d4, la4.date_start, e4, reqOptions)); telProms.push(fetchCarData(sk, d4, la4.date_start, e4, reqOptions)); }
       setLdPct(20); const locs = await Promise.all(locProms); setLdPct(55); const tels = await Promise.all(telProms);
       if (locs[0].length < 5 || locs[1].length < 5) { setErr("Insufficient data."); setLoading(""); setLdPct(undefined); return; }
@@ -801,7 +841,7 @@ export default function App({ embed }) {
     } finally {
       finishCancelableLoad(controller);
     }
-  }, [selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, beginCancelableLoad, finishCancelableLoad]);
+  }, [cancelCountdown, selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, beginCancelableLoad, finishCancelableLoad, numDrivers, stopShowreelRuntime]);
 
   // Auto-load when URL params are fully restored (shared links + embed)
   useEffect(() => {
@@ -814,7 +854,13 @@ export default function App({ embed }) {
     return () => window.clearTimeout(timer);
   }, [selSe, d1, d2, sl1, sl2, loadData]);
 
-  const loadPreset = useCallback(async (pr) => {
+  const loadPreset = useCallback(async (pr, options = {}) => {
+    const { preserveShowreel = false } = options;
+    cancelCountdown();
+    if (!preserveShowreel && showreelRef.current) {
+      stopShowreelRuntime(false);
+      setShowreel(false);
+    }
     const controller = beginCancelableLoad();
     setShowPresets(false); setShowMobMenu(false); setLoading("Loading preset..."); setErr(""); setSceneErr(""); setLdPct(0); presetActiveRef.current = true;
     try {
@@ -866,7 +912,7 @@ export default function App({ embed }) {
       presetActiveRef.current = false;
       finishCancelableLoad(controller);
     }
-  }, [UNAVAILABLE_PRESET_YEARS, beginCancelableLoad, cancelAuxLoading, finishCancelableLoad, resetDriverSelections]);
+  }, [UNAVAILABLE_PRESET_YEARS, beginCancelableLoad, cancelAuxLoading, cancelCountdown, finishCancelableLoad, resetDriverSelections, stopShowreelRuntime]);
 
   const share = useCallback(async () => {
     if (!selMt || !selSe || !shareUrl) return;
@@ -1094,6 +1140,14 @@ export default function App({ embed }) {
     setShowDash(false);
   }, [cancelAuxLoading]);
   const closeInlineTab = useCallback(() => selectComparisonTab("3d"), [selectComparisonTab]);
+  const toggleShowreel = useCallback(() => {
+    if (showreel) {
+      stopShowreelRuntime(true);
+      setShowreel(false);
+      return;
+    }
+    setShowreel(true);
+  }, [showreel, stopShowreelRuntime]);
   const lapModalDrivers = useMemo(() => ([
     { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
     { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
@@ -1227,10 +1281,7 @@ export default function App({ embed }) {
 
   // Showreel
   useEffect(() => {
-    if (showreelTimerRef.current) {
-      window.clearTimeout(showreelTimerRef.current);
-      showreelTimerRef.current = null;
-    }
+    clearShowreelTimer();
     if (!showreel) {
       showreelRef.current = false;
       return;
@@ -1242,7 +1293,7 @@ export default function App({ embed }) {
         setShowreel(false);
         return;
       }
-      await loadPreset(playablePresets[idx]);
+      await loadPreset(playablePresets[idx], { preserveShowreel: true });
       if (!showreelRef.current) return;
       setPlay(true);
       idx++;
@@ -1253,13 +1304,9 @@ export default function App({ embed }) {
     }
     next();
     return () => {
-      showreelRef.current = false;
-      if (showreelTimerRef.current) {
-        window.clearTimeout(showreelTimerRef.current);
-        showreelTimerRef.current = null;
-      }
+      stopShowreelRuntime(true);
     };
-  }, [showreel, loadPreset, playablePresets]);
+  }, [clearShowreelTimer, loadPreset, playablePresets, showreel, stopShowreelRuntime]);
 
   const renderTrackViewButtons = (compact = false) => TRACK_VIEW_MODES.map((mode) => (
     <button
@@ -1410,7 +1457,7 @@ export default function App({ embed }) {
               {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Create social card" aria-label="Create social card" onClick={generateSocialCard}>🖼️</button>}
               {tp && selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Embed this comparison" aria-label="Embed this comparison" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
               {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Download screenshot" aria-label="Download screenshot" onClick={takeScreenshot}>📸</button>}
-              <button className={`hdr-action-btn hdr-action-btn-icon${showreel ? " hdr-action-btn-active" : ""}`} title={showreel ? "Stop showreel" : "Start showreel"} aria-label={showreel ? "Stop showreel" : "Start showreel"} onClick={() => setShowreel((s) => !s)}>{showreel ? "⏹" : "🎬"}</button>
+              <button className={`hdr-action-btn hdr-action-btn-icon${showreel ? " hdr-action-btn-active" : ""}`} title={showreel ? "Stop showreel" : "Start showreel"} aria-label={showreel ? "Stop showreel" : "Start showreel"} onClick={toggleShowreel}>{showreel ? "⏹" : "🎬"}</button>
               <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Switch to light theme" : "Switch to dark theme"} aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
               <button className="hdr-action-btn hdr-action-btn-icon" title="Show keyboard shortcuts" aria-label="Show keyboard shortcuts" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
             </>)}
@@ -1472,7 +1519,7 @@ export default function App({ embed }) {
           {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Select driver 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect3.options.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect3.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect3.fastestLapNumber)}</option>)}</select>}</div></>}
           {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Select driver 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect4.options.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect4.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect4.fastestLapNumber)}</option>)}</select>}</div></>}
           {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+D{numDrivers + 1}</button>}
-          {numDrivers > 2 && <button onClick={() => { setNumDrivers((n) => { if (n === 4) { setD4(null); setLoc4(null); setTel4(null); } if (n >= 3) { setD3(null); setLoc3(null); setTel3(null); } return Math.max(2, n - 1); }); }} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
+          {numDrivers > 2 && <button onClick={() => setNumDrivers((n) => Math.max(2, n - 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
           <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "COMPARE"}</button>
         </div>
         {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>No meeting data is available for {year} yet. Try 2025 for the latest complete telemetry season.</div>}
