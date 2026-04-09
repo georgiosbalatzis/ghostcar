@@ -1,5 +1,15 @@
 import { useEffect, useRef, useMemo } from "react";
-import * as THREE from "three";
+import {
+  ACESFilmicToneMapping, AmbientLight, BackSide, Box3, BoxGeometry,
+  BufferAttribute, BufferGeometry, CatmullRomCurve3, CanvasTexture,
+  CircleGeometry, Color, DirectionalLight, DoubleSide, DynamicDrawUsage,
+  Float32BufferAttribute, Fog, FogExp2, Group, HemisphereLight,
+  InstancedMesh, Line, LineBasicMaterial, LineSegments, MathUtils,
+  Mesh, MeshBasicMaterial, MeshPhongMaterial, MeshStandardMaterial,
+  Object3D, PerspectiveCamera, PlaneGeometry, PointLight, Points,
+  Quaternion, RepeatWrapping, Scene, ShaderMaterial, SphereGeometry,
+  Sprite, SpriteMaterial, Vector3, WebGLRenderer,
+} from "three";
 import { F1_DARK, F1_LIGHT } from "../constants.js";
 import { getSmoothPathPointCount, lerp, norm, smoothPath } from "../helpers.js";
 
@@ -68,7 +78,7 @@ function freezeObjectTransform(object) {
 function buildColoredLineSegments(groups, opacity = 1) {
   const positions = [];
   const colors = [];
-  const color = new THREE.Color();
+  const color = new Color();
   groups.forEach(({ points, color: lineColor }) => {
     if (!points || points.length < 2) return;
     color.set(lineColor);
@@ -80,17 +90,17 @@ function buildColoredLineSegments(groups, opacity = 1) {
     }
   });
   if (!positions.length) return null;
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  return new THREE.LineSegments(
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+  return new LineSegments(
     geometry,
-    new THREE.LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity })
+    new LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity })
   );
 }
 
 function frameLerp(base, dt) {
-  const clampedBase = THREE.MathUtils.clamp(base, 0, 0.999);
+  const clampedBase = MathUtils.clamp(base, 0, 0.999);
   return 1 - Math.pow(1 - clampedBase, Math.max(dt, 1 / 240) * 60);
 }
 
@@ -110,8 +120,8 @@ function createShakeNoiseTable(size = 256) {
 export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true, visible = true) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const visibleRef = useRef(visible);
-  const camTargetPos = useRef(new THREE.Vector3(40, 30, 40));
-  const camTargetLook = useRef(new THREE.Vector3(0, 0, 0));
+  const camTargetPos = useRef(new Vector3(40, 30, 40));
+  const camTargetLook = useRef(new Vector3(0, 0, 0));
   const smoothPointCount = useMemo(() => getSmoothPathPointCount(typeof window !== "undefined" ? window.innerWidth < 768 : false), []);
   const shakeNoise = useMemo(() => createShakeNoiseTable(), []);
   const n1 = useMemo(() => l1 ? smoothPath(norm(l1, circuitFlip), smoothPointCount) : null, [l1, circuitFlip, smoothPointCount]); const n2 = useMemo(() => l2 ? smoothPath(norm(l2, circuitFlip), smoothPointCount) : null, [l2, circuitFlip, smoothPointCount]);
@@ -171,28 +181,32 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       const isMob = w < 768;
       const connection = window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
       const isLowDetail = isMob || connection?.saveData || ((window.navigator?.deviceMemory ?? 8) <= 4);
-      scene = new THREE.Scene();
+      scene = new Scene();
       const T = isDark ? F1_DARK : F1_LIGHT;
 
       if (isDark) {
-        scene.background = new THREE.Color(0x080812);
-        scene.fog = new THREE.FogExp2(0x080812, 0.006);
+        scene.background = new Color(0x080812);
+        scene.fog = new FogExp2(0x080812, 0.006);
       } else {
-        scene.background = new THREE.Color(T.sceneBg);
-        scene.fog = new THREE.Fog(T.sceneBg, 120, 350);
+        scene.background = new Color(T.sceneBg);
+        scene.fog = new Fog(T.sceneBg, 120, 350);
       }
 
-      const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-      ren = new THREE.WebGLRenderer({
+      const camera = new PerspectiveCamera(50, w / h, 0.1, 500);
+      ren = new WebGLRenderer({
         antialias: !isMob,
         powerPreference: isMob ? "low-power" : "high-performance",
         preserveDrawingBuffer: !isMob,
       });
       ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, isLowDetail ? 1.25 : isMob ? 1.5 : 2));
-      ren.toneMapping = THREE.ACESFilmicToneMapping;
+      ren.toneMapping = ACESFilmicToneMapping;
       ren.toneMappingExposure = isDark ? 1.1 : 1.0;
       el.appendChild(ren.domElement);
       de = ren.domElement;
+      // Fill container immediately so the canvas isn't a 1px stub while ResizeObserver fires
+      de.style.display = "block";
+      de.style.width = "100%";
+      de.style.height = "100%";
       onContextLost = (event) => {
         event.preventDefault();
         contextLost = true;
@@ -202,29 +216,29 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       onError?.("");
 
       // Lighting — cinematic night race feel
-      scene.add(new THREE.AmbientLight(isDark ? 0x8899bb : 0xdddde8, isDark ? 0.4 : 1.2));
-      const sun = new THREE.DirectionalLight(isDark ? 0xffeedd : 0xffffff, isDark ? 0.8 : 1.4);
+      scene.add(new AmbientLight(isDark ? 0x8899bb : 0xdddde8, isDark ? 0.4 : 1.2));
+      const sun = new DirectionalLight(isDark ? 0xffeedd : 0xffffff, isDark ? 0.8 : 1.4);
       sun.position.set(40, 80, 30); scene.add(sun);
-      scene.add(new THREE.HemisphereLight(isDark ? 0x334466 : 0xeeeeff, isDark ? 0x111118 : 0x889988, isDark ? 0.5 : 0.6));
+      scene.add(new HemisphereLight(isDark ? 0x334466 : 0xeeeeff, isDark ? 0x111118 : 0x889988, isDark ? 0.5 : 0.6));
       // Warm fill light from below-horizon (simulates floodlight bounce)
       if (isDark) {
-        const fill = new THREE.DirectionalLight(0xff8844, 0.15);
+        const fill = new DirectionalLight(0xff8844, 0.15);
         fill.position.set(-30, 5, -20); scene.add(fill);
       }
 
     // ─── Ground — layered for depth ───
     // Base ground (dark)
-      const groundMat = new THREE.MeshStandardMaterial({
-        color: isDark ? 0x0a0a14 : T.groundColor,
-        roughness: 0.95, metalness: 0.05
-      });
-      const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
+      // Dark mode: PBR for subtle metallic look. Light mode: BasicMaterial halves fragment cost on the 500×500 plane.
+      const groundMat = isDark
+        ? new MeshStandardMaterial({ color: 0x0a0a14, roughness: 0.95, metalness: 0.05 })
+        : new MeshBasicMaterial({ color: T.groundColor });
+      const ground = new Mesh(new PlaneGeometry(500, 500), groundMat);
       ground.rotation.x = -Math.PI / 2; ground.position.y = -0.2; scene.add(freezeObjectTransform(ground));
 
     // Lit area around track — soft radial glow on the ground
     if (isDark) {
       const glowSize = isMob ? 128 : 256;
-      const glowGeo = new THREE.PlaneGeometry(200, 200, 1, 1);
+      const glowGeo = new PlaneGeometry(200, 200, 1, 1);
       const glowTex = (() => {
         const cv = document.createElement("canvas"); cv.width = glowSize; cv.height = glowSize;
         const ctx = cv.getContext("2d");
@@ -234,9 +248,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         grad.addColorStop(0.5, "rgba(15,18,35,0.3)");
         grad.addColorStop(1, "rgba(8,8,18,0)");
         ctx.fillStyle = grad; ctx.fillRect(0, 0, glowSize, glowSize);
-        return new THREE.CanvasTexture(cv);
+        return new CanvasTexture(cv);
         })();
-      const glowPlane = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }));
+      const glowPlane = new Mesh(glowGeo, new MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false }));
       glowPlane.rotation.x = -Math.PI / 2; glowPlane.position.y = -0.18; scene.add(freezeObjectTransform(glowPlane));
 
       // Subtle grid lines — skip on mobile (saves a 512×512 canvas + draw calls)
@@ -249,20 +263,20 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
             ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
           }
-          return new THREE.CanvasTexture(cv);
+          return new CanvasTexture(cv);
         })();
-        gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping;
+        gridTex.wrapS = gridTex.wrapT = RepeatWrapping;
         gridTex.repeat.set(12, 12);
-        const gridPlane = new THREE.Mesh(
-          new THREE.PlaneGeometry(400, 400),
-          new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, depthWrite: false })
+        const gridPlane = new Mesh(
+          new PlaneGeometry(400, 400),
+          new MeshBasicMaterial({ map: gridTex, transparent: true, depthWrite: false })
         );
         gridPlane.rotation.x = -Math.PI / 2; gridPlane.position.y = -0.15; scene.add(freezeObjectTransform(gridPlane));
       }
     }
 
     // ─── Sky dome — rich gradient with stars ───
-    const skyGeo = new THREE.SphereGeometry(200, isLowDetail ? 20 : 48, isLowDetail ? 10 : 24);
+    const skyGeo = new SphereGeometry(200, isLowDetail ? 20 : 48, isLowDetail ? 10 : 24);
     const skyVColors = new Float32Array(skyGeo.attributes.position.count * 3);
     for (let i = 0; i < skyGeo.attributes.position.count; i++) {
       const y = skyGeo.attributes.position.getY(i);
@@ -291,8 +305,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         skyVColors[i * 3 + 2] = 0.95 + t * 0.05;
       }
     }
-    skyGeo.setAttribute("color", new THREE.Float32BufferAttribute(skyVColors, 3));
-    scene.add(freezeObjectTransform(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false }))));
+    skyGeo.setAttribute("color", new Float32BufferAttribute(skyVColors, 3));
+    scene.add(freezeObjectTransform(new Mesh(skyGeo, new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false }))));
 
     // Stars (dark mode only)
     if (isDark) {
@@ -309,22 +323,22 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
         starAlphas[i] = 0.3 + Math.random() * 0.7;
       }
-      const starGeo = new THREE.BufferGeometry();
-      starGeo.setAttribute("position", new THREE.Float32BufferAttribute(starPos, 3));
-      starGeo.setAttribute("alpha", new THREE.Float32BufferAttribute(starAlphas, 1));
-      const starMat = new THREE.ShaderMaterial({
+      const starGeo = new BufferGeometry();
+      starGeo.setAttribute("position", new Float32BufferAttribute(starPos, 3));
+      starGeo.setAttribute("alpha", new Float32BufferAttribute(starAlphas, 1));
+      const starMat = new ShaderMaterial({
         transparent: true, depthWrite: false, fog: false,
         uniforms: { uTime: { value: 0 } },
         vertexShader: `attribute float alpha; varying float vAlpha; uniform float uTime; void main() { vAlpha = alpha * (0.6 + 0.4 * sin(uTime * 0.5 + position.x * 0.1)); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = alpha * 2.5; }`,
         fragmentShader: `varying float vAlpha; void main() { float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard; gl_FragColor = vec4(0.8, 0.85, 1.0, vAlpha * (1.0 - d * d)); }`,
       });
-      const stars = new THREE.Points(starGeo, starMat);
+      const stars = new Points(starGeo, starMat);
       scene.add(freezeObjectTransform(stars));
       // Store for animation
       R.current._starMat = starMat;
     }
 
-    const curve = new THREE.CatmullRomCurve3(tp.map((p) => new THREE.Vector3(p.x, p.y, p.z)), true);
+    const curve = new CatmullRomCurve3(tp.map((p) => new Vector3(p.x, p.y, p.z)), true);
     const seg = Math.min(tp.length * 3, 800);
     const trackW = 2.0;
 
@@ -334,24 +348,27 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
     const tangents = curvePts.map((_, i) => {
       const next = curvePts[(i + 1) % curvePts.length];
       const prev = curvePts[(i - 1 + curvePts.length) % curvePts.length];
-      return new THREE.Vector3(next.x - prev.x, 0, next.z - prev.z).normalize();
+      return new Vector3(next.x - prev.x, 0, next.z - prev.z).normalize();
     });
     for (let i = 0; i < curvePts.length; i++) {
       const p = curvePts[i], tan = tangents[i];
-      const perp = new THREE.Vector3(-tan.z, 0, tan.x);
-      const L = new THREE.Vector3(p.x + perp.x * trackW / 2, p.y, p.z + perp.z * trackW / 2);
-      const Ri = new THREE.Vector3(p.x - perp.x * trackW / 2, p.y, p.z - perp.z * trackW / 2);
+      const perp = new Vector3(-tan.z, 0, tan.x);
+      const L = new Vector3(p.x + perp.x * trackW / 2, p.y, p.z + perp.z * trackW / 2);
+      const Ri = new Vector3(p.x - perp.x * trackW / 2, p.y, p.z - perp.z * trackW / 2);
       ribbonPos.push(L.x, L.y, L.z, Ri.x, Ri.y, Ri.z);
       ribbonNorm.push(0, 1, 0, 0, 1, 0);
-      leftEdgePts.push(new THREE.Vector3(L.x, L.y + 0.02, L.z));
-      rightEdgePts.push(new THREE.Vector3(Ri.x, Ri.y + 0.02, Ri.z));
+      leftEdgePts.push(new Vector3(L.x, L.y + 0.02, L.z));
+      rightEdgePts.push(new Vector3(Ri.x, Ri.y + 0.02, Ri.z));
       if (i < curvePts.length - 1) { const v = i * 2; ribbonIdx.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); }
     }
-    const ribbonGeo = new THREE.BufferGeometry();
-    ribbonGeo.setAttribute("position", new THREE.Float32BufferAttribute(ribbonPos, 3));
-    ribbonGeo.setAttribute("normal", new THREE.Float32BufferAttribute(ribbonNorm, 3));
+    const ribbonGeo = new BufferGeometry();
+    ribbonGeo.setAttribute("position", new Float32BufferAttribute(ribbonPos, 3));
+    ribbonGeo.setAttribute("normal", new Float32BufferAttribute(ribbonNorm, 3));
     ribbonGeo.setIndex(ribbonIdx);
-    scene.add(freezeObjectTransform(new THREE.Mesh(ribbonGeo, new THREE.MeshStandardMaterial({ color: T.trackColor, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide }))));
+    // Dark mode: PBR for reflective asphalt look. Light mode: BasicMaterial saves per-fragment PBR cost on the ribbon.
+    scene.add(freezeObjectTransform(new Mesh(ribbonGeo, isDark
+      ? new MeshStandardMaterial({ color: T.trackColor, roughness: 0.8, metalness: 0.1, side: DoubleSide })
+      : new MeshBasicMaterial({ color: T.trackColor, side: DoubleSide }))));
 
     if (vizMode === "heatmap" && speedArr.length > 10) {
       const heatColors = new Float32Array((curvePts.length * 2) * 3);
@@ -369,8 +386,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         heatColors[(vi + 1) * 3] = r; heatColors[(vi + 1) * 3 + 1] = g; heatColors[(vi + 1) * 3 + 2] = b;
       }
       const heatGeo = ribbonGeo.clone();
-      heatGeo.setAttribute("color", new THREE.Float32BufferAttribute(heatColors, 3));
-      const heatMesh = new THREE.Mesh(heatGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+      heatGeo.setAttribute("color", new Float32BufferAttribute(heatColors, 3));
+      const heatMesh = new Mesh(heatGeo, new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, side: DoubleSide, depthWrite: false }));
       heatMesh.position.y += 0.01; scene.add(freezeObjectTransform(heatMesh));
     }
 
@@ -396,8 +413,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         brakeColors[(vi + 1) * 3] = r; brakeColors[(vi + 1) * 3 + 1] = g; brakeColors[(vi + 1) * 3 + 2] = b;
       }
       const brakeGeo = ribbonGeo.clone();
-      brakeGeo.setAttribute("color", new THREE.Float32BufferAttribute(brakeColors, 3));
-      const brakeMesh = new THREE.Mesh(brakeGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
+      brakeGeo.setAttribute("color", new Float32BufferAttribute(brakeColors, 3));
+      const brakeMesh = new Mesh(brakeGeo, new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false }));
       brakeMesh.position.y += 0.01; scene.add(freezeObjectTransform(brakeMesh));
     }
 
@@ -423,7 +440,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
     let sectorMarkers = null;
     [0, 0.33, 0.66].forEach((t, i) => {
       const sp = curve.getPointAt(t); const tan2 = curve.getTangentAt(t);
-      const perp2 = new THREE.Vector3(-tan2.z, 0, tan2.x).normalize();
+      const perp2 = new Vector3(-tan2.z, 0, tan2.x).normalize();
       const L2 = sp.clone().add(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       const R2 = sp.clone().sub(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       L2.y += 0.03; R2.y += 0.03;
@@ -431,7 +448,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       [-1, 1].forEach((side) => {
         const off = perp2.clone().multiplyScalar(side * (trackW / 2 + 0.15));
         sectorMarkerDefs.push({
-          position: new THREE.Vector3(sp.x + off.x, sp.y + 0.04, sp.z + off.z),
+          position: new Vector3(sp.x + off.x, sp.y + 0.04, sp.z + off.z),
           sector: i,
           color: sColors[i],
           baseScale: isLowDetail ? 0.18 : 0.25,
@@ -445,8 +462,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         ctx.beginPath(); ctx.roundRect(0, 0, 64, 32, 6); ctx.fill();
         ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(`S${i + 1}`, 32, 17);
-        const tex = new THREE.CanvasTexture(cv);
-        const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        const tex = new CanvasTexture(cv);
+        const label = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
         const labelOff = perp2.clone().multiplyScalar(trackW / 2 + 1.8);
         label.position.set(sp.x + labelOff.x, sp.y + 1.0, sp.z + labelOff.z);
         label.scale.set(1.0, 0.5, 1);
@@ -456,18 +473,18 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
     const sectorDividers = buildColoredLineSegments(sectorDividerGroups, 0.7);
     if (sectorDividers) scene.add(freezeObjectTransform(sectorDividers));
     if (sectorMarkerDefs.length) {
-      const markerGeometry = new THREE.CircleGeometry(isLowDetail ? 0.18 : 0.25, isLowDetail ? 10 : 16);
-      const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: isLowDetail ? 0.72 : 0.82, side: THREE.DoubleSide, depthWrite: false });
-      const markerMesh = new THREE.InstancedMesh(markerGeometry, markerMaterial, sectorMarkerDefs.length);
-      markerMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      const markerDummy = new THREE.Object3D();
+      const markerGeometry = new CircleGeometry(isLowDetail ? 0.18 : 0.25, isLowDetail ? 10 : 16);
+      const markerMaterial = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: isLowDetail ? 0.72 : 0.82, side: DoubleSide, depthWrite: false });
+      const markerMesh = new InstancedMesh(markerGeometry, markerMaterial, sectorMarkerDefs.length);
+      markerMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+      const markerDummy = new Object3D();
       sectorMarkerDefs.forEach((marker, index) => {
         markerDummy.position.copy(marker.position);
         markerDummy.rotation.set(-Math.PI / 2, 0, 0);
         markerDummy.scale.setScalar(marker.baseScale);
         markerDummy.updateMatrix();
         markerMesh.setMatrixAt(index, markerDummy.matrix);
-        markerMesh.setColorAt(index, new THREE.Color(marker.color));
+        markerMesh.setColorAt(index, new Color(marker.color));
       });
       markerMesh.instanceMatrix.needsUpdate = true;
       if (markerMesh.instanceColor) markerMesh.instanceColor.needsUpdate = true;
@@ -487,32 +504,33 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       const ctx = cv.getContext("2d");
       ctx.fillStyle = "rgba(225,6,0,0.75)"; ctx.beginPath(); ctx.arc(24, 24, 20, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#fff"; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(`${i + 1}`, 24, 25);
-      const tex = new THREE.CanvasTexture(cv);
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-      const tan3 = curve.getTangentAt(c.t); const perp3 = new THREE.Vector3(-tan3.z, 0, tan3.x).normalize();
+      const tex = new CanvasTexture(cv);
+      const sp = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+      const tan3 = curve.getTangentAt(c.t); const perp3 = new Vector3(-tan3.z, 0, tan3.x).normalize();
       const off = perp3.clone().multiplyScalar(trackW / 2 + 1.5);
       sp.position.set(c.p.x + off.x, c.p.y + 1.5, c.p.z + off.z); sp.scale.set(1.3, 1.3, 1); scene.add(freezeObjectTransform(sp));
     });
 
     const sf = curve.getPointAt(0), sfTan = curve.getTangentAt(0);
-    const sfPerp = new THREE.Vector3(-sfTan.z, 0, sfTan.x).normalize();
+    const sfPerp = new Vector3(-sfTan.z, 0, sfTan.x).normalize();
     const sfL = sf.clone().add(sfPerp.clone().multiplyScalar(trackW / 2)); sfL.y += 0.03;
     const sfR = sf.clone().sub(sfPerp.clone().multiplyScalar(trackW / 2)); sfR.y += 0.03;
-    scene.add(freezeObjectTransform(new THREE.Line(new THREE.BufferGeometry().setFromPoints([sfL, sfR]), new THREE.LineBasicMaterial({ color: 0xffffff }))));
+    scene.add(freezeObjectTransform(new Line(new BufferGeometry().setFromPoints([sfL, sfR]), new LineBasicMaterial({ color: 0xffffff }))));
 
     function makeCarGroup(color, label, isGhost) {
-      const g = new THREE.Group(); const col = new THREE.Color(color);
-      const shadow = new THREE.Mesh(new THREE.CircleGeometry(1.0, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }));
+      const g = new Group(); const col = new Color(color);
+      const shadow = new Mesh(new CircleGeometry(1.0, 24), new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2, side: DoubleSide, depthWrite: false }));
       shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(freezeObjectTransform(shadow));
-      const glow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false }));
+      const glow = new Mesh(new CircleGeometry(1.3, 16), new MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: DoubleSide, depthWrite: false }));
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(freezeObjectTransform(glow));
       if (!isLowDetail && !isGhost) {
-        const carLight = new THREE.PointLight(col, 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(freezeObjectTransform(carLight));
+        // Boosted range now that SpotLights are removed — provides the coloured ground pool effect
+        const carLight = new PointLight(col, 0.4, 20); carLight.position.set(0, 0.3, 0); g.add(freezeObjectTransform(carLight));
       }
       if (label && !isLowDetail) {
         // Vertical pole line from car to flag
-        const poleGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(0, 2.0, 0)]);
-        const pole = new THREE.Line(poleGeo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 }));
+        const poleGeo = new BufferGeometry().setFromPoints([new Vector3(0, 0.3, 0), new Vector3(0, 2.0, 0)]);
+        const pole = new Line(poleGeo, new LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 }));
         g.add(freezeObjectTransform(pole));
         // Flag-style name badge — tall, bold, high contrast
         const cv = document.createElement("canvas"); cv.width = 200; cv.height = 80; const ctx = cv.getContext("2d");
@@ -525,8 +543,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         ctx.fillStyle = color; ctx.fillRect(8, 0, 192, 4);
         // Driver name — large bold white
         ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, 104, 44);
-        const tex = new THREE.CanvasTexture(cv);
-        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        const tex = new CanvasTexture(cv);
+        const sp = new Sprite(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
         sp.position.set(0, 2.3, 0); sp.scale.set(2.8, 1.1, 1); g.add(freezeObjectTransform(sp));
       }
       g.userData = { color, isGhost, modelLoaded: false }; return g;
@@ -541,8 +559,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       const addFallbackCars = () => {
         [car1, car2, car3, car4].filter(Boolean).forEach((group) => {
           if (group.userData.modelLoaded) return;
-          const col = new THREE.Color(group.userData.color);
-          const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: group.userData.isGhost, opacity: group.userData.isGhost ? 0.5 : 1 }));
+          const col = new Color(group.userData.color);
+          const mesh = new Mesh(new BoxGeometry(0.4, 0.15, 1.2), new MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: group.userData.isGhost, opacity: group.userData.isGhost ? 0.5 : 1 }));
           mesh.position.y = 0.15;
           group.add(freezeObjectTransform(mesh));
           group.userData.modelLoaded = true;
@@ -567,9 +585,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
             function applyModel(carGroup) {
               if (!carGroup) return;
               const clone = template.clone(true); clone.scale.set(modelScale, modelScale, modelScale);
-              const box = new THREE.Box3().setFromObject(clone); const center = box.getCenter(new THREE.Vector3());
+              const box = new Box3().setFromObject(clone); const center = box.getCenter(new Vector3());
               clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
-              const col = new THREE.Color(carGroup.userData.color); const isGhost = carGroup.userData.isGhost;
+              const col = new Color(carGroup.userData.color); const isGhost = carGroup.userData.isGhost;
               clone.traverse((child) => {
                 if (child.isMesh && child.material) {
                   try {
@@ -597,40 +615,41 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         addFallbackCars();
       }
 
-      const spot1 = !isLowDetail ? new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1) : null;
-      const spot2 = !isLowDetail ? new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1) : null;
-      if (spot1) { spot1.position.set(0, 12, 0); spot1.target = car1; scene.add(spot1); }
-      if (spot2) { spot2.position.set(0, 12, 0); spot2.target = car2; scene.add(spot2); }
+      // SpotLights removed (B5): per-fragment cone/penumbra calculations were the single most
+      // expensive lighting cost. Coloured ground pool effect preserved by the boosted PointLight
+      // inside each non-ghost car group.
+      const spot1 = null;
+      const spot2 = null;
 
-      const deltaGeo = new THREE.BufferGeometry(); const deltaPos = new Float32Array(6);
-      const deltaPosAttr = new THREE.Float32BufferAttribute(deltaPos, 3);
-      deltaPosAttr.setUsage(THREE.DynamicDrawUsage);
+      const deltaGeo = new BufferGeometry(); const deltaPos = new Float32Array(6);
+      const deltaPosAttr = new Float32BufferAttribute(deltaPos, 3);
+      deltaPosAttr.setUsage(DynamicDrawUsage);
       deltaGeo.setAttribute("position", deltaPosAttr);
-      const deltaLine = new THREE.Line(deltaGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+      const deltaLine = new Line(deltaGeo, new LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
       deltaLine.frustumCulled = false; scene.add(freezeObjectTransform(deltaLine));
 
       if (!isLowDetail) {
-        const rlLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
+        const rlLine = new Line(new BufferGeometry().setFromPoints(curve.getPoints(seg)), new LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
         rlLine.position.y += 0.015; scene.add(freezeObjectTransform(rlLine));
       }
 
       function makeTrail(color, ghost) {
         const max = isMob ? 72 : 120, pos = new Float32Array(max * 3);
-        const geo = new THREE.BufferGeometry();
-        const posAttr = new THREE.BufferAttribute(pos, 3);
-        posAttr.setUsage(THREE.DynamicDrawUsage);
+        const geo = new BufferGeometry();
+        const posAttr = new BufferAttribute(pos, 3);
+        posAttr.setUsage(DynamicDrawUsage);
         geo.setAttribute("position", posAttr);
         const alphas = new Float32Array(max); alphas.fill(0);
-        const alphaAttr = new THREE.BufferAttribute(alphas, 1);
-        alphaAttr.setUsage(THREE.DynamicDrawUsage);
+        const alphaAttr = new BufferAttribute(alphas, 1);
+        alphaAttr.setUsage(DynamicDrawUsage);
         geo.setAttribute("alpha", alphaAttr);
         geo.setDrawRange(0, 0);
-        const mat = new THREE.ShaderMaterial({
-          transparent: true, depthWrite: false, uniforms: { uColor: { value: new THREE.Color(color) } },
+        const mat = new ShaderMaterial({
+          transparent: true, depthWrite: false, uniforms: { uColor: { value: new Color(color) } },
           vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
           fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
         });
-        const points = freezeObjectTransform(new THREE.Points(geo, mat)); scene.add(points);
+        const points = freezeObjectTransform(new Points(geo, mat)); scene.add(points);
         return { mesh: points, positions: pos, alphas, max, count: 0 };
       }
       const tr1 = makeTrail(c1, false), tr2 = makeTrail(c2, true);
@@ -679,8 +698,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       const ACTIVE_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
       const IDLE_MS = isMob ? 100 : 66;
       const HIDDEN_MS = 220;
-      const prevCameraPos = new THREE.Vector3();
-      const prevCameraQuat = new THREE.Quaternion();
+      const prevCameraPos = new Vector3();
+      const prevCameraQuat = new Quaternion();
       let lastFrameTime = 0;
       let lastProg = -1;
       let lastSector = -1;
@@ -690,6 +709,51 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       let hasRendered = false;
       let lastSimTime = 0;
       let noiseFrame = 0;
+
+      // ─── Adaptive quality (A1) ───────────────────────────────────────────────
+      // Measures rolling average FPS every 2 s and steps pixel-ratio down/up in
+      // tiers without touching any React state (zero re-renders).
+      const basePixelRatio = ren.getPixelRatio();
+      const fpsWindow = new Float32Array(60);
+      let fpsWIdx = 0;
+      let fpsWFull = false;
+      let lastFpsCheck = 0;
+      let qualityTier = 0;   // 0 = full, 1 = reduced px, 2 = minimal (stars frozen)
+      let recoveryCount = 0;
+
+      function applyQualityTier(tier) {
+        const pr = tier === 0
+          ? basePixelRatio
+          : tier === 1
+            ? Math.max(0.75, basePixelRatio - 0.25)
+            : Math.max(0.75, basePixelRatio - 0.5);
+        ren.setPixelRatio(pr);
+        if (el && !contextLost && el.clientWidth && el.clientHeight) ren.setSize(el.clientWidth, el.clientHeight);
+        R.current._starFrozen = tier >= 2;
+        R.current._dirty = true;
+      }
+
+      function checkAdaptiveQuality(now) {
+        if (now - lastFpsCheck < 2000) return;
+        lastFpsCheck = now;
+        const samples = fpsWFull ? 60 : fpsWIdx;
+        if (samples < 20) return;
+        let sum = 0;
+        for (let i = 0; i < samples; i++) sum += fpsWindow[i];
+        const avgFps = 1000 / (sum / samples);
+        fpsWIdx = 0; fpsWFull = false;
+        if (avgFps < 35 && qualityTier < 2) {
+          qualityTier = 2; applyQualityTier(2); recoveryCount = 0;
+        } else if (avgFps < 50 && qualityTier < 1) {
+          qualityTier = 1; applyQualityTier(1); recoveryCount = 0;
+        } else if (avgFps >= 58 && qualityTier > 0) {
+          if (++recoveryCount >= 3) { qualityTier = Math.max(0, qualityTier - 1); applyQualityTier(qualityTier); recoveryCount = 0; }
+        } else {
+          recoveryCount = 0;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       function animate(now = performance.now()) {
         if (contextLost) return;
         R.current.fr = requestAnimationFrame(animate);
@@ -698,7 +762,17 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         const isActive = !!(isPlaying || cs.drag || pinchDist !== null);
         const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
         if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
+        const prevFrameTime = lastFrameTime;
         lastFrameTime = now;
+        // Track frame interval for adaptive quality (only while visible, ignore tab-switch spikes)
+        if (prevFrameTime > 0 && isSceneVisible) {
+          const frameMs = now - prevFrameTime;
+          if (frameMs > 0 && frameMs < 200) {
+            fpsWindow[fpsWIdx++] = frameMs;
+            if (fpsWIdx >= 60) { fpsWIdx = 0; fpsWFull = true; }
+          }
+          checkAdaptiveQuality(now);
+        }
         if (!isSceneVisible) {
           lastSceneVisible = false;
           lastSimTime = 0;
@@ -715,9 +789,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         const cm = cmRef.current;
         const playbackSpeed = Math.max(0.25, R.current._speedRef?.current ?? 1);
         const followCam = cm === "follow1" || cm === "follow2";
-        const baseRotLerp = THREE.MathUtils.clamp(0.16 - playbackSpeed * 0.02, 0.08, 0.16);
+        const baseRotLerp = MathUtils.clamp(0.16 - playbackSpeed * 0.02, 0.08, 0.16);
         const rotLerp = frameLerp(followCam ? Math.min(baseRotLerp + 0.02, 0.18) : baseRotLerp, dt);
-        const posLerp = frameLerp(THREE.MathUtils.clamp(0.34 - playbackSpeed * 0.04, 0.18, 0.34), dt);
+        const posLerp = frameLerp(MathUtils.clamp(0.34 - playbackSpeed * 0.04, 0.18, 0.34), dt);
         const sampleNoise = (offset = 0) => shakeNoise[(noiseFrame + offset) & 255];
         let needsRender = !hasRendered || !!R.current._dirty || progChanged || cm !== lastCamMode || isPlaying !== lastPlayState || !lastSceneVisible;
         lastCamMode = cm;
@@ -729,7 +803,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         }
       const { car1, car2, tr1, tr2, spot1: sp1, spot2: sp2, deltaLine: dL, deltaPos: dP, sectorMarkers, _telData1: td1 } = R.current;
       if (car1 && car2 && tp && tp.length >= 2) {
-        const headingHelper = R.current._headingHelper || (R.current._headingHelper = new THREE.Object3D());
+        const headingHelper = R.current._headingHelper || (R.current._headingHelper = new Object3D());
         function updCar(car, trail, data, t, targetLateralOff, updateTrail) {
           let localDirty = false;
           const pts = data?.length >= 2 ? data : tp;
@@ -770,11 +844,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
               const nx = fwdX / fLen, nz = fwdZ / fLen;
               if (!car.userData.fwd) car.userData.fwd = { x: nx, z: nz };
               else {
-                const forwardLerp = frameLerp(THREE.MathUtils.clamp(0.18 - playbackSpeed * 0.025, 0.06, 0.18), dt);
+                const forwardLerp = frameLerp(MathUtils.clamp(0.18 - playbackSpeed * 0.025, 0.06, 0.18), dt);
                 car.userData.fwd.x += (nx - car.userData.fwd.x) * forwardLerp;
                 car.userData.fwd.z += (nz - car.userData.fwd.z) * forwardLerp;
               }
-              const prevQuat = car.userData.prevQuat || (car.userData.prevQuat = new THREE.Quaternion());
+              const prevQuat = car.userData.prevQuat || (car.userData.prevQuat = new Quaternion());
               prevQuat.copy(car.quaternion);
               headingHelper.position.copy(car.position);
               headingHelper.lookAt(p.x + ox + car.userData.fwd.x, p.y + 0.2, p.z + oz + car.userData.fwd.z);
@@ -825,7 +899,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         const sectorChanged = curSector !== lastSector;
         if (sectorChanged) lastSector = curSector;
         if (sectorMarkers?.mesh && sectorMarkers?.defs?.length && (sectorChanged || isPlaying || !hasRendered)) {
-          const markerDummy = R.current._markerDummy || (R.current._markerDummy = new THREE.Object3D());
+          const markerDummy = R.current._markerDummy || (R.current._markerDummy = new Object3D());
           sectorMarkers.defs.forEach((marker, index) => {
             const pulse = marker.sector === curSector ? (isPlaying ? 1.12 + Math.sin(now * 0.006) * 0.08 : 1.12) : 0.82;
             markerDummy.position.copy(marker.position);
@@ -868,7 +942,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         camera.lookAt(camTargetLook.current);
         if (camera.position.distanceToSquared(prevCameraPos) > 1e-6 || 1 - Math.abs(camera.quaternion.dot(prevCameraQuat)) > 1e-6) needsRender = true;
         if (!needsRender) return;
-        if (R.current._starMat) R.current._starMat.uniforms.uTime.value = now * 0.001;
+        if (R.current._starMat && !R.current._starFrozen) R.current._starMat.uniforms.uTime.value = now * 0.001;
         try {
           ren.render(scene, camera);
           hasRendered = true;
@@ -880,12 +954,20 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       }
       animate();
 
-      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; camera.aspect = el.clientWidth / Math.max(el.clientHeight, 1); camera.updateProjectionMatrix(); ren.setSize(Math.max(el.clientWidth, 1), Math.max(el.clientHeight, 1)); R.current._dirty = true; }, 100); };
-      window.addEventListener("resize", onR);
+      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; const cw = el.clientWidth, ch = el.clientHeight; if (!cw || !ch) return; camera.aspect = cw / ch; camera.updateProjectionMatrix(); ren.setSize(cw, ch); R.current._dirty = true; }, 50); };
+      // ResizeObserver fires when the flex container distributes its height on mobile,
+      // and also on window resize — strictly better than window.addEventListener("resize").
+      let ro;
+      if (typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(onR);
+        ro.observe(el);
+      } else {
+        window.addEventListener("resize", onR);
+      }
       return () => {
         active = false;
         clearTimeout(rt);
-        window.removeEventListener("resize", onR);
+        if (ro) { ro.disconnect(); } else { window.removeEventListener("resize", onR); }
         de?.removeEventListener("mousedown", onDown); de?.removeEventListener("mousemove", onMove); de?.removeEventListener("mouseup", onUp); de?.removeEventListener("mouseleave", onUp); de?.removeEventListener("wheel", onWheel); de?.removeEventListener("touchstart", onDown); de?.removeEventListener("touchmove", onMove); de?.removeEventListener("touchend", onUp);
         clearRenderer();
       };
