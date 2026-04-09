@@ -266,6 +266,7 @@ export default function App({ embed }) {
   const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
   const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
   const is2DView = trackView === "2d";
+  const isSceneVisible = !is2DView && (!(mob || embed) || mobTab === "3d");
   const effectiveSceneErr = is2DView ? "" : sceneErr;
   const alertErr = effectiveSceneErr || err;
   const noMeetings = !loading && !alertErr && mts.length === 0;
@@ -1067,6 +1068,8 @@ export default function App({ embed }) {
   // ─── Scene — pass progRef for direct 60fps reads ───
   const progRef = useRef(0);
   progRef.current = prog;
+  const playRef = useRef(play);
+  playRef.current = play;
   const selectComparisonTab = useCallback((tabId) => {
     if (tabId !== "h2h" && tabId !== "season") cancelAuxLoading();
     setMobTab(tabId);
@@ -1533,6 +1536,7 @@ export default function App({ embed }) {
                     l1={loc1}
                     l2={loc2}
                     progRef={progRef}
+                    playRef={playRef}
                     c1={co1}
                     c2={co2}
                     cam={cam}
@@ -1551,6 +1555,7 @@ export default function App({ embed }) {
                     circuitFlip={circuitFlip}
                     circuitTurns={circuitTurns}
                     enabled={!is2DView}
+                    visible={isSceneVisible}
                   />
                 </Suspense>
               )}
