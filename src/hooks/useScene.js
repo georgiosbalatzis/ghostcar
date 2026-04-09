@@ -58,6 +58,30 @@ function disposeScene(root) {
   root.clear();
 }
 
+function buildColoredLineSegments(groups, opacity = 1) {
+  const positions = [];
+  const colors = [];
+  const color = new THREE.Color();
+  groups.forEach(({ points, color: lineColor }) => {
+    if (!points || points.length < 2) return;
+    color.set(lineColor);
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+      colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+    }
+  });
+  if (!positions.length) return null;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  return new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity })
+  );
+}
+
 export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam, lab1, lab2, telData1, vizMode, isDark, l3, l4, c3, c4, lab3, lab4, onError, circuitFlip = false, circuitTurns = 20, enabled = true, visible = true) {
   const R = useRef({}); const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 }); const cmRef = useRef(cam);
   const visibleRef = useRef(visible);
@@ -118,6 +142,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
     try {
       const w = Math.max(el.clientWidth, 1), h = Math.max(el.clientHeight, 1);
       const isMob = w < 768;
+      const connection = window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
+      const isLowDetail = isMob || connection?.saveData || ((window.navigator?.deviceMemory ?? 8) <= 4);
       scene = new THREE.Scene();
       const T = isDark ? F1_DARK : F1_LIGHT;
 
@@ -135,7 +161,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         powerPreference: isMob ? "low-power" : "high-performance",
         preserveDrawingBuffer: !isMob,
       });
-      ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, isMob ? 1.5 : 2));
+      ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, isLowDetail ? 1.25 : isMob ? 1.5 : 2));
       ren.toneMapping = THREE.ACESFilmicToneMapping;
       ren.toneMappingExposure = isDark ? 1.1 : 1.0;
       el.appendChild(ren.domElement);
@@ -209,7 +235,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
     }
 
     // ─── Sky dome — rich gradient with stars ───
-    const skyGeo = new THREE.SphereGeometry(200, isMob ? 24 : 48, isMob ? 12 : 24);
+    const skyGeo = new THREE.SphereGeometry(200, isLowDetail ? 20 : 48, isLowDetail ? 10 : 24);
     const skyVColors = new Float32Array(skyGeo.attributes.position.count * 3);
     for (let i = 0; i < skyGeo.attributes.position.count; i++) {
       const y = skyGeo.attributes.position.getY(i);
@@ -243,7 +269,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
 
     // Stars (dark mode only)
     if (isDark) {
-      const starCount = isMob ? 250 : 600;
+      const starCount = isLowDetail ? 160 : 600;
       const starPos = new Float32Array(starCount * 3);
       const starAlphas = new Float32Array(starCount);
       for (let i = 0; i < starCount; i++) {
@@ -350,57 +376,77 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
 
     // Edge lines colored by sector
     const sColorHex = [0x00d26a, 0xffd700, 0xe10600];
+    const edgeLineGroups = [];
     [leftEdgePts, rightEdgePts].forEach((edgePts) => {
       const totalPts = edgePts.length;
       for (let s = 0; s < 3; s++) {
         const start = Math.floor((s / 3) * totalPts);
         const end = Math.min(Math.floor(((s + 1) / 3) * totalPts) + 1, totalPts);
         const sectorPts = edgePts.slice(start, end);
-        if (sectorPts.length > 1) {
-          scene.add(new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints(sectorPts),
-            new THREE.LineBasicMaterial({ color: sColorHex[s], transparent: true, opacity: 0.6 })
-          ));
-        }
+        if (sectorPts.length > 1) edgeLineGroups.push({ points: sectorPts, color: sColorHex[s] });
       }
     });
+    const edgeLines = buildColoredLineSegments(edgeLineGroups, 0.6);
+    if (edgeLines) scene.add(edgeLines);
 
     const sColors = [0x00d26a, 0xffd700, 0xe10600];
     const sColorCSS = ["#00d26a", "#ffd700", "#e10600"];
-    const sectorMarkers = [];
+    const sectorDividerGroups = [];
+    const sectorMarkerDefs = [];
+    let sectorMarkers = null;
     [0, 0.33, 0.66].forEach((t, i) => {
       const sp = curve.getPointAt(t); const tan2 = curve.getTangentAt(t);
       const perp2 = new THREE.Vector3(-tan2.z, 0, tan2.x).normalize();
       const L2 = sp.clone().add(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       const R2 = sp.clone().sub(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
       L2.y += 0.03; R2.y += 0.03;
-      // Dashed sector line across track
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([L2, R2]), new THREE.LineBasicMaterial({ color: sColors[i], transparent: true, opacity: 0.7 })));
-      // Small glowing dot on each side of the track
+      sectorDividerGroups.push({ points: [L2, R2], color: sColors[i] });
       [-1, 1].forEach((side) => {
-        const dotGeo = new THREE.CircleGeometry(0.25, 16);
-        const dotMat = new THREE.MeshBasicMaterial({ color: sColors[i], transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false });
-        const dot = new THREE.Mesh(dotGeo, dotMat);
         const off = perp2.clone().multiplyScalar(side * (trackW / 2 + 0.15));
-        dot.position.set(sp.x + off.x, sp.y + 0.04, sp.z + off.z);
-        dot.rotation.x = -Math.PI / 2;
-        scene.add(dot);
-        sectorMarkers.push({ mesh: dot, sector: i });
+        sectorMarkerDefs.push({
+          position: new THREE.Vector3(sp.x + off.x, sp.y + 0.04, sp.z + off.z),
+          sector: i,
+          color: sColors[i],
+          baseScale: isLowDetail ? 0.18 : 0.25,
+        });
       });
-      // Floating "S1/S2/S3" label sprite — small, offset to the outside of the track
-      const cv = document.createElement("canvas"); cv.width = 64; cv.height = 32;
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle = sColorCSS[i]; ctx.globalAlpha = 0.85;
-      ctx.beginPath(); ctx.roundRect(0, 0, 64, 32, 6); ctx.fill();
-      ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(`S${i + 1}`, 32, 17);
-      const tex = new THREE.CanvasTexture(cv);
-      const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-      const labelOff = perp2.clone().multiplyScalar(trackW / 2 + 1.8);
-      label.position.set(sp.x + labelOff.x, sp.y + 1.0, sp.z + labelOff.z);
-      label.scale.set(1.0, 0.5, 1);
-      scene.add(label);
+      if (!isLowDetail) {
+        // Floating "S1/S2/S3" label sprite — small, offset to the outside of the track
+        const cv = document.createElement("canvas"); cv.width = 64; cv.height = 32;
+        const ctx = cv.getContext("2d");
+        ctx.fillStyle = sColorCSS[i]; ctx.globalAlpha = 0.85;
+        ctx.beginPath(); ctx.roundRect(0, 0, 64, 32, 6); ctx.fill();
+        ctx.globalAlpha = 1; ctx.fillStyle = "#fff"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(`S${i + 1}`, 32, 17);
+        const tex = new THREE.CanvasTexture(cv);
+        const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+        const labelOff = perp2.clone().multiplyScalar(trackW / 2 + 1.8);
+        label.position.set(sp.x + labelOff.x, sp.y + 1.0, sp.z + labelOff.z);
+        label.scale.set(1.0, 0.5, 1);
+        scene.add(label);
+      }
     });
+    const sectorDividers = buildColoredLineSegments(sectorDividerGroups, 0.7);
+    if (sectorDividers) scene.add(sectorDividers);
+    if (sectorMarkerDefs.length) {
+      const markerGeometry = new THREE.CircleGeometry(isLowDetail ? 0.18 : 0.25, isLowDetail ? 10 : 16);
+      const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: isLowDetail ? 0.72 : 0.82, side: THREE.DoubleSide, depthWrite: false });
+      const markerMesh = new THREE.InstancedMesh(markerGeometry, markerMaterial, sectorMarkerDefs.length);
+      markerMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const markerDummy = new THREE.Object3D();
+      sectorMarkerDefs.forEach((marker, index) => {
+        markerDummy.position.copy(marker.position);
+        markerDummy.rotation.set(-Math.PI / 2, 0, 0);
+        markerDummy.scale.setScalar(marker.baseScale);
+        markerDummy.updateMatrix();
+        markerMesh.setMatrixAt(index, markerDummy.matrix);
+        markerMesh.setColorAt(index, new THREE.Color(marker.color));
+      });
+      markerMesh.instanceMatrix.needsUpdate = true;
+      if (markerMesh.instanceColor) markerMesh.instanceColor.needsUpdate = true;
+      scene.add(markerMesh);
+      sectorMarkers = { mesh: markerMesh, defs: sectorMarkerDefs };
+    }
 
     const corners = []; const cSamp = 250;
     for (let i = 0; i < cSamp - 2; i++) {
@@ -409,7 +455,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       const cross = Math.abs((p1c.x - p0.x) * (p2c.z - p1c.z) - (p1c.z - p0.z) * (p2c.x - p1c.x));
       if (cross > 0.12 && (corners.length === 0 || Math.abs(t1 - corners[corners.length - 1].t) > 0.035)) corners.push({ t: t1, p: p1c });
     }
-    corners.slice(0, circuitTurns).forEach((c, i) => {
+    if (!isLowDetail) corners.slice(0, circuitTurns).forEach((c, i) => {
       const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
       const ctx = cv.getContext("2d");
       ctx.fillStyle = "rgba(225,6,0,0.75)"; ctx.beginPath(); ctx.arc(24, 24, 20, 0, Math.PI * 2); ctx.fill();
@@ -433,8 +479,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.01; g.add(shadow);
       const glow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 16), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isGhost ? 0.05 : 0.025, side: THREE.DoubleSide, depthWrite: false }));
       glow.rotation.x = -Math.PI / 2; glow.position.y = 0.005; g.add(glow);
-      const carLight = new THREE.PointLight(col, isGhost ? 0.5 : 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(carLight);
-      if (label) {
+      if (!isLowDetail && !isGhost) {
+        const carLight = new THREE.PointLight(col, 0.25, 8); carLight.position.set(0, 0.3, 0); g.add(carLight);
+      }
+      if (label && !isLowDetail) {
         // Vertical pole line from car to flag
         const poleGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.3, 0), new THREE.Vector3(0, 2.0, 0)]);
         const pole = new THREE.Line(poleGeo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 }));
@@ -473,8 +521,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
           group.userData.modelLoaded = true;
         });
       };
-      const connection = window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
-      const shouldLoadDetailedCars = !isMob && !connection?.saveData && ((window.navigator?.deviceMemory ?? 8) > 4);
+      const shouldLoadDetailedCars = !isLowDetail;
       if (shouldLoadDetailedCars) {
         const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
         import("three/examples/jsm/loaders/GLTFLoader.js").then(({ GLTFLoader }) => {
@@ -519,10 +566,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         addFallbackCars();
       }
 
-      const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1); spot1.position.set(0, 12, 0); scene.add(spot1);
-      const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1); spot2.position.set(0, 12, 0); scene.add(spot2);
-      spot1.target = car1;
-      spot2.target = car2;
+      const spot1 = !isLowDetail ? new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1) : null;
+      const spot2 = !isLowDetail ? new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1) : null;
+      if (spot1) { spot1.position.set(0, 12, 0); spot1.target = car1; scene.add(spot1); }
+      if (spot2) { spot2.position.set(0, 12, 0); spot2.target = car2; scene.add(spot2); }
 
       const deltaGeo = new THREE.BufferGeometry(); const deltaPos = new Float32Array(6);
       const deltaPosAttr = new THREE.Float32BufferAttribute(deltaPos, 3);
@@ -531,8 +578,10 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
       const deltaLine = new THREE.Line(deltaGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
       deltaLine.frustumCulled = false; scene.add(deltaLine);
 
-      const rlLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
-      rlLine.position.y += 0.015; scene.add(rlLine);
+      if (!isLowDetail) {
+        const rlLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(seg)), new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 }));
+        rlLine.position.y += 0.015; scene.add(rlLine);
+      }
 
       function makeTrail(color, ghost) {
         const max = isMob ? 72 : 120, pos = new Float32Array(max * 3);
@@ -665,7 +714,18 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, c1, c2, cam,
         if (sp2) sp2.position.set(p2.x, p2.y + 12, p2.z);
         if (dL && dP) { dP[0] = p1.x; dP[1] = p1.y + 0.5; dP[2] = p1.z; dP[3] = p2.x; dP[4] = p2.y + 0.5; dP[5] = p2.z; dL.geometry.attributes.position.needsUpdate = true; const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2); dL.material.opacity = Math.min(0.6, gap * 0.08); }
         const curSector = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
-        if (sectorMarkers) sectorMarkers.forEach((sm) => { sm.mesh.material.opacity = sm.sector === curSector ? 0.9 + Math.sin(now * 0.006) * 0.1 : 0.4; });
+        if (sectorMarkers?.mesh && sectorMarkers?.defs?.length) {
+          const markerDummy = R.current._markerDummy || (R.current._markerDummy = new THREE.Object3D());
+          sectorMarkers.defs.forEach((marker, index) => {
+            const pulse = marker.sector === curSector ? 1.12 + Math.sin(now * 0.006) * 0.08 : 0.82;
+            markerDummy.position.copy(marker.position);
+            markerDummy.rotation.set(-Math.PI / 2, 0, 0);
+            markerDummy.scale.setScalar(marker.baseScale * pulse);
+            markerDummy.updateMatrix();
+            sectorMarkers.mesh.setMatrixAt(index, markerDummy.matrix);
+          });
+          sectorMarkers.mesh.instanceMatrix.needsUpdate = true;
+        }
 
         // Camera follow
         const cm = cmRef.current;
