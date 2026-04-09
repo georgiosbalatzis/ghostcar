@@ -1,6 +1,5 @@
 import { useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { F1_DARK, F1_LIGHT } from "../constants.js";
 import { lerp, norm, smoothPath } from "../helpers.js";
 
@@ -463,43 +462,61 @@ export default function useScene(ref, tp, l1, l2, progRef, c1, c2, cam, lab1, la
     const car4 = l4?.length > 0 && lab4 ? makeCarGroup(c4, lab4, true) : null;
     if (car3) scene.add(car3); if (car4) scene.add(car4);
 
-      const loader = new GLTFLoader();
-      const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
-      loader.load(basePath, (gltf) => {
-        if (!active) {
-          disposeScene(gltf.scene);
-          return;
-        }
-        const template = gltf.scene; const modelScale = 0.12;
-        function applyModel(carGroup) {
-          if (!carGroup) return;
-          const clone = template.clone(true); clone.scale.set(modelScale, modelScale, modelScale);
-          const box = new THREE.Box3().setFromObject(clone); const center = box.getCenter(new THREE.Vector3());
-          clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
-          const col = new THREE.Color(carGroup.userData.color); const isGhost = carGroup.userData.isGhost;
-          clone.traverse((child) => {
-            if (child.isMesh && child.material) {
-              try {
-                const mat = child.material.clone(); const name = (mat.name || "").toLowerCase();
-                if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) { mat.color.copy(col); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = isGhost ? 0.4 : 0.15; } }
-                else if (name.includes("3rd")) { mat.color.copy(col).multiplyScalar(0.6); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = 0.1; } }
-                else if (name.includes("mirror")) { mat.color.setHex(0x888888); }
-                if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
-                child.material = mat;
-              } catch (e) { /* skip */ }
-            }
-          });
-          carGroup.add(clone); carGroup.userData.modelLoaded = true;
-        }
-        applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
-      }, undefined, () => {
-        if (!active) return;
-        [car1, car2, car3, car4].filter(Boolean).forEach((g) => {
-          const col = new THREE.Color(g.userData.color);
-          const m = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: g.userData.isGhost, opacity: g.userData.isGhost ? 0.5 : 1 }));
-          m.position.y = 0.15; g.add(m);
+      const addFallbackCars = () => {
+        [car1, car2, car3, car4].filter(Boolean).forEach((group) => {
+          if (group.userData.modelLoaded) return;
+          const col = new THREE.Color(group.userData.color);
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 1.2), new THREE.MeshPhongMaterial({ color: col, emissive: col, emissiveIntensity: 0.2, transparent: group.userData.isGhost, opacity: group.userData.isGhost ? 0.5 : 1 }));
+          mesh.position.y = 0.15;
+          group.add(mesh);
+          group.userData.modelLoaded = true;
         });
-      });
+      };
+      const connection = window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
+      const shouldLoadDetailedCars = !isMob && !connection?.saveData && ((window.navigator?.deviceMemory ?? 8) > 4);
+      if (shouldLoadDetailedCars) {
+        const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
+        import("three/examples/jsm/loaders/GLTFLoader.js").then(({ GLTFLoader }) => {
+          if (!active || contextLost) return;
+          const loader = new GLTFLoader();
+          loader.load(basePath, (gltf) => {
+            if (!active) {
+              disposeScene(gltf.scene);
+              return;
+            }
+            const template = gltf.scene; const modelScale = 0.12;
+            function applyModel(carGroup) {
+              if (!carGroup) return;
+              const clone = template.clone(true); clone.scale.set(modelScale, modelScale, modelScale);
+              const box = new THREE.Box3().setFromObject(clone); const center = box.getCenter(new THREE.Vector3());
+              clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
+              const col = new THREE.Color(carGroup.userData.color); const isGhost = carGroup.userData.isGhost;
+              clone.traverse((child) => {
+                if (child.isMesh && child.material) {
+                  try {
+                    const mat = child.material.clone(); const name = (mat.name || "").toLowerCase();
+                    if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) { mat.color.copy(col); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = isGhost ? 0.4 : 0.15; } }
+                    else if (name.includes("3rd")) { mat.color.copy(col).multiplyScalar(0.6); if (mat.emissive) { mat.emissive.copy(col); mat.emissiveIntensity = 0.1; } }
+                    else if (name.includes("mirror")) { mat.color.setHex(0x888888); }
+                    if (isGhost) { mat.transparent = true; mat.opacity = 0.5; }
+                    child.material = mat;
+                  } catch (e) { /* skip */ }
+                }
+              });
+              carGroup.add(clone); carGroup.userData.modelLoaded = true;
+            }
+            applyModel(car1); applyModel(car2); applyModel(car3); applyModel(car4);
+          }, undefined, () => {
+            if (!active) return;
+            addFallbackCars();
+          });
+        }).catch(() => {
+          if (!active) return;
+          addFallbackCars();
+        });
+      } else {
+        addFallbackCars();
+      }
 
       const spot1 = new THREE.SpotLight(new THREE.Color(c1), 0.6, 25, Math.PI / 6, 0.5, 1); spot1.position.set(0, 12, 0); scene.add(spot1);
       const spot2 = new THREE.SpotLight(new THREE.Color(c2), 0.4, 25, Math.PI / 6, 0.5, 1); spot2.position.set(0, 12, 0); scene.add(spot2);

@@ -6,10 +6,21 @@ import { getModalCloseButtonStyle } from "./modalStyles.js";
 const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }) {
   const F1 = getF1();
   const stats = useMemo(() => allDrivers.map((d) => {
-    const topSpd = d.tel?.length ? Math.max(...d.tel.map((t) => t.speed || 0)) : 0;
-    const avgSpd = d.tel?.length ? d.tel.reduce((a, t) => a + (t.speed || 0), 0) / d.tel.length : 0;
-    const fThr = d.tel?.length ? d.tel.filter((t) => t.throttle >= 95).length / d.tel.length * 100 : 0;
-    const brk = d.tel?.length ? d.tel.filter((t) => t.brake > 0).length / d.tel.length * 100 : 0;
+    const tel = d.tel || [];
+    let topSpd = 0;
+    let sumSpd = 0;
+    let fullThrottleSamples = 0;
+    let brakingSamples = 0;
+    for (const sample of tel) {
+      const speed = sample.speed || 0;
+      if (speed > topSpd) topSpd = speed;
+      sumSpd += speed;
+      if ((sample.throttle || 0) >= 95) fullThrottleSamples++;
+      if ((sample.brake || 0) > 0) brakingSamples++;
+    }
+    const avgSpd = tel.length ? sumSpd / tel.length : 0;
+    const fThr = tel.length ? (fullThrottleSamples / tel.length) * 100 : 0;
+    const brk = tel.length ? (brakingSamples / tel.length) * 100 : 0;
     return { lapTime: d.li?.lap_duration, topSpd, avgSpd, fThr, brk, s1: d.li?.duration_sector_1, s2: d.li?.duration_sector_2, s3: d.li?.duration_sector_3, tire: d.tire };
   }), [allDrivers]);
   const rows = useMemo(() => [
@@ -22,7 +33,16 @@ const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }
     { m: "FULL THROTTLE", vals: stats.map((s) => `${s.fThr.toFixed(1)}%`), raw: stats.map((s) => s.fThr), lower: false },
     { m: "BRAKING", vals: stats.map((s) => `${s.brk.toFixed(1)}%`), raw: stats.map((s) => s.brk), lower: true },
     { m: "TYRE", vals: stats.map((s) => s.tire || "—"), raw: null },
-  ], [stats]);
+  ].map((row) => {
+    if (!row.raw?.length) return { ...row, bestIdx: -1 };
+    let bestIdx = 0;
+    for (let i = 1; i < row.raw.length; i++) {
+      const current = row.raw[i];
+      const best = row.raw[bestIdx];
+      if (row.lower ? current < best : current > best) bestIdx = i;
+    }
+    return { ...row, bestIdx };
+  }), [stats]);
 
   const wrapStyle = inline
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
@@ -44,11 +64,10 @@ const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }
             {allDrivers.map((d, i) => <th key={i} style={{ textAlign: "center", padding: "8px 4px", color: d.co, borderBottom: `2px solid ${d.co}44`, fontSize: 10 }}>{d.di?.name_acronym || `D${i+1}`}</th>)}
           </tr></thead>
           <tbody>{rows.map((r) => {
-            const bestIdx = r.raw ? (r.lower ? r.raw.indexOf(Math.min(...r.raw)) : r.raw.indexOf(Math.max(...r.raw))) : -1;
             return (<tr key={r.m} style={{ borderBottom: `1px solid ${F1.borderLight}` }}>
               <td style={{ padding: "6px 6px", color: F1.textDim, fontSize: 9 }}>{r.m}</td>
               {r.vals.map((v, i) => (
-                <td key={i} style={{ padding: "6px 4px", textAlign: "center", fontWeight: i === bestIdx ? 800 : 400, color: i === bestIdx ? allDrivers[i].co : F1.text, background: i === bestIdx ? `${allDrivers[i].co}08` : "transparent" }}>{v}</td>
+                <td key={i} style={{ padding: "6px 4px", textAlign: "center", fontWeight: i === r.bestIdx ? 800 : 400, color: i === r.bestIdx ? allDrivers[i].co : F1.text, background: i === r.bestIdx ? `${allDrivers[i].co}08` : "transparent" }}>{v}</td>
               ))}
             </tr>);
           })}</tbody>
