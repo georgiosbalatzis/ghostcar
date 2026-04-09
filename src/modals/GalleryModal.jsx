@@ -1,7 +1,7 @@
 import { useF1 } from "../theme.js";
 import { getModalCloseButtonStyle } from "./modalStyles.js";
 
-export default function GalleryModal({ mob, gallery, onClose, onClear }) {
+export default function GalleryModal({ mob, gallery, onClose, onClear, onSelect }) {
   const F1 = useF1();
   return (
     <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 500, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" }}>
@@ -11,7 +11,7 @@ export default function GalleryModal({ mob, gallery, onClose, onClear }) {
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
         {gallery.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>No saved comparisons yet.</div> : gallery.map((g) => (
-          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4, background: F1.cardBg, borderRadius: 6, cursor: "pointer", borderLeft: `3px solid ${g.c1}` }} onClick={() => { window.location.href = g.url; onClose(); }}>
+          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", marginBottom: 4, background: F1.cardBg, borderRadius: 6, cursor: "pointer", borderLeft: `3px solid ${g.c1}` }} onClick={() => { onSelect?.(g.url); onClose(); }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 700, fontFamily: F1.mono }}>
                 <span style={{ color: g.c1 }}>{g.d1n}</span> <span style={{ color: F1.textMuted }}>vs</span> <span style={{ color: g.c2 }}>{g.d2n}</span>
