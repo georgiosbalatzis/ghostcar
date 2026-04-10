@@ -1336,11 +1336,11 @@ export default function App({ embed }) {
         @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
         *{box-sizing:border-box;margin:0;padding:0}
-        .app-shell-mobile{overflow-y:auto;min-height:100vh}
-        .app-shell-embed{height:100vh;min-height:100vh;overflow:hidden}
-        @supports (min-height: 100dvh){
-          .app-shell-mobile{min-height:100dvh}
-          .app-shell-embed{min-height:100dvh;height:100dvh}
+        .app-shell-mobile{overflow:hidden;height:100vh}
+        .app-shell-embed{overflow:hidden;height:100vh}
+        @supports (height: 100dvh){
+          .app-shell-mobile{height:100dvh}
+          .app-shell-embed{height:100dvh}
         }
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${F1.blue}44;border-radius:2px}
         select,button{font-family:${F1.sans}}
@@ -1422,7 +1422,7 @@ export default function App({ embed }) {
       </div>)}
 
       {/* Header */}
-      {!embed && <div style={{ display: "flex", alignItems: "center", background: isDark ? "rgba(17,17,24,0.92)" : "rgba(245,245,247,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.08)", boxShadow: "0 2px 12px rgba(0,0,0,0.45)", zIndex: 10, position: "relative", padding: mob ? "0 10px" : "0 20px", minHeight: mob ? 44 : 52, gap: mob ? 8 : 18 }}>
+      {!embed && <div style={{ display: "flex", alignItems: "center", flexShrink: 0, background: isDark ? "rgba(17,17,24,0.92)" : "rgba(245,245,247,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.08)", boxShadow: "0 2px 12px rgba(0,0,0,0.45)", zIndex: 10, position: "relative", padding: mob ? "0 10px" : "0 20px", minHeight: mob ? 44 : 52, gap: mob ? 8 : 18 }}>
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" className="hdr-logo-link">
             <img src={LOGO_SRC} alt="F1 Stories" style={{ height: mob ? 26 : 32, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
             {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
@@ -1493,7 +1493,7 @@ export default function App({ embed }) {
       </>)}
 
       {/* Selectors */}
-      {!embed && <div ref={selectorsRef} style={{ padding: mob ? "6px 8px" : "8px 18px", borderBottom: `1px solid ${highlightConfig ? `${F1.blue}77` : F1.borderLight}`, background: F1.carbonLight, boxShadow: highlightConfig ? `0 0 0 2px ${F1.blue}22 inset, 0 0 24px ${F1.blueGlow}` : "none", transition: "box-shadow .25s ease, border-color .25s ease" }}>
+      {!embed && <div ref={selectorsRef} style={{ padding: mob ? "6px 8px" : "8px 18px", flexShrink: 0, borderBottom: `1px solid ${highlightConfig ? `${F1.blue}77` : F1.borderLight}`, background: F1.carbonLight, boxShadow: highlightConfig ? `0 0 0 2px ${F1.blue}22 inset, 0 0 24px ${F1.blueGlow}` : "none", transition: "box-shadow .25s ease, border-color .25s ease" }}>
         {/* Row 1: Event selectors */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
           <select ref={yearSelectRef} value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 124 : "auto", fontSize: mob ? 11 : 12 }}>
@@ -1808,7 +1808,7 @@ export default function App({ embed }) {
 
       {/* Footer */}
       {!embed && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", flexShrink: 0, background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
           <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
             <img src={LOGO_SRC} alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
             <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
