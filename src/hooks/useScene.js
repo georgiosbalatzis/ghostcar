@@ -180,7 +180,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       const w = Math.max(el.clientWidth, 1), h = Math.max(el.clientHeight, 1);
       const isMob = w < 768;
       const connection = window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
-      const isLowDetail = isMob || connection?.saveData || ((window.navigator?.deviceMemory ?? 8) <= 4);
+      const deviceMemory = window.navigator?.deviceMemory ?? 8;
+      const isBandwidthSaving = !!connection?.saveData;
+      const isMemoryConstrained = deviceMemory <= 3;
+      const isLowDetail = isBandwidthSaving || deviceMemory <= 2;
+      const initialPixelRatio = Math.min(window.devicePixelRatio || 1, isBandwidthSaving ? 1.25 : isMemoryConstrained ? 1.5 : 2);
       scene = new Scene();
       const T = isDark ? F1_DARK : F1_LIGHT;
 
@@ -198,7 +202,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         powerPreference: isMob ? "low-power" : "high-performance",
         preserveDrawingBuffer: !isMob,
       });
-      ren.setSize(w, h); ren.setPixelRatio(Math.min(window.devicePixelRatio, isLowDetail ? 1.25 : isMob ? 1.5 : 2));
+      ren.setSize(w, h); ren.setPixelRatio(initialPixelRatio);
       ren.toneMapping = ACESFilmicToneMapping;
       ren.toneMappingExposure = isDark ? 1.1 : 1.0;
       el.appendChild(ren.domElement);
@@ -566,7 +570,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
           group.userData.modelLoaded = true;
         });
       };
-      const shouldLoadDetailedCars = !isLowDetail;
+      const shouldLoadDetailedCars = true;
       if (shouldLoadDetailedCars) {
         const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
         Promise.all([
@@ -713,7 +717,9 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       // ─── Adaptive quality (A1) ───────────────────────────────────────────────
       // Measures rolling average FPS every 2 s and steps pixel-ratio down/up in
       // tiers without touching any React state (zero re-renders).
-      const basePixelRatio = ren.getPixelRatio();
+      const basePixelRatio = initialPixelRatio;
+      const canReduceResolution = isMob || isMemoryConstrained || isBandwidthSaving;
+      const minimumAdaptivePixelRatio = Math.min(basePixelRatio, isMob ? 1.25 : 1.5);
       const fpsWindow = new Float32Array(60);
       let fpsWIdx = 0;
       let fpsWFull = false;
@@ -725,8 +731,8 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         const pr = tier === 0
           ? basePixelRatio
           : tier === 1
-            ? Math.max(0.75, basePixelRatio - 0.25)
-            : Math.max(0.75, basePixelRatio - 0.5);
+            ? Math.max(minimumAdaptivePixelRatio, basePixelRatio - 0.2)
+            : Math.max(minimumAdaptivePixelRatio, basePixelRatio - 0.45);
         ren.setPixelRatio(pr);
         if (el && !contextLost && el.clientWidth && el.clientHeight) ren.setSize(el.clientWidth, el.clientHeight);
         R.current._starFrozen = tier >= 2;
@@ -734,6 +740,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       }
 
       function checkAdaptiveQuality(now) {
+        if (!canReduceResolution) return;
         if (now - lastFpsCheck < 2000) return;
         lastFpsCheck = now;
         const samples = fpsWFull ? 60 : fpsWIdx;
@@ -742,11 +749,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
         for (let i = 0; i < samples; i++) sum += fpsWindow[i];
         const avgFps = 1000 / (sum / samples);
         fpsWIdx = 0; fpsWFull = false;
-        if (avgFps < 35 && qualityTier < 2) {
+        if (avgFps < 28 && qualityTier < 2) {
           qualityTier = 2; applyQualityTier(2); recoveryCount = 0;
-        } else if (avgFps < 50 && qualityTier < 1) {
+        } else if (avgFps < 42 && qualityTier < 1) {
           qualityTier = 1; applyQualityTier(1); recoveryCount = 0;
-        } else if (avgFps >= 58 && qualityTier > 0) {
+        } else if (avgFps >= 55 && qualityTier > 0) {
           if (++recoveryCount >= 3) { qualityTier = Math.max(0, qualityTier - 1); applyQualityTier(qualityTier); recoveryCount = 0; }
         } else {
           recoveryCount = 0;
