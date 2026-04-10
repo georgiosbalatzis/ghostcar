@@ -24,15 +24,15 @@ const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }
     return { lapTime: d.li?.lap_duration, topSpd, avgSpd, fThr, brk, s1: d.li?.duration_sector_1, s2: d.li?.duration_sector_2, s3: d.li?.duration_sector_3, tire: d.tire };
   }), [allDrivers]);
   const rows = useMemo(() => [
-    { m: "LAP TIME", vals: stats.map((s) => s.lapTime ? fmt(s.lapTime) : "—"), raw: stats.map((s) => s.lapTime || 999), lower: true },
-    { m: "TOP SPEED", vals: stats.map((s) => Math.round(s.topSpd)), raw: stats.map((s) => s.topSpd), lower: false },
-    { m: "AVG SPEED", vals: stats.map((s) => Math.round(s.avgSpd)), raw: stats.map((s) => s.avgSpd), lower: false },
-    { m: "SECTOR 1", vals: stats.map((s) => s.s1?.toFixed(3) || "—"), raw: stats.map((s) => s.s1 || 999), lower: true },
-    { m: "SECTOR 2", vals: stats.map((s) => s.s2?.toFixed(3) || "—"), raw: stats.map((s) => s.s2 || 999), lower: true },
-    { m: "SECTOR 3", vals: stats.map((s) => s.s3?.toFixed(3) || "—"), raw: stats.map((s) => s.s3 || 999), lower: true },
-    { m: "FULL THROTTLE", vals: stats.map((s) => `${s.fThr.toFixed(1)}%`), raw: stats.map((s) => s.fThr), lower: false },
-    { m: "BRAKING", vals: stats.map((s) => `${s.brk.toFixed(1)}%`), raw: stats.map((s) => s.brk), lower: true },
-    { m: "TYRE", vals: stats.map((s) => s.tire || "—"), raw: null },
+    { m: "ΧΡΟΝΟΣ ΓΥΡΟΥ", vals: stats.map((s) => s.lapTime ? fmt(s.lapTime) : "—"), raw: stats.map((s) => s.lapTime || 999), lower: true },
+    { m: "ΤΕΛΙΚΗ ΤΑΧΥΤΗΤΑ", vals: stats.map((s) => Math.round(s.topSpd)), raw: stats.map((s) => s.topSpd), lower: false },
+    { m: "ΜΕΣΗ ΤΑΧΥΤΗΤΑ", vals: stats.map((s) => Math.round(s.avgSpd)), raw: stats.map((s) => s.avgSpd), lower: false },
+    { m: "ΤΟΜΕΑΣ 1", vals: stats.map((s) => s.s1?.toFixed(3) || "—"), raw: stats.map((s) => s.s1 || 999), lower: true },
+    { m: "ΤΟΜΕΑΣ 2", vals: stats.map((s) => s.s2?.toFixed(3) || "—"), raw: stats.map((s) => s.s2 || 999), lower: true },
+    { m: "ΤΟΜΕΑΣ 3", vals: stats.map((s) => s.s3?.toFixed(3) || "—"), raw: stats.map((s) => s.s3 || 999), lower: true },
+    { m: "ΠΛΗΡΕΣ ΓΚΑΖΙ", vals: stats.map((s) => `${s.fThr.toFixed(1)}%`), raw: stats.map((s) => s.fThr), lower: false },
+    { m: "ΦΡΕΝΑΡΙΣΜΑ", vals: stats.map((s) => `${s.brk.toFixed(1)}%`), raw: stats.map((s) => s.brk), lower: true },
+    { m: "ΓΟΜΑ", vals: stats.map((s) => s.tire || "—"), raw: null },
   ].map((row) => {
     if (!row.raw?.length) return { ...row, bestIdx: -1 };
     let bestIdx = 0;
@@ -52,15 +52,15 @@ const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }
     <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP ANALYSIS</div>
-          <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Detailed telemetry comparison</div>
+          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>ΑΝΑΛΥΣΗ ΓΥΡΟΥ</div>
+          <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Αναλυτική σύγκριση τηλεμετρίας</div>
         </div>
-        <button aria-label="Close lap analysis" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
+        <button aria-label="Κλείσιμο ανάλυσης γύρου" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "0 20px 20px" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, fontFamily: F1.mono }}>
           <thead><tr style={{ color: F1.textMuted, fontSize: 9, letterSpacing: "0.1em" }}>
-            <th style={{ textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${F1.blue}22` }}>METRIC</th>
+            <th style={{ textAlign: "left", padding: "8px 6px", borderBottom: `1px solid ${F1.blue}22` }}>ΜΕΤΡΗΣΗ</th>
             {allDrivers.map((d, i) => <th key={i} style={{ textAlign: "center", padding: "8px 4px", color: d.co, borderBottom: `2px solid ${d.co}44`, fontSize: 10 }}>{d.di?.name_acronym || `D${i+1}`}</th>)}
           </tr></thead>
           <tbody>{rows.map((r) => {

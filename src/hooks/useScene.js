@@ -15,21 +15,21 @@ import { getSmoothPathPointCount, lerp, norm, smoothPath } from "../helpers.js";
 
 function getSceneSupportError() {
   if (typeof window === "undefined") return "";
-  if (!window.WebGLRenderingContext) return "This browser does not support WebGL.";
+  if (!window.WebGLRenderingContext) return "Αυτός ο browser δεν υποστηρίζει WebGL.";
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    return gl ? "" : "WebGL is disabled or unavailable on this device.";
+    return gl ? "" : "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
   } catch {
-    return "WebGL is disabled or unavailable on this device.";
+    return "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
   }
 }
 
 function formatSceneError(error) {
   const message = error instanceof Error ? error.message : String(error || "");
-  if (!message) return "Unable to start the 3D scene.";
+  if (!message) return "Δεν ήταν δυνατή η εκκίνηση της 3D σκηνής.";
   if (/webgl|context/i.test(message)) return message;
-  return `Unable to start the 3D scene. ${message}`;
+  return `Δεν ήταν δυνατή η εκκίνηση της 3D σκηνής. ${message}`;
 }
 
 function disposeMaterial(material, disposedTextures) {
@@ -214,7 +214,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       onContextLost = (event) => {
         event.preventDefault();
         contextLost = true;
-        fail("WebGL context was lost. Reload the page or enable hardware acceleration.");
+        fail("Το WebGL context χάθηκε. Κάνε ανανέωση ή ενεργοποίησε hardware acceleration.");
       };
       de.addEventListener("webglcontextlost", onContextLost, false);
       onError?.("");

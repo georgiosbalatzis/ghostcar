@@ -9,7 +9,7 @@ export default function TelemetryModal({ mob, onClose, panelProps }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Telemetry charts"
+      aria-label="Γραφήματα τηλεμετρίας"
       style={{
         position: "fixed",
         top: "50%",
@@ -32,10 +32,10 @@ export default function TelemetryModal({ mob, onClose, panelProps }) {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>TELEMETRY CENTER</div>
-          <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Speed, throttle, brake and live playback metrics</div>
+          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>ΚΕΝΤΡΟ ΤΗΛΕΜΕΤΡΙΑΣ</div>
+          <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>Ταχύτητα, γκάζι, φρένο και ζωντανές μετρήσεις αναπαραγωγής</div>
         </div>
-        <button aria-label="Close telemetry overlay" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
+        <button aria-label="Κλείσιμο overlay τηλεμετρίας" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <TelemetryPanel {...panelProps} />

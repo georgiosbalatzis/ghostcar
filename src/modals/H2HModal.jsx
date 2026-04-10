@@ -40,30 +40,30 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
     <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>HEAD-TO-HEAD {year}</div>
-          <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "D1"} vs {di2?.name_acronym || "D2"} — Qualifying</div>
+          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>H2H {year}</div>
+          <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "Ο1"} εναντίον {di2?.name_acronym || "Ο2"} — Κατατακτήριες</div>
         </div>
-        <button aria-label="Close head to head" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
+        <button aria-label="Κλείσιμο αναμέτρησης H2H" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
         {!!progress?.total && (
           <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: F1.cardBg, border: `1px solid ${F1.borderLight}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: 10, color: F1.textDim, fontFamily: F1.mono }}>
-              <span>{progressActive ? `Checking ${progress.currentGp?.replace("Grand Prix", "GP") || "qualifying sessions"}...` : "Head-to-head scan complete"}</span>
+              <span>{progressActive ? `Έλεγχος ${progress.currentGp?.replace("Grand Prix", "GP") || "κατατακτήριων"}...` : "Η σάρωση ολοκληρώθηκε"}</span>
               <span>{progress.checked}/{progress.total}</span>
             </div>
             <div style={{ height: 4, background: F1.borderLight, borderRadius: 4, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${progressPct}%`, background: F1.blue, borderRadius: 4, transition: "width .25s ease" }} />
             </div>
             <div style={{ marginTop: 6, fontSize: 10, color: F1.textMuted }}>
-              {progress.found || 0} comparable qualifying sessions found so far.
+              Βρέθηκαν μέχρι τώρα {progress.found || 0} συγκρίσιμα σκέλη κατατακτήριων.
             </div>
           </div>
         )}
         {!h2hData ? (
-          <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching qualifying data across GPs<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
+          <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Ανάκτηση δεδομένων κατατακτήριων από όλα τα GP<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
         ) : h2hData.length === 0 ? (
-          <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No qualifying data found</div>
+          <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>Δεν βρέθηκαν δεδομένα κατατακτήριων</div>
         ) : (<>
           <svg width="100%" height={h2hData.length * 32 + 20} viewBox={`0 0 300 ${h2hData.length * 32 + 20}`} style={{ display: "block" }}>
             {chartData?.rows.map((row, index) => {
@@ -78,7 +78,7 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
           </svg>
           <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8, fontSize: 11, fontFamily: F1.mono }}>
             <span style={{ color: co1, fontWeight: 700 }}>{di1?.name_acronym}: {chartData?.wins1 || 0}</span>
-            <span style={{ color: F1.textMuted }}>wins</span>
+            <span style={{ color: F1.textMuted }}>νίκες</span>
             <span style={{ color: co2, fontWeight: 700 }}>{di2?.name_acronym}: {chartData?.wins2 || 0}</span>
           </div>
         </>)}
