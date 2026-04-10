@@ -84,17 +84,17 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
                   <div style={{ height: 16, width: 5, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
                     <div style={{ position: "absolute", bottom: 0, width: "100%", height: `${ct.throttle}%`, background: F1.green, borderRadius: 2, transition: "height 0.1s" }} />
                   </div>
-                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>THR</div>
+                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΓΚΖ</div>
                 </div>
                 <div style={{ width: 24, textAlign: "center" }}>
                   <div style={{ height: 16, width: 5, margin: "0 auto", background: F1.border, borderRadius: 2, position: "relative", overflow: "hidden" }}>
                     <div style={{ position: "absolute", bottom: 0, width: "100%", height: ct.brake > 0 ? "100%" : "0%", background: F1.red, borderRadius: 2, transition: "height 0.1s" }} />
                   </div>
-                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>BRK</div>
+                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΦΡΝ</div>
                 </div>
                 <div style={{ width: 24, textAlign: "center" }}>
                   <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", fontFamily: F1.mono, lineHeight: "16px" }}>{ct.n_gear ?? ct.gear ?? "—"}</div>
-                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>GEAR</div>
+                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΣΧ</div>
                 </div>
               </div>
               {x.tire && <div style={{ position: "absolute", top: 4, right: 4, display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 5, height: 5, borderRadius: "50%", background: TIRE_COLORS[x.tire] || "#888" }} /><span style={{ fontSize: 7, fontFamily: F1.mono, color: F1.textMuted }}>{x.tire}</span></div>}
@@ -107,7 +107,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
       {/* Elevation */}
       {elevationPath && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ELEVATION</div>
+          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ΥΨΟΜΕΤΡΟ</div>
           <svg width="100%" height="40" viewBox="0 0 300 40" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg }}>
             <path d={elevationPath + "L300,40L0,40Z"} fill={`${F1.blue}15`} />
             <path d={elevationPath} fill="none" stroke={F1.blue} strokeWidth="1.5" opacity="0.6" />
@@ -120,7 +120,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
       {lapDeltaPts && (() => {
         const { pts, maxA } = lapDeltaPts;
         return (<div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>LAP DELTA</div>
+          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ΔΙΑΦΟΡΑ ΓΥΡΟΥ</div>
           <svg width="100%" height="50" viewBox="0 0 300 50" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block" }}>
             <line x1="0" y1="25" x2="300" y2="25" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
             {pts.map((v, i) => { const x = (i / 3) * 280 + 10; const y = 25 - (v / maxA) * 20; return (<g key={i}>{i > 0 && <line x1={(i - 1) / 3 * 280 + 10} y1={25 - (pts[i - 1] / maxA) * 20} x2={x} y2={y} stroke={v < 0 ? co1 : co2} strokeWidth="2" />}<circle cx={x} cy={y} r="3" fill={v < 0 ? co1 : v > 0 ? co2 : F1.textMuted} />{i > 0 && <text x={x} y={y < 25 ? y - 6 : y + 12} textAnchor="middle" fill={F1.text} fontSize="7" fontFamily="sans-serif" fontWeight="700">{v > 0 ? "+" : ""}{v.toFixed(3)}</text>}</g>); })}
@@ -134,7 +134,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
       {/* Speed traps */}
       {speedTraps && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED TRAPS</div>
+          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ΣΗΜΕΙΑ ΤΑΧΥΤΗΤΑΣ</div>
           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
             {speedTraps.map((trap, i) => (
               <div key={i} style={{ flex: 1, minWidth: 48, background: F1.cardBg, borderRadius: 3, padding: "3px 4px", textAlign: "center" }}>
@@ -149,7 +149,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
 
       {/* Sector indicator */}
       {tp && (() => {
-        const sColors = ["#00d26a", "#ffd700", "#9b59b6"]; const sLabels = ["SECTOR 1", "SECTOR 2", "SECTOR 3"];
+        const sColors = ["#00d26a", "#ffd700", "#9b59b6"]; const sLabels = ["ΤΟΜΕΑΣ 1", "ΤΟΜΕΑΣ 2", "ΤΟΜΕΑΣ 3"];
         return (<div style={{ display: "flex", gap: 3, marginBottom: 10 }}>
           {[0, 1, 2].map((s) => (<div key={s} style={{ flex: 1, padding: "4px 0", textAlign: "center", borderRadius: 3, background: s === sIdx ? sColors[s] + "22" : F1.cardBg, border: s === sIdx ? `1px solid ${sColors[s]}55` : "1px solid transparent", transition: "all 0.3s" }}>
             <div style={{ fontSize: 8, fontWeight: 700, color: s === sIdx ? sColors[s] : F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em" }}>{sLabels[s]}</div>
@@ -162,24 +162,24 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
       {tireDegData && (() => {
         const { laps, best, maxDeg } = tireDegData;
         return (<div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>TIRE DEG</div>
+          <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ΦΘΟΡΑ ΓΟΜΑΣ</div>
           <svg width="100%" height="35" viewBox="0 0 300 35" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block" }}>
             {laps.map((l, i) => { const x = (i / (laps.length - 1)) * 290 + 5; const deg = l.lap_duration - best; const y = 30 - (deg / (maxDeg || 1)) * 25;
               const tire = st1.find((s) => l.lap_number >= s.lap_start && l.lap_number <= s.lap_end)?.compound?.toUpperCase();
               const tc = tire === "SOFT" ? "#ff3333" : tire === "MEDIUM" ? "#ffcc00" : tire === "HARD" ? "#ccc" : co1;
               return (<g key={i}>{i > 0 && <line x1={(((i - 1) / (laps.length - 1)) * 290 + 5)} y1={30 - ((laps[i - 1].lap_duration - best) / (maxDeg || 1)) * 25} x2={x} y2={y} stroke={tc} strokeWidth="1.5" opacity="0.7" />}<circle cx={x} cy={y} r={l.lap_number === sl1 ? 3 : 1.5} fill={l.lap_number === sl1 ? "#fff" : tc} /></g>); })}
             <text x="5" y="10" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">+{maxDeg.toFixed(1)}s</text>
-            <text x="5" y="32" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">best</text>
+            <text x="5" y="32" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">καλ.</text>
           </svg>
         </div>);
       })()}
 
       {/* Telemetry charts */}
-      <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>SPEED <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span></div>
+      <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ΤΑΧΥΤΗΤΑ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span></div>
       <TelChart traces={allDrivers.map((d) => ({ data: d.s, color: d.co }))} maxVal={370} prog={prog} />
-      <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>THROTTLE <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span></div>
+      <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>ΓΚΑΖΙ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span></div>
       <TelChart traces={allDrivers.map((d) => ({ data: d.t, color: d.co }))} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
-      <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>BRAKE</div>
+      <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>ΦΡΕΝΟ</div>
       <TelChart traces={allDrivers.map((d) => ({ data: d.b, color: d.co }))} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
     </div>
   );

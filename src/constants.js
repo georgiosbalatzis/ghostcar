@@ -127,30 +127,44 @@ export const getTeamColor = (t) => {
 };
 
 export const PRESETS = [
-  { label: "🏆 ANT vs RUS — Japan 2026 Q • Antonelli clinches pole", year: 2026, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 12, d2: 63, cat: "2026" },
-  { label: "🌏 ANT vs RUS — China 2026 Q • Youngest ever GP polesitter", year: 2026, meeting: "Chinese Grand Prix", session: "Qualifying", d1: 12, d2: 63, cat: "2026" },
-  { label: "🏁 PIA vs NOR — Abu Dhabi 2025 R • Bold Lap 1 overtake", year: 2025, meeting: "Abu Dhabi Grand Prix", session: "Race", d1: 81, d2: 4, cat: "2025" },
-  { label: "⚡ ANT vs PIA — Miami 2025 SQ • Remarkable maiden pole", year: 2025, meeting: "Miami Grand Prix", session: "Sprint Qualifying", d1: 12, d2: 81, cat: "2025" },
-  { label: "🇯🇵 VER vs NOR — Japan 2025 Q • Stunning Suzuka pole", year: 2025, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 1, d2: 4, cat: "2025" },
-  { label: "🔴 HAM vs PIA — China 2025 Sprint • First Ferrari win", year: 2025, meeting: "Chinese Grand Prix", session: "Sprint", d1: 44, d2: 81, cat: "2025" },
-  { label: "🏎️ PIA vs LEC — Azerbaijan 2024 R • Hanging on in Baku", year: 2024, meeting: "Azerbaijan Grand Prix", session: "Race", d1: 81, d2: 16, cat: "2024" },
-  { label: "🇬🇧 HAM vs VER — Britain 2024 R • Record 9th Silverstone win", year: 2024, meeting: "British Grand Prix", session: "Race", d1: 44, d2: 1, cat: "2024" },
-  { label: "🍁 RUS vs VER — Canada 2024 Q • Identical lap times", year: 2024, meeting: "Canadian Grand Prix", session: "Qualifying", d1: 63, d2: 1, cat: "2024" },
-  { label: "🎭 LEC vs PIA — Monaco 2024 Q • Home pole battle", year: 2024, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 16, d2: 81, cat: "2024" },
-  { label: "🎰 LEC vs PER — Las Vegas 2023 R • Last-lap lunge", year: 2023, meeting: "Las Vegas Grand Prix", session: "Race", d1: 16, d2: 11, cat: "2023" },
-  { label: "🌵 PIA vs NOR — Qatar 2023 SS • McLaren sprint duel", year: 2023, meeting: "Qatar Grand Prix", session: "Sprint Shootout", d1: 81, d2: 4, cat: "2023" },
-  { label: "🏙️ LEC vs VER — Azerbaijan 2023 Q • Third straight pole", year: 2023, meeting: "Azerbaijan Grand Prix", session: "Qualifying", d1: 16, d2: 1, cat: "2023" },
-  { label: "🇲🇨 VER vs ALO — Monaco 2023 Q • Pole snatched from Alonso", year: 2023, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 1, d2: 14, cat: "2023" },
-  { label: "🇭🇺 RUS vs SAI — Hungary 2022 Q • Shock maiden pole", year: 2022, meeting: "Hungarian Grand Prix", session: "Qualifying", d1: 63, d2: 55, cat: "2022" },
-  { label: "🇯🇵 VER vs LEC — Japan 2022 Q • Ultra-close Suzuka pole", year: 2022, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 1, d2: 16, cat: "2022" },
-  { label: "🇧🇷 MAG vs VER — Sao Paulo 2022 Q • Sensational sprint pole", year: 2022, meeting: "São Paulo Grand Prix", session: "Qualifying", d1: 20, d2: 1, cat: "2022" },
-  { label: "👑 VER vs HAM — Abu Dhabi 2021 R • Championship decider", year: 2021, meeting: "Abu Dhabi Grand Prix", session: "Race", d1: 1, d2: 44, cat: "2021" },
-  { label: "🇸🇦 HAM vs VER — Saudi Arabia 2021 Q • Verstappen crashes out", year: 2021, meeting: "Saudi Arabian Grand Prix", session: "Qualifying", d1: 44, d2: 1, cat: "2021" },
-  { label: "🌧️ RUS vs VER — Belgium 2021 Q • Wet qualifying shock", year: 2021, meeting: "Belgian Grand Prix", session: "Qualifying", d1: 63, d2: 1, cat: "2021" },
+  { label: "🏆 ANT εναντίον RUS — Ιαπωνία 2026 Q • Ο Antonelli κλειδώνει την pole", year: 2026, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 12, d2: 63, cat: "2026" },
+  { label: "🌏 ANT εναντίον RUS — Κίνα 2026 Q • Ο νεαρότερος poleman στην ιστορία", year: 2026, meeting: "Chinese Grand Prix", session: "Qualifying", d1: 12, d2: 63, cat: "2026" },
+  { label: "🏁 PIA εναντίον NOR — Άμπου Ντάμπι 2025 R • Τολμηρό προσπέρασμα στον 1ο γύρο", year: 2025, meeting: "Abu Dhabi Grand Prix", session: "Race", d1: 81, d2: 4, cat: "2025" },
+  { label: "⚡ ANT εναντίον PIA — Μαϊάμι 2025 SQ • Εντυπωσιακή πρώτη pole", year: 2025, meeting: "Miami Grand Prix", session: "Sprint Qualifying", d1: 12, d2: 81, cat: "2025" },
+  { label: "🇯🇵 VER εναντίον NOR — Ιαπωνία 2025 Q • Μαγική pole στη Suzuka", year: 2025, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 1, d2: 4, cat: "2025" },
+  { label: "🔴 HAM εναντίον PIA — Κίνα 2025 Sprint • Η πρώτη νίκη της Ferrari", year: 2025, meeting: "Chinese Grand Prix", session: "Sprint", d1: 44, d2: 81, cat: "2025" },
+  { label: "🏎️ PIA εναντίον LEC — Αζερμπαϊτζάν 2024 R • Άμυνα μέχρι τέλους στο Μπακού", year: 2024, meeting: "Azerbaijan Grand Prix", session: "Race", d1: 81, d2: 16, cat: "2024" },
+  { label: "🇬🇧 HAM εναντίον VER — Βρετανία 2024 R • Η 9η νίκη-ρεκόρ στο Silverstone", year: 2024, meeting: "British Grand Prix", session: "Race", d1: 44, d2: 1, cat: "2024" },
+  { label: "🍁 RUS εναντίον VER — Καναδάς 2024 Q • Ίδιος χρόνος στον γύρο", year: 2024, meeting: "Canadian Grand Prix", session: "Qualifying", d1: 63, d2: 1, cat: "2024" },
+  { label: "🎭 LEC εναντίον PIA — Μονακό 2024 Q • Μάχη για την pole στην έδρα", year: 2024, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 16, d2: 81, cat: "2024" },
+  { label: "🎰 LEC εναντίον PER — Λας Βέγκας 2023 R • Βουτιά στον τελευταίο γύρο", year: 2023, meeting: "Las Vegas Grand Prix", session: "Race", d1: 16, d2: 11, cat: "2023" },
+  { label: "🌵 PIA εναντίον NOR — Κατάρ 2023 SS • Μονομαχία McLaren στο sprint", year: 2023, meeting: "Qatar Grand Prix", session: "Sprint Shootout", d1: 81, d2: 4, cat: "2023" },
+  { label: "🏙️ LEC εναντίον VER — Αζερμπαϊτζάν 2023 Q • Τρίτη σερί pole", year: 2023, meeting: "Azerbaijan Grand Prix", session: "Qualifying", d1: 16, d2: 1, cat: "2023" },
+  { label: "🇲🇨 VER εναντίον ALO — Μονακό 2023 Q • Η pole χάνεται από τον Alonso", year: 2023, meeting: "Monaco Grand Prix", session: "Qualifying", d1: 1, d2: 14, cat: "2023" },
+  { label: "🇭🇺 RUS εναντίον SAI — Ουγγαρία 2022 Q • Η πρώτη pole-έκπληξη", year: 2022, meeting: "Hungarian Grand Prix", session: "Qualifying", d1: 63, d2: 55, cat: "2022" },
+  { label: "🇯🇵 VER εναντίον LEC — Ιαπωνία 2022 Q • Απίστευτα κλειστή pole στη Suzuka", year: 2022, meeting: "Japanese Grand Prix", session: "Qualifying", d1: 1, d2: 16, cat: "2022" },
+  { label: "🇧🇷 MAG εναντίον VER — Σάο Πάολο 2022 Q • Εκπληκτική pole sprint", year: 2022, meeting: "São Paulo Grand Prix", session: "Qualifying", d1: 20, d2: 1, cat: "2022" },
+  { label: "👑 VER εναντίον HAM — Άμπου Ντάμπι 2021 R • Ο τελικός του τίτλου", year: 2021, meeting: "Abu Dhabi Grand Prix", session: "Race", d1: 1, d2: 44, cat: "2021" },
+  { label: "🇸🇦 HAM εναντίον VER — Σαουδική Αραβία 2021 Q • Ο Verstappen βρίσκει τοίχο", year: 2021, meeting: "Saudi Arabian Grand Prix", session: "Qualifying", d1: 44, d2: 1, cat: "2021" },
+  { label: "🌧️ RUS εναντίον VER — Βέλγιο 2021 Q • Χάος στις βρεγμένες κατατακτήριες", year: 2021, meeting: "Belgian Grand Prix", session: "Qualifying", d1: 63, d2: 1, cat: "2021" },
 ];
 
 export const CAM_MODES = ["orbit", "follow1", "follow2", "top", "cinematic"];
-export const CAM_LABELS = { orbit: "Free", follow1: "Chase D1", follow2: "Chase D2", top: "Heli", cinematic: "Film" };
+export const CAM_LABELS = { orbit: "Ελεύθ.", follow1: "Κυν. O1", follow2: "Κυν. O2", top: "Ψηλά", cinematic: "Σινέ" };
+export const SESSION_LABELS = {
+  Qualifying: "Κατατακτήριες",
+  Race: "Αγώνας",
+  Sprint: "Sprint",
+  "Sprint Qualifying": "Κατατακτήριες Sprint",
+  "Sprint Shootout": "Sprint Shootout",
+  "Practice 1": "Δοκιμές 1",
+  "Practice 2": "Δοκιμές 2",
+  "Practice 3": "Δοκιμές 3",
+};
+
+export function formatSessionLabel(sessionName) {
+  return SESSION_LABELS[sessionName] || sessionName;
+}
 
 // ─── Circuit data: turns and driving direction ───
 // clockwise: true = CW when viewed from above (cars mostly turn right first)

@@ -47,19 +47,19 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
     <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div>
-          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>SEASON DASHBOARD {year}</div>
-          <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "D1"} vs {di2?.name_acronym || "D2"} — Qualifying overview</div>
+          <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>ΑΝΑΛΥΣΗ ΣΕΖΟΝ {year}</div>
+          <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "Ο1"} εναντίον {di2?.name_acronym || "Ο2"} — Εικόνα κατατακτήριων</div>
         </div>
-        <button aria-label="Close season dashboard" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
+        <button aria-label="Κλείσιμο ανάλυσης σεζόν" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
-        {!dashData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Fetching season data<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
-        : dashData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>No data found</div>
+        {!dashData ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Ανάκτηση δεδομένων σεζόν<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
+        : dashData.length === 0 ? <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>Δεν βρέθηκαν δεδομένα</div>
         : (<>
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: F1.mono, marginBottom: 4 }}>
               <span style={{ color: co1, fontWeight: 900 }}>{di1?.name_acronym} {summary?.w1 || 0}</span>
-              <span style={{ color: F1.textMuted, fontSize: 10 }}>QUALIFYING WINS</span>
+              <span style={{ color: F1.textMuted, fontSize: 10 }}>ΝΙΚΕΣ ΣΕ ΚΑΤΑΤΑΚΤΗΡΙΕΣ</span>
               <span style={{ color: co2, fontWeight: 900 }}>{summary?.w2 || 0} {di2?.name_acronym}</span>
             </div>
             <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden" }}>
@@ -72,8 +72,8 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
               <th style={{ textAlign: "left", padding: "6px 4px" }}>GP</th>
               <th style={{ textAlign: "center", padding: "6px 4px", color: co1 }}>{di1?.name_acronym}</th>
               <th style={{ textAlign: "center", padding: "6px 4px", color: co2 }}>{di2?.name_acronym}</th>
-              <th style={{ textAlign: "center", padding: "6px 4px" }}>GAP</th>
-              <th style={{ textAlign: "center", padding: "6px 4px" }}>WINNER</th>
+              <th style={{ textAlign: "center", padding: "6px 4px" }}>ΔΙΑΦΟΡΑ</th>
+              <th style={{ textAlign: "center", padding: "6px 4px" }}>ΝΙΚΗΤΗΣ</th>
             </tr></thead>
             <tbody>{dashData.map((r, i) => {
               const winner = r.d < 0 ? 1 : r.d > 0 ? 2 : 0;
@@ -88,7 +88,7 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
             })}</tbody>
           </table>
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 6, fontWeight: 700 }}>MOMENTUM</div>
+            <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 6, fontWeight: 700 }}>ΜΟΜΕΝΤΟΥΜ</div>
             <svg width="100%" height="60" viewBox="0 0 400 60" preserveAspectRatio="none" style={{ borderRadius: 4, background: F1.cardBg }}>
               <line x1="0" y1="30" x2="400" y2="30" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
               {summary?.momentum.map((point, index) => {

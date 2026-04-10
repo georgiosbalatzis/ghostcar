@@ -1,5 +1,5 @@
 import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo } from "./constants.js";
+import { getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo, formatSessionLabel } from "./constants.js";
 import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
 import { norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
 import { ThemeProvider, getThemeValue } from "./theme.js";
@@ -20,7 +20,10 @@ const INLINE_TABS = ["3d", "telemetry", "stats", "laps", "h2h", "season"];
 const VIZ_MODES = ["normal", "heatmap", "brake"];
 const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4];
 const SUPPORTED_SESSION_NAMES = ["Qualifying", "Race", "Sprint", "Sprint Qualifying", "Sprint Shootout", "Practice 1", "Practice 2", "Practice 3"];
-const LOGO_SRC = `${import.meta.env.BASE_URL}f1-stories-logo.svg`;
+const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
+const APP_NAME = "F1 Stories Ghost Car";
+const APP_SUBTITLE = "Σύγκριση γύρων F1";
+const APP_DESCRIPTION = "Σύγκρινε γύρους Formula 1 σε 3D και 2D με πραγματική τηλεμετρία από το OpenF1.";
 const SceneStage3D = lazy(() => import("./components/SceneStage3D.jsx"));
 const PresetsModal = lazy(() => import("./modals/PresetsModal.jsx"));
 const StatsModal = lazy(() => import("./modals/StatsModal.jsx"));
@@ -122,6 +125,14 @@ function createRestoreFlags() {
     lap3: false,
     lap4: false,
   };
+}
+
+function formatMeetingLabel(value) {
+  return String(value || "").replace(/Grand Prix/g, "Γκραν Πρι");
+}
+
+function formatMeetingShortLabel(value) {
+  return String(value || "").replace(/Grand Prix/g, "GP");
 }
 
 export default function App({ embed }) {
@@ -324,7 +335,7 @@ export default function App({ embed }) {
   }, [driverFullName]);
 
   const formatLapOption = useCallback((lap, bestLapNumber) => {
-    const prefix = lap.lap_number === bestLapNumber ? "FASTEST • " : "";
+    const prefix = lap.lap_number === bestLapNumber ? "ΤΑΧΥΤΕΡΟΣ • " : "";
     return `${prefix}L${lap.lap_number} • ${fmt(lap.lap_duration)}`;
   }, []);
   const shareURLState = useMemo(() => ({
@@ -353,6 +364,28 @@ export default function App({ embed }) {
   ), [selMt, selSe, shareURLState]);
 
   useEffect(() => {
+    const title = selMt && di1 && di2
+      ? `${APP_NAME} | ${di1.name_acronym} εναντίον ${di2.name_acronym} • ${formatMeetingLabel(selMt.meeting_name)} ${year}`
+      : `${APP_NAME} | ${APP_SUBTITLE}`;
+    const description = selMt && di1 && di2 && selSe
+      ? `Σύγκριση ${di1.name_acronym} εναντίον ${di2.name_acronym} στο ${formatMeetingLabel(selMt.meeting_name)} ${year}, με ${formatSessionLabel(selSe.session_name).toLowerCase()} και ζωντανή τηλεμετρία.`
+      : APP_DESCRIPTION;
+    const canonicalUrl = shareUrl || "https://f1stories.gr/ghostcar/";
+    document.title = title;
+    document.documentElement.lang = "el";
+    const setMeta = (selector, content) => {
+      const node = document.querySelector(selector);
+      if (node) node.setAttribute("content", content);
+    };
+    setMeta('meta[name="description"]', description);
+    setMeta('meta[property="og:title"]', title);
+    setMeta('meta[property="og:description"]', description);
+    setMeta('meta[property="og:url"]', canonicalUrl);
+    setMeta('meta[name="twitter:title"]', title);
+    setMeta('meta[name="twitter:description"]', description);
+  }, [year, selMt, selSe, di1, di2, shareUrl]);
+
+  useEffect(() => {
     if (numDrivers < 4) {
       setD4(null); setSl4(null); setLaps4([]); setSt4([]); setLoc4(null); setTel4(null);
     }
@@ -366,7 +399,7 @@ export default function App({ embed }) {
     if (presetActiveRef.current) return;
     const controller = new AbortController();
     const requestId = nextSelectorRequestId("meetings");
-    setLoading("Loading...");
+    setLoading("Φόρτωση...");
     setErr("");
     setSceneErr("");
     setMts([]);
@@ -397,7 +430,7 @@ export default function App({ embed }) {
     }
     const controller = new AbortController();
     const requestId = nextSelectorRequestId("sessions");
-    setLoading("Loading sessions...");
+    setLoading("Φόρτωση σκελών...");
     setErr("");
     setDrvs([]);
     setSelSe(null);
@@ -422,7 +455,7 @@ export default function App({ embed }) {
     }
     const controller = new AbortController();
     const requestId = nextSelectorRequestId("drivers");
-    setLoading("Loading drivers...");
+    setLoading("Φόρτωση οδηγών...");
     setErr("");
     resetDriverSelections();
     fetchDrivers(selSe.session_key, { signal: controller.signal }).then((d) => {
@@ -692,7 +725,7 @@ export default function App({ embed }) {
   const restoreComparisonFromUrl = useCallback((rawUrl) => {
     const nextState = decodeURL(rawUrl);
     if (!nextState?.year || !nextState?.mk) {
-      pushToast("This saved comparison can't be restored — the link may be outdated.", "info");
+      pushToast("Αυτή η αποθηκευμένη σύγκριση δεν μπορεί να επανέλθει. Ο σύνδεσμος ίσως είναι παλιός.", "info");
       return;
     }
     cancelLoading();
@@ -749,7 +782,7 @@ export default function App({ embed }) {
     const nextUrl = encodeURL(nextState);
     window.history.replaceState(null, "", nextUrl.split(window.location.origin)[1]);
     setRestoreTick((tick) => tick + 1);
-    pushToast("Comparison restored from gallery.", "success");
+    pushToast("Η σύγκριση επανήλθε από τη συλλογή.", "success");
   }, [cancelAuxLoading, cancelCountdown, cancelLoading, embed, pushToast, resetDriverSelections, stopShowreelRuntime]);
 
   const changeMatchup = useCallback(() => {
@@ -777,14 +810,14 @@ export default function App({ embed }) {
     setHighlightConfig(true);
     highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
     focusConfiguration();
-    pushToast("Selector bar ready. Choose a new season, circuit or driver matchup.", "info");
+    pushToast("Η μπάρα επιλογών είναι έτοιμη. Διάλεξε νέα σεζόν, πίστα ή σύγκριση οδηγών.", "info");
   }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearReplayData, embed, mob, focusConfiguration, pushToast, stopShowreelRuntime]);
 
   const openAuxView = useCallback((mode) => {
     if (mode === "telemetry" && !embed && !mob) {
       setShowTel(true);
       setShowTelOverlay(true);
-      pushToast("Telemetry charts opened.", "info");
+      pushToast("Άνοιξαν τα γραφήματα τηλεμετρίας.", "info");
       return;
     }
     if (embed || mob) {
@@ -805,14 +838,14 @@ export default function App({ embed }) {
       setShowreel(false);
     }
     const controller = beginCancelableLoad();
-    setLoading("Fetching telemetry...");
+    setLoading("Ανάκτηση τηλεμετρίας...");
     setErr("");
     setSceneErr("");
     setLdPct(0);
     try {
       const sk = selSe.session_key;
       const la1 = laps1.find((l) => l.lap_number === sl1), la2 = laps2.find((l) => l.lap_number === sl2);
-      if (!la1?.date_start || !la2?.date_start) { setErr("Lap timing unavailable."); setLoading(""); setLdPct(undefined); return; }
+      if (!la1?.date_start || !la2?.date_start) { setErr("Δεν υπάρχουν διαθέσιμα timestamps γύρου."); setLoading(""); setLdPct(undefined); return; }
       const e1 = new Date(new Date(la1.date_start).getTime() + (la1.lap_duration || 120) * 1000).toISOString();
       const e2 = new Date(new Date(la2.date_start).getTime() + (la2.lap_duration || 120) * 1000).toISOString();
       setLdPct(15);
@@ -824,7 +857,7 @@ export default function App({ embed }) {
       const la4 = numDrivers >= 4 && d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
       if (la4?.date_start) { const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d4, la4.date_start, e4, reqOptions)); telProms.push(fetchCarData(sk, d4, la4.date_start, e4, reqOptions)); }
       setLdPct(20); const locs = await Promise.all(locProms); setLdPct(55); const tels = await Promise.all(telProms);
-      if (locs[0].length < 5 || locs[1].length < 5) { setErr("Insufficient data."); setLoading(""); setLdPct(undefined); return; }
+      if (locs[0].length < 5 || locs[1].length < 5) { setErr("Τα δεδομένα δεν επαρκούν."); setLoading(""); setLdPct(undefined); return; }
       setLoc1(locs[0]); setLoc2(locs[1]); setTel1(tels[0]); setTel2(tels[1]);
       if (locs[2]) { setLoc3(locs[2]); setTel3(tels[2]); } else { setLoc3(null); setTel3(null); }
       if (locs[3]) { setLoc4(locs[3]); setTel4(tels[3]); } else { setLoc4(null); setTel4(null); }
@@ -862,9 +895,9 @@ export default function App({ embed }) {
       setShowreel(false);
     }
     const controller = beginCancelableLoad();
-    setShowPresets(false); setShowMobMenu(false); setLoading("Loading preset..."); setErr(""); setSceneErr(""); setLdPct(0); presetActiveRef.current = true;
+    setShowPresets(false); setShowMobMenu(false); setLoading("Φόρτωση preset..."); setErr(""); setSceneErr(""); setLdPct(0); presetActiveRef.current = true;
     try {
-      if (UNAVAILABLE_PRESET_YEARS.includes(pr.year)) throw new Error(`Preset data for ${pr.year} is not available yet.`);
+      if (UNAVAILABLE_PRESET_YEARS.includes(pr.year)) throw new Error(`Τα δεδομένα preset για το ${pr.year} δεν είναι διαθέσιμα ακόμη.`);
       cancelAuxLoading();
       resetDriverSelections({ resetDriverCount: true });
       setShowH2H(false);
@@ -880,24 +913,24 @@ export default function App({ embed }) {
         const meetingName = normalizeText(x.meeting_name).replace(" grand prix", "");
         return meetingName.includes(presetMeeting) || presetMeeting.includes(meetingName);
       });
-      if (!mt) throw new Error(`Meeting "${pr.meeting}" not found`); setLdPct(10);
+      if (!mt) throw new Error(`Δεν βρέθηκε το Γκραν Πρι "${pr.meeting}"`); setLdPct(10);
       const allSess = await fetchSessions(mt.meeting_key, reqOptions); const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
-      const se = filteredSess.find((s) => s.session_name === pr.session); if (!se) throw new Error(`Session not found`); setLdPct(20);
+      const se = filteredSess.find((s) => s.session_name === pr.session); if (!se) throw new Error("Δεν βρέθηκε σκέλος"); setLdPct(20);
       const allDrvs = await fetchDrivers(se.session_key, reqOptions); const seen = new Set(); const uniqueDrvs = allDrvs.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; }); setLdPct(30);
       const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1, reqOptions), fetchLaps(se.session_key, pr.d2, reqOptions)]);
-      const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data); if (!fast1 || !fast2) throw new Error("No valid laps"); setLdPct(45);
+      const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data); if (!fast1 || !fast2) throw new Error("Δεν βρέθηκαν έγκυροι γύροι"); setLdPct(45);
       const [st1Data, st2Data] = await Promise.all([fetchStints(se.session_key, pr.d1, reqOptions).catch(() => []), fetchStints(se.session_key, pr.d2, reqOptions).catch(() => [])]);
       setYear(pr.year); setMts(filteredMts); setSelMt(mt); setSess(filteredSess); setSelSe(se); setDrvs(uniqueDrvs); setD1(pr.d1); setD2(pr.d2);
       setD3(null); setD4(null);
       setLaps1(l1Data); setLaps2(l2Data); setSl1(fast1.lap_number); setSl2(fast2.lap_number); setSt1(st1Data); setSt2(st2Data); setLdPct(50);
       setLaps3([]); setLaps4([]); setSl3(null); setSl4(null); setSt3([]); setSt4([]);
       setLoc3(null); setLoc4(null); setTel3(null); setTel4(null);
-      setLoading("Fetching telemetry..."); const sk = se.session_key;
+      setLoading("Ανάκτηση τηλεμετρίας..."); const sk = se.session_key;
       const end1 = new Date(new Date(fast1.date_start).getTime() + (fast1.lap_duration || 120) * 1000).toISOString();
       const end2 = new Date(new Date(fast2.date_start).getTime() + (fast2.lap_duration || 120) * 1000).toISOString(); setLdPct(60);
       const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchLocation(sk, pr.d2, fast2.date_start, end2, reqOptions)]); setLdPct(80);
       const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchCarData(sk, pr.d2, fast2.date_start, end2, reqOptions)]);
-      if (lo1.length < 5 || lo2.length < 5) throw new Error("Insufficient location data");
+      if (lo1.length < 5 || lo2.length < 5) throw new Error("Δεν υπάρχουν αρκετά δεδομένα θέσης");
       const _ci2 = getCircuitInfo(mt);
       const _rawTp2 = norm(lo1);
       let _area2 = 0; for (let _i = 0; _i < _rawTp2.length; _i++) { const _j = (_i + 1) % _rawTp2.length; _area2 += _rawTp2[_i].x * _rawTp2[_j].z - _rawTp2[_j].x * _rawTp2[_i].z; }
@@ -918,14 +951,14 @@ export default function App({ embed }) {
     if (!selMt || !selSe || !shareUrl) return;
     const url = shareUrl;
     window.history.replaceState(null, "", url.split(window.location.origin)[1]);
-    const shareTitle = `${selMt.meeting_name} ${year} Ghost Car Lab`;
+    const shareTitle = `${APP_NAME} | ${formatMeetingLabel(selMt.meeting_name)} ${year}`;
     if (navigator.share && mob && !embed) {
       try {
-        await navigator.share({ title: shareTitle, text: "Ghost Car telemetry comparison", url });
+        await navigator.share({ title: shareTitle, text: "Σύγκριση γύρων F1 με τηλεμετρία", url });
         setShareDialogUrl("");
         setShareDialogNotice("");
-        bumpShareMsg("SHARED");
-        pushToast("Share sheet opened.", "success");
+        bumpShareMsg("ΕΣΤΑΛΗ");
+        pushToast("Άνοιξε το παράθυρο κοινοποίησης.", "success");
         return;
       } catch (error) {
         if (error?.name === "AbortError") return;
@@ -935,15 +968,15 @@ export default function App({ embed }) {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(url);
       setShareDialogUrl(url);
-      setShareDialogNotice("Link copied to clipboard. You can share it directly or copy it again below.");
-      bumpShareMsg("COPIED");
-      pushToast("Share link copied to clipboard.", "success");
+      setShareDialogNotice("Ο σύνδεσμος αντιγράφηκε στο clipboard. Μπορείς να τον κοινοποιήσεις άμεσα ή να τον ξανααντιγράψεις πιο κάτω.");
+      bumpShareMsg("ΑΝΤΙΓΡ.");
+      pushToast("Ο σύνδεσμος αντιγράφηκε στο clipboard.", "success");
     } catch (error) {
       if (error?.name === "AbortError") return;
       setShareDialogUrl(url);
-      setShareDialogNotice("Clipboard access was blocked. Copy the link below.");
-      bumpShareMsg("LINK READY");
-      pushToast("Share link ready to copy.", "info");
+      setShareDialogNotice("Η πρόσβαση στο clipboard μπλοκαρίστηκε. Αντέγραψε τον σύνδεσμο από κάτω.");
+      bumpShareMsg("ΕΤΟΙΜΟ");
+      pushToast("Ο σύνδεσμος είναι έτοιμος για αντιγραφή.", "info");
     }
   }, [year, selMt, selSe, shareUrl, mob, embed, bumpShareMsg, pushToast]);
 
@@ -951,29 +984,29 @@ export default function App({ embed }) {
     if (!di1 || !di2 || !selMt || !li1 || !li2 || !shareUrl) return;
     const entry = { id: Date.now(), d1n: di1.name_acronym, d2n: di2.name_acronym, gp: selMt.meeting_name, year, delta: delta?.toFixed(3), t1: fmt(li1.lap_duration), t2: fmt(li2.lap_duration), c1: co1, c2: co2, url: shareUrl };
     const newG = [entry, ...gallery].slice(0, 20); setGallery(newG); try { localStorage.setItem("f1s-gallery", JSON.stringify(newG)); } catch {}
-    pushToast("Comparison saved to gallery.", "success");
+    pushToast("Η σύγκριση αποθηκεύτηκε στη συλλογή.", "success");
   }, [di1, di2, selMt, li1, li2, delta, co1, co2, year, shareUrl, gallery, pushToast]);
 
   const generateSocialCard = useCallback(() => {
     const cv = document.createElement("canvas"); cv.width = 1200; cv.height = 630; const ctx = cv.getContext("2d");
     ctx.fillStyle = "#15151e"; ctx.fillRect(0, 0, 1200, 630); ctx.fillStyle = "#E10600"; ctx.fillRect(0, 0, 1200, 6);
-    ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center"; ctx.fillText("GHOST CAR LAB", 600, 80);
-    ctx.fillStyle = "#E10600"; ctx.font = "bold 20px sans-serif"; ctx.fillText("f1stories.gr", 600, 115);
-    ctx.fillStyle = "#888"; ctx.font = "24px sans-serif"; ctx.fillText(selMt?.meeting_name || "", 600, 160);
-    ctx.fillStyle = co1; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "right"; ctx.fillText(di1?.name_acronym || "D1", 530, 310);
-    ctx.fillStyle = "#E10600"; ctx.font = "bold 36px sans-serif"; ctx.textAlign = "center"; ctx.fillText("VS", 600, 310);
-    ctx.fillStyle = co2; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "left"; ctx.fillText(di2?.name_acronym || "D2", 670, 310);
+    ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center"; ctx.fillText("F1 STORIES GHOST CAR", 600, 80);
+    ctx.fillStyle = "#E10600"; ctx.font = "bold 20px sans-serif"; ctx.fillText("Σύγκριση γύρων F1", 600, 115);
+    ctx.fillStyle = "#888"; ctx.font = "24px sans-serif"; ctx.fillText(formatMeetingLabel(selMt?.meeting_name || ""), 600, 160);
+    ctx.fillStyle = co1; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "right"; ctx.fillText(di1?.name_acronym || "Ο1", 530, 310);
+    ctx.fillStyle = "#E10600"; ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center"; ctx.fillText("ΕΝΑΝΤ.", 600, 310);
+    ctx.fillStyle = co2; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "left"; ctx.fillText(di2?.name_acronym || "Ο2", 670, 310);
     ctx.fillStyle = co1; ctx.font = "bold 32px sans-serif"; ctx.textAlign = "right"; ctx.fillText(fmt(li1?.lap_duration), 530, 380);
     ctx.fillStyle = co2; ctx.font = "bold 32px sans-serif"; ctx.textAlign = "left"; ctx.fillText(fmt(li2?.lap_duration), 670, 380);
     if (delta !== null) { ctx.fillStyle = delta > 0 ? "#E10600" : "#00d26a"; ctx.font = "bold 48px sans-serif"; ctx.textAlign = "center"; ctx.fillText((delta > 0 ? "+" : "") + delta.toFixed(3) + "s", 600, 470); }
-    ctx.fillStyle = "#333"; ctx.fillRect(0, 570, 1200, 60); ctx.fillStyle = "#888"; ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Powered by F1 Stories • f1stories.gr/ghostcar", 600, 600);
+    ctx.fillStyle = "#333"; ctx.fillRect(0, 570, 1200, 60); ctx.fillStyle = "#888"; ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Δημιουργία F1 Stories • f1stories.gr/ghostcar", 600, 600);
     const a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = `f1stories-${di1?.name_acronym}-vs-${di2?.name_acronym}.png`; a.click();
-    pushToast("Social card downloaded.", "success");
+    pushToast("Η social card κατέβηκε.", "success");
   }, [di1, di2, selMt, li1, li2, delta, co1, co2, pushToast]);
 
   const takeScreenshot = useCallback(() => {
     if (mob && !is2DView) {
-      pushToast("3D screenshots are disabled on mobile to keep playback smooth. Switch to 2D or use desktop.", "info");
+      pushToast("Τα 3D screenshots είναι απενεργοποιημένα στο mobile για πιο ομαλή αναπαραγωγή. Πέρασε σε 2D ή χρησιμοποίησε desktop.", "info");
       return;
     }
     const el = cRef.current;
@@ -984,7 +1017,7 @@ export default function App({ embed }) {
       a.href = canvas.toDataURL("image/png");
       a.download = `f1stories-ghost-${Date.now()}.png`;
       a.click();
-      pushToast("Track screenshot downloaded.", "success");
+      pushToast("Το στιγμιότυπο της πίστας κατέβηκε.", "success");
       return;
     }
     const svg = el.querySelector("svg");
@@ -998,10 +1031,10 @@ export default function App({ embed }) {
       a.download = `f1stories-ghost-${Date.now()}.svg`;
       a.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      pushToast("Track capture downloaded.", "success");
+      pushToast("Η καταγραφή της πίστας κατέβηκε.", "success");
       return;
     }
-    pushToast("Nothing to capture yet.", "info");
+    pushToast("Δεν υπάρχει ακόμη κάτι για λήψη.", "info");
   }, [is2DView, mob, pushToast]);
 
   const loadH2H = useCallback(async () => {
@@ -1179,7 +1212,7 @@ export default function App({ embed }) {
     touchScrubRef.current = { active: false, x: 0, y: 0 };
   }, []);
 
-  // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
+  // ─── Playback — write to refs each frame and only throttle non-essential UI sync ───
   const spdRef = useRef(spd); spdRef.current = spd;
   const loopRef = useRef(loop); loopRef.current = loop;
   const trackViewRef = useRef(trackView); trackViewRef.current = trackView;
@@ -1214,8 +1247,8 @@ export default function App({ embed }) {
       let n = progRef.current + dt * 0.015 * spdRef.current;
       if (n >= 1) { if (loopRef.current) { n = 0; } else { n = 1; setPlay(false); } }
       progRef.current = n;
-      // 2D mode relies on React for the track animation, so it needs a faster sync.
-      if (ts - uiSyncRef.current > (trackViewRef.current === "2d" ? 33 : 80)) { uiSyncRef.current = ts; setProg(n); }
+      // 2D mode relies on React for the track animation, so keep it near display refresh rate.
+      if (ts - uiSyncRef.current > (trackViewRef.current === "2d" ? 16 : 80)) { uiSyncRef.current = ts; setProg(n); }
       rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);
@@ -1379,34 +1412,34 @@ export default function App({ embed }) {
         {showTour && !embed && <TourOverlay onClose={() => setShowTour(false)} />}
       </Suspense>
       {shareDialogUrl && (
-        <div role="dialog" aria-modal="true" aria-label="Share link" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxWidth: "calc(100vw - 24px)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px rgba(0,0,0,0.4)" }}>
+        <div role="dialog" aria-modal="true" aria-label="Σύνδεσμος κοινοποίησης" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxWidth: "calc(100vw - 24px)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px rgba(0,0,0,0.4)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>SHARE LINK READY</div>
-              <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>{shareDialogNotice || "The share link is ready below."}</div>
+              <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>ΕΤΟΙΜΟΣ ΣΥΝΔΕΣΜΟΣ</div>
+              <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>{shareDialogNotice || "Ο σύνδεσμος κοινοποίησης είναι έτοιμος πιο κάτω."}</div>
             </div>
-            <button aria-label="Close share dialog" onClick={() => { setShareDialogUrl(""); setShareDialogNotice(""); }} style={getModalCloseButtonStyle(F1)}>✕</button>
+            <button aria-label="Κλείσιμο παραθύρου κοινοποίησης" onClick={() => { setShareDialogUrl(""); setShareDialogNotice(""); }} style={getModalCloseButtonStyle(F1)}>✕</button>
           </div>
           <div style={{ padding: "16px 20px 20px" }}>
             <input readOnly value={shareDialogUrl} onFocus={(e) => e.target.select()} style={{ width: "100%", background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 12, outline: "none" }} />
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Select and copy the link manually, or use the copy button again.</div>
+              <div style={{ fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Επίλεξε και αντέγραψε χειροκίνητα τον σύνδεσμο ή χρησιμοποίησε ξανά το κουμπί αντιγραφής.</div>
               <button
                 className="f1-btn"
                 onClick={async () => {
                   try {
                     if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
                     await navigator.clipboard.writeText(shareDialogUrl);
-                    setShareDialogNotice("Link copied to clipboard.");
-                    bumpShareMsg("COPIED");
-                    pushToast("Share link copied to clipboard.", "success");
+                    setShareDialogNotice("Ο σύνδεσμος αντιγράφηκε στο clipboard.");
+                    bumpShareMsg("ΑΝΤΙΓΡ.");
+                    pushToast("Ο σύνδεσμος αντιγράφηκε στο clipboard.", "success");
                   } catch {
-                    pushToast("Clipboard is still unavailable on this device.", "info");
+                    pushToast("Το clipboard παραμένει μη διαθέσιμο σε αυτή τη συσκευή.", "info");
                   }
                 }}
                 style={{ padding: "8px 14px", fontSize: 11 }}
               >
-                COPY LINK
+                ΑΝΤΙΓΡΑΦΗ
               </button>
             </div>
           </div>
@@ -1418,7 +1451,7 @@ export default function App({ embed }) {
         <div style={{ display: "flex", gap: 16, marginBottom: 32 }}>
           {[1, 2, 3, 4, 5].map((n) => <div key={n} style={{ width: 40, height: 40, borderRadius: "50%", background: countdown <= (6 - n) ? "#E10600" : F1.cardBg, boxShadow: countdown <= (6 - n) ? "0 0 20px #E10600, 0 0 40px #E1060066" : "none", transition: "all 0.3s", border: `2px solid ${F1.border}` }} />)}
         </div>
-        <div style={{ fontSize: countdown === 0 ? 72 : 96, fontWeight: 900, color: countdown === 0 ? "#00d26a" : "#fff", fontFamily: F1.mono, textShadow: countdown === 0 ? "0 0 30px #00d26a" : "none" }}>{countdown === 0 ? "GO!" : countdown}</div>
+        <div style={{ fontSize: countdown === 0 ? 72 : 96, fontWeight: 900, color: countdown === 0 ? "#00d26a" : "#fff", fontFamily: F1.mono, textShadow: countdown === 0 ? "0 0 30px #00d26a" : "none" }}>{countdown === 0 ? "ΠΑΜΕ!" : countdown}</div>
       </div>)}
 
       {/* Header */}
@@ -1427,39 +1460,39 @@ export default function App({ embed }) {
             <img src={LOGO_SRC} alt="F1 Stories" style={{ height: mob ? 26 : 32, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
             {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
               <span style={{ fontSize: 15, fontWeight: 900, color: F1.text, letterSpacing: "0.04em" }}>F1 STORIES</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: "#3b82f6", letterSpacing: "0.14em", textTransform: "uppercase" }}>Ghost Car Lab</span>
+              <span style={{ fontSize: 9, fontWeight: 600, color: "#3b82f6", letterSpacing: "0.14em", textTransform: "uppercase" }}>Σύγκριση Γύρων F1</span>
             </div>}
           </a>
-          {mob && <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>Ghost Car Lab</span>}
-          {mob && selMt && <span style={{ fontSize: 9, color: F1.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 90 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")}</span>}
+          {mob && <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>F1 Stories</span>}
+          {mob && selMt && <span style={{ fontSize: 9, color: F1.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 90 }}>{formatMeetingShortLabel(selMt.meeting_name)}</span>}
           {!mob && <div style={{ display: "flex", gap: 20, marginLeft: 4, paddingTop: 2 }}>
-            {[{ label: "Blog", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Standings", href: "https://f1stories.gr/standings/" }].map((l) => (
+            {[{ label: "Άρθρα", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Βαθμολογίες", href: "https://f1stories.gr/standings/" }].map((l) => (
               <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="hdr-nav-link">{l.label.toUpperCase()}</a>
             ))}
           </div>}
-          {!mob && selMt && <span style={{ fontSize: 10, color: F1.textMuted, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 4, borderLeft: `1px solid ${F1.borderLight}`, paddingLeft: 12 }}>{selMt.meeting_name?.replace("Grand Prix", "GP")} {year}</span>}
+          {!mob && selMt && <span style={{ fontSize: 10, color: F1.textMuted, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 4, borderLeft: `1px solid ${F1.borderLight}`, paddingLeft: 12 }}>{formatMeetingShortLabel(selMt.meeting_name)} {year}</span>}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: mob ? 4 : 5, flexShrink: 0 }}>
             {mob ? (<>
-              <button className="hdr-action-btn hdr-action-btn-icon" title="Open preset battles" aria-label="Open preset battles" onClick={() => setShowPresets(true)}>⚡</button>
-              {selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Share this comparison" aria-label="Share this comparison" onClick={share}>{shareMsg ? "✓" : "↗"}</button>}
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Save to gallery" aria-label="Save to gallery" onClick={saveToGallery}>💾</button>}
-              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Switch to light theme" : "Switch to dark theme"} aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
-              <button className={`hdr-action-btn hdr-action-btn-icon${showMobMenu ? " hdr-action-btn-active" : ""}`} title="Open tools menu" aria-label="Open tools menu" onClick={() => setShowMobMenu((v) => !v)}>☰</button>
+              <button className="hdr-action-btn hdr-action-btn-icon" title="Άνοιγμα preset συγκρίσεων" aria-label="Άνοιγμα preset συγκρίσεων" onClick={() => setShowPresets(true)}>⚡</button>
+              {selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Κοινοποίηση αυτής της σύγκρισης" aria-label="Κοινοποίηση αυτής της σύγκρισης" onClick={share}>{shareMsg ? "✓" : "↗"}</button>}
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Αποθήκευση στη συλλογή" aria-label="Αποθήκευση στη συλλογή" onClick={saveToGallery}>💾</button>}
+              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} aria-label={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
+              <button className={`hdr-action-btn hdr-action-btn-icon${showMobMenu ? " hdr-action-btn-active" : ""}`} title="Άνοιγμα μενού εργαλείων" aria-label="Άνοιγμα μενού εργαλείων" onClick={() => setShowMobMenu((v) => !v)}>☰</button>
             </>) : (<>
-              <button className="hdr-action-btn" title="Open preset battles" onClick={() => setShowPresets(true)}>⚡ PRESETS</button>
-              {selSe && <button className="hdr-action-btn" title="Share this comparison" onClick={share}>{shareMsg || "SHARE"}</button>}
-              {tp && <button className="hdr-action-btn" title="Open lap stats" onClick={() => setShowStats(true)}>STATS</button>}
-              {tp && <button className="hdr-action-btn" title="Browse lap choices" onClick={() => setShowLaps(true)}>LAPS</button>}
-              {tp && d1 && d2 && <button className="hdr-action-btn" title="Head to head history" onClick={loadH2H}>H2H</button>}
-              {d1 && d2 && selSe && <button className="hdr-action-btn" title="Season dashboard" onClick={loadSeasonDash}>SEASON</button>}
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Save to gallery" aria-label="Save to gallery" onClick={saveToGallery}>💾</button>}
-              <button className="hdr-action-btn hdr-action-btn-icon" title="Open saved gallery" aria-label="Open saved gallery" onClick={() => setShowGallery(true)}>📂</button>
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Create social card" aria-label="Create social card" onClick={generateSocialCard}>🖼️</button>}
-              {tp && selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Embed this comparison" aria-label="Embed this comparison" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Download screenshot" aria-label="Download screenshot" onClick={takeScreenshot}>📸</button>}
-              <button className={`hdr-action-btn hdr-action-btn-icon${showreel ? " hdr-action-btn-active" : ""}`} title={showreel ? "Stop showreel" : "Start showreel"} aria-label={showreel ? "Stop showreel" : "Start showreel"} onClick={toggleShowreel}>{showreel ? "⏹" : "🎬"}</button>
-              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Switch to light theme" : "Switch to dark theme"} aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
-              <button className="hdr-action-btn hdr-action-btn-icon" title="Show keyboard shortcuts" aria-label="Show keyboard shortcuts" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
+              <button className="hdr-action-btn" title="Άνοιγμα έτοιμων συγκρίσεων" onClick={() => setShowPresets(true)}>⚡ ΜΑΧΕΣ</button>
+              {selSe && <button className="hdr-action-btn" title="Κοινοποίηση αυτής της σύγκρισης" onClick={share}>{shareMsg || "ΚΟΙΝΟΠΟΙΗΣΗ"}</button>}
+              {tp && <button className="hdr-action-btn" title="Άνοιγμα στατιστικών γύρου" onClick={() => setShowStats(true)}>ΣΤΑΤΙΣΤΙΚΑ</button>}
+              {tp && <button className="hdr-action-btn" title="Προβολή διαθέσιμων γύρων" onClick={() => setShowLaps(true)}>ΓΥΡΟΙ</button>}
+              {tp && d1 && d2 && <button className="hdr-action-btn" title="Ιστορικό αναμετρήσεων H2H" onClick={loadH2H}>H2H</button>}
+              {d1 && d2 && selSe && <button className="hdr-action-btn" title="Ανάλυση σεζόν" onClick={loadSeasonDash}>ΣΕΖΟΝ</button>}
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Αποθήκευση στη συλλογή" aria-label="Αποθήκευση στη συλλογή" onClick={saveToGallery}>💾</button>}
+              <button className="hdr-action-btn hdr-action-btn-icon" title="Άνοιγμα συλλογής" aria-label="Άνοιγμα συλλογής" onClick={() => setShowGallery(true)}>📂</button>
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Δημιουργία κάρτας κοινοποίησης" aria-label="Δημιουργία κάρτας κοινοποίησης" onClick={generateSocialCard}>🖼️</button>}
+              {tp && selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Ενσωμάτωση αυτής της σύγκρισης" aria-label="Ενσωμάτωση αυτής της σύγκρισης" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
+              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Λήψη στιγμιότυπου" aria-label="Λήψη στιγμιότυπου" onClick={takeScreenshot}>📸</button>}
+              <button className={`hdr-action-btn hdr-action-btn-icon${showreel ? " hdr-action-btn-active" : ""}`} title={showreel ? "Διακοπή αυτόματης προβολής" : "Εκκίνηση αυτόματης προβολής"} aria-label={showreel ? "Διακοπή αυτόματης προβολής" : "Εκκίνηση αυτόματης προβολής"} onClick={toggleShowreel}>{showreel ? "⏹" : "🎬"}</button>
+              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} aria-label={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
+              <button className="hdr-action-btn hdr-action-btn-icon" title="Εμφάνιση συντομεύσεων πληκτρολογίου" aria-label="Εμφάνιση συντομεύσεων πληκτρολογίου" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
             </>)}
           </div>
       </div>}
@@ -1469,19 +1502,19 @@ export default function App({ embed }) {
         <div onClick={() => setShowMobMenu(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 49, backdropFilter: "blur(4px)" }} />
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(59,130,246,0.2)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>TOOLS</span>
-            <button title="Close tools menu" aria-label="Close tools menu" onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>ΕΡΓΑΛΕΙΑ</span>
+            <button title="Κλείσιμο μενού εργαλείων" aria-label="Κλείσιμο μενού εργαλείων" onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
             {[
-              { icon: "📈", label: "Stats", action: () => { selectComparisonTab("stats"); setShowMobMenu(false); }, show: !!tp },
-              { icon: "⏱", label: "Laps", action: () => { selectComparisonTab("laps"); setShowMobMenu(false); }, show: !!tp },
+              { icon: "📈", label: "Στατ.", action: () => { selectComparisonTab("stats"); setShowMobMenu(false); }, show: !!tp },
+              { icon: "⏱", label: "Γύροι", action: () => { selectComparisonTab("laps"); setShowMobMenu(false); }, show: !!tp },
               { icon: "⚔️", label: "H2H", action: () => { selectComparisonTab("h2h"); setShowMobMenu(false); }, show: !!(tp && d1 && d2) },
-              { icon: "🏆", label: "Season", action: () => { selectComparisonTab("season"); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
-              { icon: "📂", label: "Gallery", action: () => { setShowGallery(true); setShowMobMenu(false); }, show: true },
-              { icon: "🖼️", label: "Social", action: () => { generateSocialCard(); setShowMobMenu(false); }, show: !!tp },
-              { icon: "</>", label: "Embed", action: () => { setShowEmbed(true); setShowMobMenu(false); }, show: !!(tp && selSe) },
-              { icon: "📸", label: "Screenshot", action: () => { takeScreenshot(); setShowMobMenu(false); }, show: !!tp },
+              { icon: "🏆", label: "Σεζόν", action: () => { selectComparisonTab("season"); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
+              { icon: "📂", label: "Συλλογή", action: () => { setShowGallery(true); setShowMobMenu(false); }, show: true },
+              { icon: "🖼️", label: "Κάρτα", action: () => { generateSocialCard(); setShowMobMenu(false); }, show: !!tp },
+              { icon: "</>", label: "Ενσώμ.", action: () => { setShowEmbed(true); setShowMobMenu(false); }, show: !!(tp && selSe) },
+              { icon: "📸", label: "Στιγμιότ.", action: () => { takeScreenshot(); setShowMobMenu(false); }, show: !!tp },
             ].filter((a) => a.show).map((a) => (
               <button key={a.label} onClick={a.action} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 4px", borderRadius: 8, background: F1.cardBg, border: `1px solid ${F1.borderLight}`, fontSize: 9, color: F1.textDim, fontWeight: 600, letterSpacing: "0.02em" }}>
                 <span style={{ fontSize: 18 }}>{a.icon}</span>
@@ -1497,62 +1530,62 @@ export default function App({ embed }) {
         {/* Row 1: Event selectors */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
           <select ref={yearSelectRef} value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 124 : "auto", fontSize: mob ? 11 : 12 }}>
-            {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y === 2026 ? "2026 (Early / partial)" : y}</option>)}
+            {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y === 2026 ? "2026 (πρώιμα / μερικά)" : y}</option>)}
           </select>
-          <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 100 : 155, flex: mob ? 1 : undefined, fontSize: mob ? 11 : 12 }}><option value="">Grand Prix</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{m.meeting_name}</option>)}</select>
-          <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 75 : 115, fontSize: mob ? 11 : 12 }}><option value="">Session</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{s.session_name}</option>)}</select>
+          <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 100 : 155, flex: mob ? 1 : undefined, fontSize: mob ? 11 : 12 }}><option value="">Γκραν Πρι</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{formatMeetingLabel(m.meeting_name)}</option>)}</select>
+          <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 75 : 115, fontSize: mob ? 11 : 12 }}><option value="">Σκέλος</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{formatSessionLabel(s.session_name)}</option>)}</select>
         </div>
         {/* Row 2: Driver selectors */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center" }}>
           {!mob && <div style={{ width: 1, height: 20, background: `${F1.blue}33` }} />}
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 3, height: 16, background: co1, borderRadius: 1 }} />
-            <select title={driverFullName(di1) || "Select driver 1"} value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
-            {lapSelect1.options.length > 0 && <select title={li1 ? fmt(li1.lap_duration) : "Select lap"} value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect1.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect1.fastestLapNumber)}</option>)}</select>}
+            <select title={driverFullName(di1) || "Επιλογή οδηγού 1"} value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
+            {lapSelect1.options.length > 0 && <select title={li1 ? fmt(li1.lap_duration) : "Επιλογή γύρου"} value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect1.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect1.fastestLapNumber)}</option>)}</select>}
           </div>
           <span style={{ color: F1.blue, fontSize: mob ? 9 : 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
           <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
             <div style={{ width: 3, height: 16, background: co2, borderRadius: 1 }} />
-            <select title={driverFullName(di2) || "Select driver 2"} value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
-            {lapSelect2.options.length > 0 && <select title={li2 ? fmt(li2.lap_duration) : "Select lap"} value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect2.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect2.fastestLapNumber)}</option>)}</select>}
+            <select title={driverFullName(di2) || "Επιλογή οδηγού 2"} value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
+            {lapSelect2.options.length > 0 && <select title={li2 ? fmt(li2.lap_duration) : "Επιλογή γύρου"} value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect2.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect2.fastestLapNumber)}</option>)}</select>}
           </div>
-          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Select driver 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect3.options.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect3.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect3.fastestLapNumber)}</option>)}</select>}</div></>}
-          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Select driver 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Driver 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect4.options.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Lap</option>{lapSelect4.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect4.fastestLapNumber)}</option>)}</select>}</div></>}
-          {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+D{numDrivers + 1}</button>}
+          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Επιλογή οδηγού 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect3.options.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect3.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect3.fastestLapNumber)}</option>)}</select>}</div></>}
+          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Επιλογή οδηγού 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect4.options.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect4.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect4.fastestLapNumber)}</option>)}</select>}</div></>}
+          {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+Ο{numDrivers + 1}</button>}
           {numDrivers > 2 && <button onClick={() => setNumDrivers((n) => Math.max(2, n - 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
-          <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "COMPARE"}</button>
+          <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "ΣΥΓΚΡΙΣΗ"}</button>
         </div>
-        {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>No meeting data is available for {year} yet. Try 2025 for the latest complete telemetry season.</div>}
+        {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>Δεν υπάρχουν ακόμη δεδομένα Γκραν Πρι για το {year}. Δοκίμασε το 2025 για την πιο πλήρη σεζόν τηλεμετρίας.</div>}
       </div>}
 
-      {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button aria-label="Dismiss error" onClick={() => { setErr(""); setSceneErr(""); }} style={{ minWidth: 34, minHeight: 34, padding: "0 10px", fontSize: 14, lineHeight: 1 }}>✕</button></div>}
+      {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button aria-label="Απόκρυψη σφάλματος" onClick={() => { setErr(""); setSceneErr(""); }} style={{ minWidth: 34, minHeight: 34, padding: "0 10px", fontSize: 14, lineHeight: 1 }}>✕</button></div>}
       {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <div style={{ flex: 1, fontSize: 11, color: F1.textDim, fontFamily: F1.mono }}>{loading}</div>
-          {canCancelLoad && <button onClick={cancelLoading} style={{ padding: "4px 10px", fontSize: 10 }}>CANCEL</button>}
+          {canCancelLoad && <button onClick={cancelLoading} style={{ padding: "4px 10px", fontSize: 10 }}>ΑΚΥΡΟ</button>}
         </div>
         {ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 1, transition: "width .3s" }} /></div>}
       </div>}
       {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, overflowX: "auto", flexShrink: 0 }}>
         {[
-          { id: "3d", label: "🏎️ Track" },
-          { id: "telemetry", label: "📊 Telemetry" },
-          { id: "stats", label: "📈 Stats" },
-          { id: "laps", label: "⏱ Laps" },
+          { id: "3d", label: "🏎️ Πίστα" },
+          { id: "telemetry", label: "📊 Τηλεμετρία" },
+          { id: "stats", label: "📈 Στατιστικά" },
+          { id: "laps", label: "⏱ Γύροι" },
           { id: "h2h", label: "⚔️ H2H" },
-          { id: "season", label: "🏆 Season" },
+          { id: "season", label: "🏆 Σεζόν" },
         ].map((tab) => <button key={tab.id} onClick={() => selectComparisonTab(tab.id)} style={{ flex: "0 0 auto", borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 10px", textTransform: "none", whiteSpace: "nowrap", color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
       </div>}
 
       {/* Embed tab bar */}
       {embed && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, flexShrink: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         {[
-          { id: "3d", label: mob ? "🏎️" : "🏎️ Track", title: "Track" },
-          { id: "telemetry", label: mob ? "📊" : "📊 Telemetry", title: "Telemetry" },
-          { id: "stats", label: mob ? "📈" : "📈 Stats", title: "Stats" },
-          { id: "laps", label: mob ? "⏱" : "⏱ Laps", title: "Laps" },
+          { id: "3d", label: mob ? "🏎️" : "🏎️ Πίστα", title: "Πίστα" },
+          { id: "telemetry", label: mob ? "📊" : "📊 Τηλεμετρία", title: "Τηλεμετρία" },
+          { id: "stats", label: mob ? "📈" : "📈 Στατιστικά", title: "Στατιστικά" },
+          { id: "laps", label: mob ? "⏱" : "⏱ Γύροι", title: "Γύροι" },
           { id: "h2h", label: mob ? "⚔️" : "⚔️ H2H", title: "H2H" },
-          { id: "season", label: mob ? "🏆" : "🏆 Season", title: "Season" },
+          { id: "season", label: mob ? "🏆" : "🏆 Σεζόν", title: "Σεζόν" },
         ].map((tab) => <button key={tab.id} title={tab.title} onClick={() => selectComparisonTab(tab.id)} style={{ flex: mob ? "1 0 auto" : 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: mob ? 16 : 10, padding: mob ? "8px 0" : "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: mob ? 0 : undefined, color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
       </div>}
 
@@ -1613,8 +1646,8 @@ export default function App({ embed }) {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.blue, marginBottom: 4 }}>LOW-POWER 2D VIEW</div>
-                        <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>SVG replay with live progress dots. WebGL stays off in this mode for older GPUs, integrated graphics and battery saver setups.</div>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.blue, marginBottom: 4 }}>ΕΛΑΦΡΙΑ ΠΡΟΒΟΛΗ 2D</div>
+                        <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>SVG replay με ζωντανά σημεία προόδου. Το WebGL μένει κλειστό σε αυτή τη λειτουργία για παλαιότερες GPU, ενσωματωμένα γραφικά και συσκευές σε εξοικονόμηση μπαταρίας.</div>
                       </div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {renderTrackViewButtons()}
@@ -1623,12 +1656,12 @@ export default function App({ embed }) {
                     <div onTouchStart={handleReplayTouchStart} onTouchEnd={handleReplayTouchEnd} onTouchCancel={handleReplayTouchCancel}>
                       <TrackReplay2D tp={tp} drivers={replayDrivers} prog={prog} flip={circuitFlip} />
                     </div>
-                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below still drive the replay, and telemetry, stats and lap tables remain available.</div>
+                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Το scrubber και τα controls πιο κάτω εξακολουθούν να οδηγούν το replay, ενώ τηλεμετρία, στατιστικά και πίνακες γύρων παραμένουν διαθέσιμα.</div>
                   </div>
                   <div style={{ display: "grid", gap: 10 }}>
                     {delta !== null && (
                       <div style={{ minWidth: 0, padding: "12px 14px", borderRadius: 12, background: F1.cardBg, border: `1px solid ${F1.blue}33` }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: F1.textMuted, letterSpacing: "0.08em", marginBottom: 6 }}>LAP DELTA</div>
+                        <div style={{ fontSize: 10, fontWeight: 900, color: F1.textMuted, letterSpacing: "0.08em", marginBottom: 6 }}>ΔΙΑΦΟΡΑ ΓΥΡΟΥ</div>
                         <div style={{ fontSize: 28, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.05 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}s</div>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 10, color: F1.textDim }}>
                           <span style={{ color: co1 }}>{di1?.name_acronym} {fmt(li1?.lap_duration)}</span>
@@ -1645,8 +1678,8 @@ export default function App({ embed }) {
                         <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>{fmt((driver.lapDuration || 0) * prog)}</div>
                         <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
                           <span>{Math.round(driver.current?.speed || 0)} km/h</span>
-                          <span>THR {Math.round(driver.current?.throttle || 0)}%</span>
-                          <span>{driver.current?.brake > 0 ? "BRAKE" : "COAST"}</span>
+                          <span>ΓΚΑΖΙ {Math.round(driver.current?.throttle || 0)}%</span>
+                          <span>{driver.current?.brake > 0 ? "ΦΡΕΝΟ" : "ΡΟΛΑΡΙΣΜΑ"}</span>
                           {driver.tire && <span>{driver.tire}</span>}
                         </div>
                       </div>
@@ -1660,7 +1693,7 @@ export default function App({ embed }) {
               <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {renderTrackViewButtons(true)}
                 <button onClick={() => setCam((c) => { const i = CAM_MODES.indexOf(c); return CAM_MODES[(i + 1) % CAM_MODES.length]; })} style={{ padding: "4px 10px", fontSize: 9, background: F1.overlay, backdropFilter: "blur(6px)", borderColor: F1.blue, color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>📷 {CAM_LABELS[cam]}</button>
-                {vizMode !== "normal" && <button onClick={() => setVizMode("normal")} style={{ padding: "4px 8px", fontSize: 9, background: "#0088ff44", backdropFilter: "blur(6px)", borderColor: "#0088ff", color: "#fff", fontWeight: 700 }}>✕ {vizMode === "brake" ? "Brake" : "Speed"}</button>}
+                {vizMode !== "normal" && <button onClick={() => setVizMode("normal")} style={{ padding: "4px 8px", fontSize: 9, background: "#0088ff44", backdropFilter: "blur(6px)", borderColor: "#0088ff", color: "#fff", fontWeight: 700 }}>✕ {vizMode === "brake" ? "Φρένο" : "Ταχύτητα"}</button>}
               </div>
             ) : (
               <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3, flexWrap: "wrap" }}>
@@ -1668,7 +1701,7 @@ export default function App({ embed }) {
                 <div style={{ width: 1, height: 16, background: F1.borderLight }} />
                 {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.blue : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.blue : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
                 <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-                <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Brake" : vizMode === "heatmap" ? "🌡 Speed" : "🌡 Heatmap"}</button>
+                <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Φρένο" : vizMode === "heatmap" ? "🌡 Ταχύτητα" : "🌡 Θερμικό"}</button>
               </div>
             ))}
             {tp && !effectiveSceneErr && !is2DView && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} flip={circuitFlip} /></div>}
@@ -1693,7 +1726,7 @@ export default function App({ embed }) {
               <div style={{ width: "min(900px, 100%)", padding: mob ? "18px 16px" : "22px 24px", borderRadius: 16, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(260px, 320px) 1fr", gap: mob ? 16 : 22, alignItems: "center" }}>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>2D FALLBACK PLAYBACK</div>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>2D ΕΦΕΔΡΙΚΗ ΑΝΑΠΑΡΑΓΩΓΗ</div>
                     <TrackReplay2D tp={tp} drivers={replayDrivers} prog={prog} flip={circuitFlip} />
                     <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: mob ? "1fr" : `repeat(${Math.max(2, Math.min(4, replayDriverCards.length || 2))}, minmax(0, 1fr))`, gap: 10 }}>
                       {replayDriverCards.map((driver) => (
@@ -1705,24 +1738,24 @@ export default function App({ embed }) {
                           <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>{fmt((driver.lapDuration || 0) * prog)}</div>
                           <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
                             <span>{Math.round(driver.current?.speed || 0)} km/h</span>
-                            <span>THR {Math.round(driver.current?.throttle || 0)}%</span>
-                            <span>{driver.current?.brake > 0 ? "BRAKE" : "COAST"}</span>
+                            <span>ΓΚΑΖΙ {Math.round(driver.current?.throttle || 0)}%</span>
+                            <span>{driver.current?.brake > 0 ? "ΦΡΕΝΟ" : "ΡΟΛΑΡΙΣΜΑ"}</span>
                             {driver.tire && <span>{driver.tire}</span>}
                           </div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>The scrubber and playback controls below now drive a 2D track replay with live progress dots.</div>
+                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Το scrubber και τα controls πιο κάτω οδηγούν πλέον ένα 2D replay πίστας με ζωντανά σημεία προόδου.</div>
                   </div>
                   <div style={{ textAlign: mob ? "center" : "left" }}>
                     <div style={{ fontSize: mob ? 15 : 18, fontWeight: 800, color: F1.text, lineHeight: 1.45, marginBottom: 8 }}>{effectiveSceneErr}</div>
-                    <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.7, marginBottom: 14 }}>The comparison is still usable without WebGL. Open the telemetry charts, stats or lap tables, or jump back to the selector bar to change the matchup.</div>
+                    <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.7, marginBottom: 14 }}>Η σύγκριση παραμένει χρήσιμη και χωρίς WebGL. Άνοιξε τηλεμετρία, στατιστικά ή πίνακες γύρων, ή επέστρεψε στη μπάρα επιλογών για νέα σύγκριση.</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: mob ? "center" : "flex-start" }}>
-                      <button onClick={() => setTrackViewMode("2d")} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>USE 2D VIEW</button>
-                      <button onClick={() => openAuxView("telemetry")} style={{ padding: "8px 13px", fontSize: 11 }}>TELEMETRY</button>
-                      <button onClick={() => openAuxView("stats")} style={{ padding: "8px 13px", fontSize: 11 }}>STATS</button>
-                      <button onClick={() => openAuxView("laps")} style={{ padding: "8px 13px", fontSize: 11 }}>LAPS</button>
-                      {!embed && <button onClick={changeMatchup} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>CHANGE MATCHUP</button>}
+                      <button onClick={() => setTrackViewMode("2d")} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>ΧΡΗΣΗ 2D</button>
+                      <button onClick={() => openAuxView("telemetry")} style={{ padding: "8px 13px", fontSize: 11 }}>ΤΗΛΕΜΕΤΡΙΑ</button>
+                      <button onClick={() => openAuxView("stats")} style={{ padding: "8px 13px", fontSize: 11 }}>ΣΤΑΤΙΣΤΙΚΑ</button>
+                      <button onClick={() => openAuxView("laps")} style={{ padding: "8px 13px", fontSize: 11 }}>ΓΥΡΟΙ</button>
+                      {!embed && <button onClick={changeMatchup} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>ΝΕΑ ΣΥΓΚΡΙΣΗ</button>}
                     </div>
                   </div>
                 </div>
@@ -1730,16 +1763,16 @@ export default function App({ embed }) {
             </div>}
             {!tp && !loading && !embed && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
               <img src={LOGO_SRC} alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
-              <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>GHOST CAR LAB</div>
-              <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>by F1 STORIES</div>
-              <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Compare qualifying laps in 3D or switch to a low-power 2D replay when the machine needs a lighter view.</div>
+              <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>{APP_NAME}</div>
+              <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>{APP_SUBTITLE}</div>
+              <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Σύγκρινε γύρους κατατακτήριων σε 3D ή πέρασε σε ελαφρύ 2D replay όταν το μηχάνημα χρειάζεται πιο ελαφριά προβολή.</div>
               <div style={{ marginTop: 18, display: "flex", gap: 8, justifyContent: "center" }}>
-                <button onClick={() => setShowPresets(true)} className="f1-btn" style={{ padding: "8px 20px", fontSize: 12 }}>⚡ QUICK START</button>
+                <button onClick={() => setShowPresets(true)} className="f1-btn" style={{ padding: "8px 20px", fontSize: 12 }}>⚡ ΓΡΗΓΟΡΗ ΕΚΚΙΝΗΣΗ</button>
                 <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: F1.textDim, textDecoration: "none", padding: "8px 14px", border: `1px solid ${F1.border}`, borderRadius: 4, fontWeight: 600 }}>f1stories.gr →</a>
               </div>
             </div>}
             {embed && !tp && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .4s" }}>
-              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto 10px" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}{canCancelLoad && <button onClick={cancelLoading} style={{ padding: "5px 10px", fontSize: 10 }}>CANCEL</button>}</>) : alertErr ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{alertErr}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>LOADING COMPARISON</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
+              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto 10px" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}{canCancelLoad && <button onClick={cancelLoading} style={{ padding: "5px 10px", fontSize: 10 }}>ΑΚΥΡΟ</button>}</>) : alertErr ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{alertErr}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>ΦΟΡΤΩΣΗ ΣΥΓΚΡΙΣΗΣ</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
             </div>}
           </div>
 
@@ -1789,21 +1822,21 @@ export default function App({ embed }) {
 
       {/* Playback bar */}
       {tp && <div style={{ display: "flex", alignItems: "center", gap: embed && mob ? 4 : mob ? 6 : 10, padding: embed && mob ? "5px 8px" : mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.blue}22`, flexShrink: 0 }}>
-        {!(embed && mob) && <button title="Restart playback" aria-label="Restart playback" onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>{mob ? "⏮" : "⏮ RESTART"}</button>}
-        <button title={play ? "Pause playback" : "Play comparison"} aria-label={play ? "Pause playback" : "Play comparison"} onClick={startWithCountdown} style={{ padding: embed && mob ? "5px 10px" : "3px 9px", fontSize: embed && mob ? 15 : 12, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border, fontWeight: 700, letterSpacing: embed && mob ? undefined : "0.04em" }}>{embed && mob ? (play ? "⏸" : "▶") : play ? "⏸ PAUSE" : "▶ PLAY"}</button>
-        {!(embed && mob) && <button title={loop ? "Disable loop playback" : "Enable loop playback"} aria-label={loop ? "Disable loop playback" : "Enable loop playback"} onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>{mob ? "🔁" : "🔁 LOOP"}</button>}
+        {!(embed && mob) && <button title="Επανεκκίνηση αναπαραγωγής" aria-label="Επανεκκίνηση αναπαραγωγής" onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>{mob ? "⏮" : "⏮ ΑΡΧΗ"}</button>}
+        <button title={play ? "Παύση αναπαραγωγής" : "Εναρξη σύγκρισης"} aria-label={play ? "Παύση αναπαραγωγής" : "Εναρξη σύγκρισης"} onClick={startWithCountdown} style={{ padding: embed && mob ? "5px 10px" : "3px 9px", fontSize: embed && mob ? 15 : 12, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border, fontWeight: 700, letterSpacing: embed && mob ? undefined : "0.04em" }}>{embed && mob ? (play ? "⏸" : "▶") : play ? "⏸ ΠΑΥΣΗ" : "▶ ΠΑΙΞΕ"}</button>
+        {!(embed && mob) && <button title={loop ? "Απενεργοποίηση επανάληψης" : "Ενεργοποίηση επανάληψης"} aria-label={loop ? "Απενεργοποίηση επανάληψης" : "Ενεργοποίηση επανάληψης"} onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>{mob ? "🔁" : "🔁 ΕΠΑΝ."}</button>}
         <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => { const v = parseFloat(e.target.value); progRef.current = v; setProg(v); }} style={{ flex: 1, height: embed && mob ? 6 : 4, accentColor: F1.blue }} />
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: embed && mob ? 46 : mob ? 55 : 70 }}>
           {allDrivers.map((d, i) => <span key={i} style={{ fontSize: embed && mob ? 9 : 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
         </div>
-        {!embed && <button title="Return to setup selectors" aria-label="Return to setup selectors" onClick={changeMatchup} style={{ padding: "3px 8px", fontSize: 10 }}>SETUP</button>}
+        {!embed && <button title="Επιστροφή στις επιλογές" aria-label="Επιστροφή στις επιλογές" onClick={changeMatchup} style={{ padding: "3px 8px", fontSize: 10 }}>ΡΥΘΜΙΣΗ</button>}
         <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: embed && mob ? 42 : 48, padding: "2px 3px", fontSize: 10 }}>
           <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
         </select>
-        {!mob && !embed && <button title={showTel ? "Hide telemetry side panel" : "Show telemetry side panel"} aria-label={showTel ? "Hide telemetry side panel" : "Show telemetry side panel"} onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>{showTel ? "📊 ON" : "📊 OFF"}</button>}
-        {embed && !mob && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ SHARE"}</button>}
-        {embed && shareUrl && <a href={shareUrl} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "VIEW IN APP ↗"}</a>}
-        {embed && !mob && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Powered by <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
+        {!mob && !embed && <button title={showTel ? "Απόκρυψη τηλεμετρίας" : "Εμφάνιση τηλεμετρίας"} aria-label={showTel ? "Απόκρυψη τηλεμετρίας" : "Εμφάνιση τηλεμετρίας"} onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>{showTel ? "📊 ON" : "📊 OFF"}</button>}
+        {embed && !mob && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ ΚΟΙΝΟΠ."}</button>}
+        {embed && shareUrl && <a href={shareUrl} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "ΑΝΟΙΓΜΑ ΣΤΗΝ ΕΦΑΡΜΟΓΗ ↗"}</a>}
+        {embed && !mob && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Από <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
       </div>}
 
       {/* Footer */}
@@ -1814,7 +1847,7 @@ export default function App({ embed }) {
             <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
           </a>
           <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
-          <span style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>Data by OpenF1 API</span>
+          <span style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>Δεδομένα από το OpenF1 API</span>
           <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
           <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
         </div>

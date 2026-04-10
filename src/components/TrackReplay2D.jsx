@@ -136,7 +136,7 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
           </g>
         </g>
       ))}
-      <text x="28" y="34" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono} letterSpacing="0.18em">2D REPLAY ACTIVE</text>
+      <text x="28" y="34" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono} letterSpacing="0.18em">2D ΑΝΑΠΑΡΑΓΩΓΗ</text>
       <text x={WIDTH - 28} y={34} textAnchor="end" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono}>
         {Math.round(Math.max(0, Math.min(1, prog)) * 100)}%
       </text>

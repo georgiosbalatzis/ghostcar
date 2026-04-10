@@ -19,12 +19,12 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
   return (
     <div style={wrapStyle}>
       <div style={{ display: "flex", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${F1.borderLight}` }}>
-        <span style={{ fontWeight: 700, fontSize: 14, fontFamily: F1.sans, letterSpacing: "0.05em" }}>LAP TIMES</span>
+        <span style={{ fontWeight: 700, fontSize: 14, fontFamily: F1.sans, letterSpacing: "0.05em" }}>ΧΡΟΝΟΙ ΓΥΡΩΝ</span>
         <div style={{ display: "flex", gap: 6, marginLeft: "auto", marginRight: 8 }}>
-          <button onClick={() => setSortMode("time")} style={{ padding: "4px 8px", fontSize: 10, background: sortMode === "time" ? F1.blue : F1.cardBg, borderColor: sortMode === "time" ? F1.blue : F1.borderLight, color: sortMode === "time" ? "#fff" : F1.text }}>FASTEST</button>
-          <button onClick={() => setSortMode("lap")} style={{ padding: "4px 8px", fontSize: 10, background: sortMode === "lap" ? F1.blue : F1.cardBg, borderColor: sortMode === "lap" ? F1.blue : F1.borderLight, color: sortMode === "lap" ? "#fff" : F1.text }}>LAP #</button>
+          <button onClick={() => setSortMode("time")} style={{ padding: "4px 8px", fontSize: 10, background: sortMode === "time" ? F1.blue : F1.cardBg, borderColor: sortMode === "time" ? F1.blue : F1.borderLight, color: sortMode === "time" ? "#fff" : F1.text }}>ΤΑΧΥΤΕΡΟΙ</button>
+          <button onClick={() => setSortMode("lap")} style={{ padding: "4px 8px", fontSize: 10, background: sortMode === "lap" ? F1.blue : F1.cardBg, borderColor: sortMode === "lap" ? F1.blue : F1.borderLight, color: sortMode === "lap" ? "#fff" : F1.text }}>ΓΥΡΟΣ #</button>
         </div>
-        <button aria-label="Close lap times" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
+        <button aria-label="Κλείσιμο χρόνων γύρων" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 14 }}>
         {preparedDrivers.map((drv) => (
@@ -35,9 +35,9 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
                 const gapToBest = l.lap_duration - drv.best;
                 return (
                   <div key={l.lap_number} onClick={() => drv.set(l.lap_number)} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 8px", borderRadius: 4, cursor: "pointer", background: l.lap_number === drv.sel ? `${drv.col}18` : "transparent", borderLeft: l.lap_number === drv.sel ? `2px solid ${drv.col}` : "2px solid transparent", marginBottom: 2, fontSize: 12, fontFamily: F1.mono }}>
-                    <span style={{ width: 30, color: F1.textMuted }}>L{l.lap_number}</span>
+                    <span style={{ width: 30, color: F1.textMuted }}>Γ{l.lap_number}</span>
                     <span style={{ fontWeight: l.lap_duration === drv.best ? 800 : 400, color: l.lap_duration === drv.best ? F1.green : F1.text }}>{fmt(l.lap_duration)}</span>
-                    {l.lap_duration === drv.best && <span style={{ fontSize: 9, color: F1.green, fontWeight: 700, background: `${F1.green}15`, padding: "1px 5px", borderRadius: 3 }}>P1</span>}
+                    {l.lap_duration === drv.best && <span style={{ fontSize: 9, color: F1.green, fontWeight: 700, background: `${F1.green}15`, padding: "1px 5px", borderRadius: 3 }}>ΚΑΛ.</span>}
                     {gapToBest > 0.001 && <span style={{ fontSize: 9, color: F1.textMuted }}>+{gapToBest.toFixed(3)}s</span>}
                     <div style={{ marginLeft: "auto", width: 36, height: 3, background: F1.borderLight, borderRadius: 2, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${(1 - pct) * 100}%`, background: pct < 0.1 ? F1.green : pct > 0.7 ? F1.red : F1.yellow, borderRadius: 2 }} />
