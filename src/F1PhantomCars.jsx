@@ -1179,7 +1179,7 @@ export default function App({ embed }) {
     touchScrubRef.current = { active: false, x: 0, y: 0 };
   }, []);
 
-  // ─── Playback — write to ref at 60fps, sync React state at ~12fps for UI ───
+  // ─── Playback — write to refs each frame and only throttle non-essential UI sync ───
   const spdRef = useRef(spd); spdRef.current = spd;
   const loopRef = useRef(loop); loopRef.current = loop;
   const trackViewRef = useRef(trackView); trackViewRef.current = trackView;
@@ -1214,8 +1214,8 @@ export default function App({ embed }) {
       let n = progRef.current + dt * 0.015 * spdRef.current;
       if (n >= 1) { if (loopRef.current) { n = 0; } else { n = 1; setPlay(false); } }
       progRef.current = n;
-      // 2D mode relies on React for the track animation, so it needs a faster sync.
-      if (ts - uiSyncRef.current > (trackViewRef.current === "2d" ? 33 : 80)) { uiSyncRef.current = ts; setProg(n); }
+      // 2D mode relies on React for the track animation, so keep it near display refresh rate.
+      if (ts - uiSyncRef.current > (trackViewRef.current === "2d" ? 16 : 80)) { uiSyncRef.current = ts; setProg(n); }
       rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);

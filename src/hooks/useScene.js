@@ -699,7 +699,7 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       R.current._speedRef = speedRef;
       R.current._telData1 = telData1;
 
-      const ACTIVE_MS = isMob ? 34 : 0; // ~30fps on mobile, uncapped on desktop
+      const ACTIVE_MS = 0; // Let active playback run at the display refresh rate.
       const IDLE_MS = isMob ? 100 : 66;
       const HIDDEN_MS = 220;
       const prevCameraPos = new Vector3();
