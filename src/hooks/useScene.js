@@ -961,7 +961,11 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       }
       animate();
 
-      const onR = () => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; const cw = el.clientWidth, ch = el.clientHeight; if (!cw || !ch) return; camera.aspect = cw / ch; camera.updateProjectionMatrix(); ren.setSize(cw, ch); R.current._dirty = true; }, 50); };
+      const applyResize = (delay) => { clearTimeout(rt); rt = setTimeout(() => { if (!el || contextLost) return; const cw = el.clientWidth, ch = el.clientHeight; if (!cw || !ch) return; camera.aspect = cw / ch; camera.updateProjectionMatrix(); ren.setSize(cw, ch); R.current._dirty = true; }, delay); };
+      const onR = () => applyResize(50);
+      // On mobile, orientation changes don't reliably trigger ResizeObserver — use a
+      // dedicated orientationchange / screen.orientation listener with a longer settle delay.
+      const onOrientationChange = () => applyResize(350);
       // ResizeObserver fires when the flex container distributes its height on mobile,
       // and also on window resize — strictly better than window.addEventListener("resize").
       let ro;
@@ -971,10 +975,16 @@ export default function useScene(ref, tp, l1, l2, progRef, playRef, speedRef, c1
       } else {
         window.addEventListener("resize", onR);
       }
+      if (screen?.orientation) {
+        screen.orientation.addEventListener("change", onOrientationChange);
+      } else {
+        window.addEventListener("orientationchange", onOrientationChange);
+      }
       return () => {
         active = false;
         clearTimeout(rt);
         if (ro) { ro.disconnect(); } else { window.removeEventListener("resize", onR); }
+        if (screen?.orientation) { screen.orientation.removeEventListener("change", onOrientationChange); } else { window.removeEventListener("orientationchange", onOrientationChange); }
         de?.removeEventListener("mousedown", onDown); de?.removeEventListener("mousemove", onMove); de?.removeEventListener("mouseup", onUp); de?.removeEventListener("mouseleave", onUp); de?.removeEventListener("wheel", onWheel); de?.removeEventListener("touchstart", onDown); de?.removeEventListener("touchmove", onMove); de?.removeEventListener("touchend", onUp);
         clearRenderer();
       };
