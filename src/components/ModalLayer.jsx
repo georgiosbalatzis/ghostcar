@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import { overlayBackdropStyle } from "../ui/styles.js";
 import ShareDialog from "./ShareDialog.jsx";
 
 const PresetsModal = lazy(() => import("../modals/PresetsModal.jsx"));
@@ -18,13 +19,7 @@ export default function ModalLayer({ mob, embed, F1, showBackdrop, onCloseAll, f
       {showBackdrop && (
         <div
           onClick={onCloseAll}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            zIndex: 99,
-            backdropFilter: "blur(4px)",
-          }}
+          style={overlayBackdropStyle({ background: "rgba(0,0,0,0.6)", zIndex: 99, blur: 4 })}
         />
       )}
       <Suspense fallback={null}>

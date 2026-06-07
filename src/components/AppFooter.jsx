@@ -1,15 +1,22 @@
+import { panelSurfaceStyle } from "../ui/styles.js";
+
 export default function AppFooter({ mob, F1, logoSrc }) {
   return (
     <div
       style={{
+        ...panelSurfaceStyle(F1, {
+          background: F1.carbon,
+          borderColor: F1.borderLight,
+          borderRadius: 0,
+          padding: "8px 18px",
+        }),
+        border: "none",
+        borderTop: `1px solid ${F1.borderLight}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         gap: mob ? 8 : 16,
-        padding: "8px 18px",
         flexShrink: 0,
-        background: F1.carbon,
-        borderTop: `1px solid ${F1.borderLight}`,
         flexWrap: "wrap",
       }}
     >

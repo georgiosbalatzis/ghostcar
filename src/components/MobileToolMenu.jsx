@@ -1,4 +1,4 @@
-import { controlButtonStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
+import { controlButtonStyle, overlayBackdropStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
 
 export default function MobileToolMenu({
   F1,
@@ -116,16 +116,7 @@ export default function MobileToolMenu({
 
   return (
     <>
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.5)",
-          zIndex: 49,
-          backdropFilter: "blur(4px)",
-        }}
-      />
+      <div onClick={onClose} style={overlayBackdropStyle({ background: "rgba(0,0,0,0.5)", zIndex: 49, blur: 4 })} />
       <div style={menuSurfaceStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>ΕΡΓΑΛΕΙΑ</span>

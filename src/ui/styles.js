@@ -125,3 +125,19 @@ export function panelSurfaceStyle(
     ...(boxShadow ? { boxShadow } : {}),
   };
 }
+
+export function overlayBackdropStyle({
+  background = "rgba(0,0,0,0.6)",
+  zIndex = 99,
+  blur = 4,
+  position = "fixed",
+  inset = 0,
+} = {}) {
+  return {
+    position,
+    inset,
+    background,
+    zIndex,
+    ...(blur ? { backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)` } : {}),
+  };
+}

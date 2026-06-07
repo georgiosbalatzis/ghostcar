@@ -1,3 +1,5 @@
+import { overlayBackdropStyle } from "../ui/styles.js";
+
 const COUNTDOWN_LIGHTS = [1, 2, 3, 4, 5];
 
 export default function CountdownOverlay({ F1, countdown }) {
@@ -6,10 +8,7 @@ export default function CountdownOverlay({ F1, countdown }) {
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 300,
-        background: "rgba(0,0,0,0.85)",
+        ...overlayBackdropStyle({ background: "rgba(0,0,0,0.85)", zIndex: 300, blur: 0 }),
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
