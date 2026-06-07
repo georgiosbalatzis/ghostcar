@@ -3,11 +3,9 @@ import { useF1 } from "../theme.js";
 
 const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
   const F1 = useF1();
-  if (!traces?.length) return null;
   const H = ch || 45, W = 300;
 
-  // Memoize path strings — only recompute when the data arrays change, not on every prog tick
-  const paths = useMemo(() => traces.map((tr) => {
+  const paths = useMemo(() => (traces || []).map((tr) => {
     if (!tr.data?.length) return "";
     const step = Math.max(1, Math.floor(tr.data.length / 150));
     let d = "";
@@ -17,8 +15,9 @@ const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
       d += (i === 0 ? "M" : "L") + `${x},${y}`;
     }
     return d;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [traces, maxVal, H]);
+
+  if (!traces?.length) return null;
 
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg, display: "block", marginBottom: 2 }}>

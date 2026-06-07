@@ -1,92 +1,43 @@
-import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getTeamColor, PRESETS, CAM_MODES, CAM_LABELS, DRIVER_NAME_BY_NUMBER, getCircuitInfo, formatSessionLabel } from "./constants.js";
-import { fetchMeetings, fetchSessions, fetchDrivers, fetchLaps, fetchStints, fetchLocation, fetchCarData } from "./api.js";
-import { norm, telAt, bestLap, useIsMobile, ds, fmt, encodeURL, decodeURL, normalizeText } from "./helpers.js";
-import { ThemeProvider, getThemeValue } from "./theme.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PRESETS, CAM_MODES, formatSessionLabel } from "./constants.js";
+import { telAt, useIsMobile, ds, encodeURL, decodeURL } from "./helpers.js";
 
 // Components
-import MiniMap from "./components/MiniMap.jsx";
-import SectorDelta from "./components/SectorDelta.jsx";
-import TelemetryPanel from "./components/TelemetryPanel.jsx";
-import TrackReplay2D from "./components/TrackReplay2D.jsx";
-import { getModalCloseButtonStyle } from "./modals/modalStyles.js";
+import AppShell from "./components/AppShell.jsx";
+import AppFooter from "./components/AppFooter.jsx";
+import AuxiliaryContentArea from "./components/AuxiliaryContentArea.jsx";
+import ComparisonSelectors from "./components/ComparisonSelectors.jsx";
+import CountdownOverlay from "./components/CountdownOverlay.jsx";
+import ErrorBanner from "./components/ErrorBanner.jsx";
+import HeaderToolbar from "./components/HeaderToolbar.jsx";
+import InlineTabBar from "./components/InlineTabBar.jsx";
+import LoadingStatusBar from "./components/LoadingStatusBar.jsx";
+import ModalLayer from "./components/ModalLayer.jsx";
+import MobileToolMenu from "./components/MobileToolMenu.jsx";
+import PlaybackBar from "./components/PlaybackBar.jsx";
+import ReplayStage from "./components/ReplayStage.jsx";
+import Toast from "./components/Toast.jsx";
+import { getDriverColor } from "./domain/drivers.js";
+import { findLapByNumber, getCompoundForLap } from "./domain/laps.js";
+import useAuxiliaryData from "./hooks/useAuxiliaryData.js";
+import useAuxiliaryViews from "./hooks/useAuxiliaryViews.js";
+import useComparisonSelectors from "./hooks/useComparisonSelectors.js";
+import usePlaybackController, { PLAYBACK_SPEEDS } from "./hooks/usePlaybackController.js";
+import usePresetLoader from "./hooks/usePresetLoader.js";
+import useReplayLoader from "./hooks/useReplayLoader.js";
+import useShareAndGallery from "./hooks/useShareAndGallery.js";
+import useThemePreference from "./hooks/useThemePreference.js";
+import useTrackViewPreference from "./hooks/useTrackViewPreference.js";
 
 const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
 const UNAVAILABLE_PRESET_YEARS = [2026];
 const DEFAULT_YEAR = 2025;
-const TRACK_VIEW_STORAGE_KEY = "f1s-track-view";
-const TRACK_VIEW_MODES = ["3d", "2d"];
-const INLINE_TABS = ["3d", "telemetry", "stats", "laps", "h2h", "season"];
 const VIZ_MODES = ["normal", "heatmap", "brake"];
-const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4];
 const SUPPORTED_SESSION_NAMES = ["Qualifying", "Race", "Sprint", "Sprint Qualifying", "Sprint Shootout", "Practice 1", "Practice 2", "Practice 3"];
 const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
 const APP_NAME = "F1 Stories Ghost Car";
 const APP_SUBTITLE = "Σύγκριση γύρων F1";
 const APP_DESCRIPTION = "Σύγκρινε γύρους Formula 1 σε 3D και 2D με πραγματική τηλεμετρία από το OpenF1.";
-const SceneStage3D = lazy(() => import("./components/SceneStage3D.jsx"));
-const PresetsModal = lazy(() => import("./modals/PresetsModal.jsx"));
-const StatsModal = lazy(() => import("./modals/StatsModal.jsx"));
-const LapsModal = lazy(() => import("./modals/LapsModal.jsx"));
-const KeysModal = lazy(() => import("./modals/KeysModal.jsx"));
-const H2HModal = lazy(() => import("./modals/H2HModal.jsx"));
-const DashModal = lazy(() => import("./modals/DashModal.jsx"));
-const GalleryModal = lazy(() => import("./modals/GalleryModal.jsx"));
-const EmbedModal = lazy(() => import("./modals/EmbedModal.jsx"));
-const TelemetryModal = lazy(() => import("./modals/TelemetryModal.jsx"));
-const TourOverlay = lazy(() => import("./modals/TourOverlay.jsx"));
-
-function createAbortError() {
-  const error = new Error("Aborted");
-  error.name = "AbortError";
-  return error;
-}
-
-function isAbortError(error) {
-  return error?.name === "AbortError";
-}
-
-function abortableSleep(ms, signal) {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(createAbortError());
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      window.clearTimeout(timer);
-      reject(createAbortError());
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-function prepareLapSelectModel(laps) {
-  const valid = laps.filter((lap) => lap.lap_duration > 10);
-  let fastestLapNumber = null;
-  let fastestLapDuration = Infinity;
-  for (const lap of valid) {
-    if (lap.lap_duration < fastestLapDuration) {
-      fastestLapDuration = lap.lap_duration;
-      fastestLapNumber = lap.lap_number;
-    }
-  }
-  return {
-    options: [...valid].sort((a, b) => a.lap_duration - b.lap_duration),
-    fastestLapNumber,
-  };
-}
-
-function getComparisonCacheKey(year, d1, d2) {
-  return `${year}:${d1}:${d2}`;
-}
-
-function normalizeTrackView(value) {
-  return value === "2d" ? "2d" : value === "3d" ? "3d" : null;
-}
 
 function normalizeCamMode(value) {
   return CAM_MODES.includes(value) ? value : null;
@@ -94,25 +45,6 @@ function normalizeCamMode(value) {
 
 function normalizeVizMode(value) {
   return VIZ_MODES.includes(value) ? value : null;
-}
-
-function normalizeInlineTab(value) {
-  return INLINE_TABS.includes(value) ? value : "3d";
-}
-
-function normalizePlaybackSpeed(value) {
-  const parsed = Number(value);
-  return PLAYBACK_SPEEDS.includes(parsed) ? parsed : null;
-}
-
-function parseLoopFlag(value) {
-  return value === "1" || value === "true";
-}
-
-function parseThemeMode(value) {
-  if (value === "dark") return true;
-  if (value === "light") return false;
-  return null;
 }
 
 function createRestoreFlags() {
@@ -138,150 +70,203 @@ function formatMeetingShortLabel(value) {
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
-  const [isDark, setIsDark] = useState(() => {
-    const urlTheme = parseThemeMode(initialURL.theme);
-    if (urlTheme !== null) return urlTheme;
-    try { return localStorage.getItem("f1s-theme") !== "light"; } catch { return true; }
-  });
-  const themeValue = getThemeValue(isDark);
-  const F1 = themeValue.palette;
-  const toggleTheme = useCallback(() => { setIsDark((d) => { const next = !d; try { localStorage.setItem("f1s-theme", next ? "dark" : "light"); } catch {} return next; }); }, []);
-  const [trackView, setTrackView] = useState(() => {
-    const urlTrackView = normalizeTrackView(initialURL.trackView);
-    if (urlTrackView) return urlTrackView;
-    try {
-      return localStorage.getItem(TRACK_VIEW_STORAGE_KEY) === "2d" ? "2d" : "3d";
-    } catch {
-      return "3d";
-    }
-  });
+  const { isDark, setThemeMode, themeValue, F1, toggleTheme } = useThemePreference(initialURL.theme);
+  const { trackView, setTrackViewMode, setTrackViewFromValue, is2DView } = useTrackViewPreference(
+    initialURL.trackView
+  );
+  const {
+    prog,
+    setProg,
+    progRef,
+    play,
+    setPlay,
+    playRef,
+    spd,
+    setSpd,
+    spdRef,
+    loop,
+    setLoop,
+    countdown,
+    cancelCountdown,
+    setSpeedFromValue,
+    setLoopFromValue,
+    resetPlayback,
+    startWithCountdown,
+    handleReplayTouchStart,
+    handleReplayTouchEnd,
+    handleReplayTouchCancel,
+  } = usePlaybackController({ initialSpeed: initialURL.speed, initialLoop: initialURL.loop, embed, trackView });
+  const {
+    showDash,
+    setShowDash,
+    showKeys,
+    setShowKeys,
+    showH2H,
+    setShowH2H,
+    showGallery,
+    setShowGallery,
+    showEmbed,
+    setShowEmbed,
+    showTel,
+    setShowTel,
+    mobTab,
+    setMobTab,
+    showTelOverlay,
+    setShowTelOverlay,
+    showPresets,
+    setShowPresets,
+    showStats,
+    setShowStats,
+    showLaps,
+    setShowLaps,
+    showMobMenu,
+    setShowMobMenu,
+    anyAuxiliaryModal,
+    closeStatsModal,
+    closeLapsModal,
+    closeKeysModal,
+    closePresetsModal,
+    closeGalleryModal,
+    closeEmbedModal,
+    closeTelemetryOverlay,
+    closeAuxiliaryModals,
+    resetAuxiliaryViews,
+    restoreAuxiliaryTab,
+  } = useAuxiliaryViews({ initialTab: initialURL.tab, embed });
 
   // ─── State ───
-  const [year, setYear] = useState(() => Number(initialURL.year) || DEFAULT_YEAR);
-  const [mts, setMts] = useState([]); const [selMt, setSelMt] = useState(null);
-  const [sess, setSess] = useState([]); const [selSe, setSelSe] = useState(null);
-  const [drvs, setDrvs] = useState([]); const [d1, setD1] = useState(null); const [d2, setD2] = useState(null);
-  const [d3, setD3] = useState(null); const [d4, setD4] = useState(null);
-  const [sl1, setSl1] = useState(null); const [sl2, setSl2] = useState(null);
-  const [sl3, setSl3] = useState(null); const [sl4, setSl4] = useState(null);
-  const [laps1, setLaps1] = useState([]); const [laps2, setLaps2] = useState([]);
-  const [laps3, setLaps3] = useState([]); const [laps4, setLaps4] = useState([]);
-  const [loc1, setLoc1] = useState(null); const [loc2, setLoc2] = useState(null);
-  const [loc3, setLoc3] = useState(null); const [loc4, setLoc4] = useState(null);
-  const [tel1, setTel1] = useState(null); const [tel2, setTel2] = useState(null);
-  const [tel3, setTel3] = useState(null); const [tel4, setTel4] = useState(null);
-  const [tp, setTp] = useState(null);
-  const [circuitFlip, setCircuitFlip] = useState(false);
-  const [circuitTurns, setCircuitTurns] = useState(20);
-  const [st1, setSt1] = useState([]); const [st2, setSt2] = useState([]);
-  const [st3, setSt3] = useState([]); const [st4, setSt4] = useState([]);
-  const [numDrivers, setNumDrivers] = useState(() => {
-    const encodedCount = Number(initialURL.numDrivers);
-    if (encodedCount >= 2 && encodedCount <= 4) return encodedCount;
-    if (initialURL.d4) return 4;
-    if (initialURL.d3) return 3;
-    return 2;
-  });
-  const [showDash, setShowDash] = useState(false); const [dashData, setDashData] = useState(null);
-  const [prog, setProg] = useState(0); const [play, setPlay] = useState(false);
-  const [spd, setSpd] = useState(() => normalizePlaybackSpeed(initialURL.speed) ?? 1);
-  const [loop, setLoop] = useState(() => parseLoopFlag(initialURL.loop));
   const [cam, setCam] = useState(() => normalizeCamMode(initialURL.cam) ?? "orbit");
   const [vizMode, setVizMode] = useState(() => normalizeVizMode(initialURL.vizMode) ?? "normal");
-  const [showKeys, setShowKeys] = useState(false);
   const [showTour, setShowTour] = useState(() => { if (embed) return false; try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
-  const [showH2H, setShowH2H] = useState(false); const [h2hData, setH2hData] = useState(null); const [h2hProgress, setH2hProgress] = useState(null);
   const [showreel, setShowreel] = useState(false); const showreelRef = useRef(false);
-  const [countdown, setCountdown] = useState(null);
-  const [gallery, setGallery] = useState(() => { try { return JSON.parse(localStorage.getItem("f1s-gallery") || "[]"); } catch { return []; } });
-  const [showGallery, setShowGallery] = useState(false); const [showEmbed, setShowEmbed] = useState(false);
-  const [loading, setLoading] = useState(""); const [ldPct, setLdPct] = useState(undefined); const [err, setErr] = useState("");
-  const [sceneErr, setSceneErr] = useState("");
-  const [canCancelLoad, setCanCancelLoad] = useState(false);
-  const [showTel, setShowTel] = useState(() => !embed || initialURL.tab === "telemetry");
-  const [mobTab, setMobTab] = useState(() => normalizeInlineTab(initialURL.tab));
-  const [showTelOverlay, setShowTelOverlay] = useState(false);
-  const [showPresets, setShowPresets] = useState(false); const [showStats, setShowStats] = useState(false); const [showLaps, setShowLaps] = useState(false);
-  const [shareMsg, setShareMsg] = useState("");
-  const [shareDialogUrl, setShareDialogUrl] = useState("");
-  const [shareDialogNotice, setShareDialogNotice] = useState("");
   const [toast, setToast] = useState(null);
   const [highlightConfig, setHighlightConfig] = useState(false);
-  const [showMobMenu, setShowMobMenu] = useState(false);
-  const setTrackViewMode = useCallback((mode) => {
-    const next = mode === "2d" ? "2d" : "3d";
-    setTrackView(next);
-    if (next === "2d") setSceneErr("");
-    try { localStorage.setItem(TRACK_VIEW_STORAGE_KEY, next); } catch {}
-  }, []);
   const selectorsRef = useRef(null);
   const yearSelectRef = useRef(null);
-  const cRef = useRef(null); const rafRef = useRef(null); const ltRef = useRef(null); const urlLoaded = useRef(Boolean(initialURL.year && initialURL.mk));
+  const cRef = useRef(null); const urlLoaded = useRef(Boolean(initialURL.year && initialURL.mk));
   const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
   const restoreStateRef = useRef(initialURL);
   const restoreFlagsRef = useRef(createRestoreFlags());
-  const [restoreTick, setRestoreTick] = useState(0);
-  const loadAbortRef = useRef(null);
-  const auxAbortRef = useRef(null);
-  const selectorRequestIdsRef = useRef({ meetings: 0, sessions: 0, drivers: 0, laps1: 0, laps2: 0, laps3: 0, laps4: 0 });
-  const h2hCacheRef = useRef(new Map());
-  const dashCacheRef = useRef(new Map());
   const toastTimerRef = useRef(null);
-  const shareMsgTimerRef = useRef(null);
   const highlightConfigTimerRef = useRef(null);
-  const touchScrubRef = useRef({ active: false, x: 0, y: 0 });
-  const countdownIntervalRef = useRef(null);
   const showreelTimerRef = useRef(null);
-
-  const clearReplayData = useCallback(() => {
-    setTp(null);
-    setLoc1(null); setLoc2(null); setLoc3(null); setLoc4(null);
-    setTel1(null); setTel2(null); setTel3(null); setTel4(null);
-    setProg(0);
-    setPlay(false);
+  const handleCancelLoad = useCallback(() => {
+    presetActiveRef.current = false;
   }, []);
-
-  const resetDriverSelections = useCallback((options = {}) => {
-    const { resetDriverCount = false } = options;
-    setD1(null); setD2(null); setD3(null); setD4(null);
-    setSl1(null); setSl2(null); setSl3(null); setSl4(null);
-    setLaps1([]); setLaps2([]); setLaps3([]); setLaps4([]);
-    setSt1([]); setSt2([]); setSt3([]); setSt4([]);
-    clearReplayData();
-    if (resetDriverCount) setNumDrivers(2);
-  }, [clearReplayData]);
-
-  const cancelCountdown = useCallback(() => {
-    if (countdownIntervalRef.current) {
-      window.clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    setCountdown(null);
-  }, []);
-
-  const nextSelectorRequestId = useCallback((key) => {
-    const next = (selectorRequestIdsRef.current[key] || 0) + 1;
-    selectorRequestIdsRef.current[key] = next;
-    return next;
-  }, []);
-
-  const isCurrentSelectorRequest = useCallback(
-    (key, requestId) => selectorRequestIdsRef.current[key] === requestId,
-    []
-  );
+  const {
+    loc1,
+    loc2,
+    loc3,
+    loc4,
+    tel1,
+    tel2,
+    tel3,
+    tel4,
+    tp,
+    circuitFlip,
+    circuitTurns,
+    loading,
+    ldPct,
+    err,
+    sceneErr,
+    canCancelLoad,
+    setLoading,
+    setLdPct,
+    setErr,
+    setSceneErr,
+    clearLoadIndicator,
+    beginCancelableLoad,
+    finishCancelableLoad,
+    isActiveLoad,
+    cancelLoading,
+    clearReplayData,
+    clearReplaySlot,
+    loadReplayComparison,
+    loadReplayForActiveLoad,
+  } = useReplayLoader({ setProg, setPlay, onCancelLoad: handleCancelLoad });
+  const {
+    year,
+    setYear,
+    mts,
+    selMt,
+    sess,
+    selSe,
+    drvs,
+    resetForUrlRestore,
+    applyPresetSelectorData,
+    selectMeeting,
+    selectSession,
+    selectDriverSlot,
+    selectLapSlot,
+    d1,
+    d2,
+    d3,
+    d4,
+    sl1,
+    sl2,
+    sl3,
+    sl4,
+    laps1,
+    laps2,
+    laps3,
+    laps4,
+    st1,
+    st2,
+    st3,
+    st4,
+    numDrivers,
+    setNumDrivers,
+    lapSelect1,
+    lapSelect2,
+    lapSelect3,
+    lapSelect4,
+    resetDriverSelections,
+  } = useComparisonSelectors({
+    initialURL,
+    defaultYear: DEFAULT_YEAR,
+    supportedSessionNames: SUPPORTED_SESSION_NAMES,
+    restoreStateRef,
+    restoreFlagsRef,
+    presetActiveRef,
+    clearReplayData,
+    clearReplaySlot,
+    setLoading,
+    setErr,
+    setSceneErr,
+  });
+  const {
+    h2hData,
+    h2hProgress,
+    dashData,
+    cancelAuxLoading,
+    resetAuxiliaryData,
+    loadH2H,
+    loadSeasonDash,
+  } = useAuxiliaryData({
+    year,
+    driver1Number: d1,
+    driver2Number: d2,
+    mob,
+    embed,
+    setShowH2H,
+    setShowDash,
+  });
+  useEffect(() => {
+    if (is2DView) setSceneErr("");
+  }, [is2DView, setSceneErr]);
 
   // ─── Derived ───
   const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
   const di3 = drvs.find((x) => x.driver_number === d3), di4 = drvs.find((x) => x.driver_number === d4);
-  const co1 = di1 ? getTeamColor(di1.team_name) : "#4488ff", co2 = di2 ? getTeamColor(di2.team_name) : "#ff4488";
-  const co3 = di3 ? getTeamColor(di3.team_name) : "#44cc44", co4 = di4 ? getTeamColor(di4.team_name) : "#ffaa00";
+  const co1 = getDriverColor(di1, "#4488ff"), co2 = getDriverColor(di2, "#ff4488");
+  const co3 = getDriverColor(di3, "#44cc44"), co4 = getDriverColor(di4, "#ffaa00");
   const li1 = laps1.find((l) => l.lap_number === sl1), li2 = laps2.find((l) => l.lap_number === sl2);
   const li3 = laps3.find((l) => l.lap_number === sl3), li4 = laps4.find((l) => l.lap_number === sl4);
   const delta = li1?.lap_duration && li2?.lap_duration ? li1.lap_duration - li2.lap_duration : null;
-  const tire1 = st1.find((s) => sl1 >= s.lap_start && sl1 <= s.lap_end)?.compound?.toUpperCase();
-  const tire2 = st2.find((s) => sl2 >= s.lap_start && sl2 <= s.lap_end)?.compound?.toUpperCase();
-  const tire3 = st3.find((s) => sl3 >= s.lap_start && sl3 <= s.lap_end)?.compound?.toUpperCase();
-  const tire4 = st4.find((s) => sl4 >= s.lap_start && sl4 <= s.lap_end)?.compound?.toUpperCase();
+  const tire1 = getCompoundForLap(st1, sl1);
+  const tire2 = getCompoundForLap(st2, sl2);
+  const tire3 = getCompoundForLap(st3, sl3);
+  const tire4 = getCompoundForLap(st4, sl4);
   const ms = mob ? 200 : 400;
   const s1 = useMemo(() => ds(tel1?.map((t) => t.speed || 0), ms), [tel1, ms]); const s2 = useMemo(() => ds(tel2?.map((t) => t.speed || 0), ms), [tel2, ms]);
   const s3 = useMemo(() => ds(tel3?.map((t) => t.speed || 0), ms), [tel3, ms]); const s4 = useMemo(() => ds(tel4?.map((t) => t.speed || 0), ms), [tel4, ms]);
@@ -289,7 +274,6 @@ export default function App({ embed }) {
   const t3 = useMemo(() => ds(tel3?.map((t) => t.throttle || 0), ms), [tel3, ms]); const t4 = useMemo(() => ds(tel4?.map((t) => t.throttle || 0), ms), [tel4, ms]);
   const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
   const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
-  const is2DView = trackView === "2d";
   const isSceneVisible = !is2DView && (!(mob || embed) || mobTab === "3d");
   const effectiveSceneErr = is2DView ? "" : sceneErr;
   const alertErr = effectiveSceneErr || err;
@@ -309,10 +293,6 @@ export default function App({ embed }) {
     tire: driver.tire,
     current: telAt(driver.tel, prog),
   })), [replaySources, prog]);
-  const lapSelect1 = useMemo(() => prepareLapSelectModel(laps1), [laps1]);
-  const lapSelect2 = useMemo(() => prepareLapSelectModel(laps2), [laps2]);
-  const lapSelect3 = useMemo(() => prepareLapSelectModel(laps3), [laps3]);
-  const lapSelect4 = useMemo(() => prepareLapSelectModel(laps4), [laps4]);
   // Memoized — excludes live ct* so it stays stable between prog ticks
   const allDrivers = useMemo(() => [
     { di: di1, co: co1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
@@ -321,23 +301,6 @@ export default function App({ embed }) {
     ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, li: li4, tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
   ].filter((d) => d.di), [di1, co1, li1, tire1, tel1, s1, t1, b1, st1, laps1, sl1, di2, co2, li2, tire2, tel2, s2, t2, b2, st2, laps2, sl2, numDrivers, di3, co3, li3, laps3, sl3, tire3, tel3, s3, t3, b3, st3, di4, co4, li4, laps4, sl4, tire4, tel4, s4, t4, b4, st4]);
 
-  const driverFullName = useCallback((driver) => {
-    if (!driver) return "";
-    const byApi = driver.full_name || driver.broadcast_name || [driver.first_name, driver.last_name].filter(Boolean).join(" ").trim();
-    return byApi || DRIVER_NAME_BY_NUMBER[driver.driver_number] || "";
-  }, []);
-
-  const formatDriverOption = useCallback((driver) => {
-    const shortName = driver?.name_acronym || `#${driver?.driver_number ?? "?"}`;
-    const fullName = driverFullName(driver);
-    const teamName = driver?.team_name ? ` • ${driver.team_name}` : "";
-    return fullName ? `${shortName} • ${fullName}${teamName}` : shortName;
-  }, [driverFullName]);
-
-  const formatLapOption = useCallback((lap, bestLapNumber) => {
-    const prefix = lap.lap_number === bestLapNumber ? "ΤΑΧΥΤΕΡΟΣ • " : "";
-    return `${prefix}L${lap.lap_number} • ${fmt(lap.lap_duration)}`;
-  }, []);
   const shareURLState = useMemo(() => ({
     year,
     mk: selMt?.meeting_key,
@@ -362,6 +325,25 @@ export default function App({ embed }) {
   const shareUrl = useMemo(() => (
     selMt?.meeting_key && selSe?.session_key ? encodeURL(shareURLState) : ""
   ), [selMt, selSe, shareURLState]);
+  const shareTitle = useMemo(
+    () => (selMt ? `${APP_NAME} | ${formatMeetingLabel(selMt.meeting_name)} ${year}` : APP_NAME),
+    [selMt, year]
+  );
+  const shareComparison = useMemo(
+    () => ({
+      driver1Label: di1?.name_acronym,
+      driver2Label: di2?.name_acronym,
+      meetingName: selMt?.meeting_name,
+      meetingLabel: formatMeetingLabel(selMt?.meeting_name || ""),
+      year,
+      delta,
+      lap1Duration: li1?.lap_duration,
+      lap2Duration: li2?.lap_duration,
+      color1: co1,
+      color2: co2,
+    }),
+    [di1, di2, selMt, year, delta, li1, li2, co1, co2]
+  );
 
   useEffect(() => {
     const title = selMt && di1 && di2
@@ -385,309 +367,12 @@ export default function App({ embed }) {
     setMeta('meta[name="twitter:description"]', description);
   }, [year, selMt, selSe, di1, di2, shareUrl]);
 
-  useEffect(() => {
-    if (numDrivers < 4) {
-      setD4(null); setSl4(null); setLaps4([]); setSt4([]); setLoc4(null); setTel4(null);
-    }
-    if (numDrivers < 3) {
-      setD3(null); setSl3(null); setLaps3([]); setSt3([]); setLoc3(null); setTel3(null);
-    }
-  }, [numDrivers]);
-
-  // ─── Data loading effects ───
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("meetings");
-    setLoading("Φόρτωση...");
-    setErr("");
-    setSceneErr("");
-    setMts([]);
-    setSelMt(null);
-    setSelSe(null);
-    setSess([]);
-    setDrvs([]);
-    resetDriverSelections();
-    fetchMeetings(year, { signal: controller.signal }).then((d) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("meetings", requestId)) return;
-      setMts(d.filter((m) => m.meeting_name));
-      setLoading("");
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("meetings", requestId)) return;
-      setErr(e.message);
-      setLoading("");
-    });
-    return () => controller.abort();
-  }, [year, isCurrentSelectorRequest, nextSelectorRequestId, resetDriverSelections]);
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    if (!selMt) {
-      setSelSe(null);
-      setSess([]);
-      setDrvs([]);
-      resetDriverSelections();
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("sessions");
-    setLoading("Φόρτωση σκελών...");
-    setErr("");
-    setDrvs([]);
-    setSelSe(null);
-    resetDriverSelections();
-    fetchSessions(selMt.meeting_key, { signal: controller.signal }).then((d) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("sessions", requestId)) return;
-      setSess(d.filter((s) => SUPPORTED_SESSION_NAMES.includes(s.session_name)));
-      setLoading("");
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("sessions", requestId)) return;
-      setErr(e.message);
-      setLoading("");
-    });
-    return () => controller.abort();
-  }, [selMt, isCurrentSelectorRequest, nextSelectorRequestId, resetDriverSelections]);
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    if (!selSe) {
-      setDrvs([]);
-      resetDriverSelections();
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("drivers");
-    setLoading("Φόρτωση οδηγών...");
-    setErr("");
-    resetDriverSelections();
-    fetchDrivers(selSe.session_key, { signal: controller.signal }).then((d) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("drivers", requestId)) return;
-      const seen = new Set();
-      setDrvs(d.filter((x) => {
-        if (seen.has(x.driver_number)) return false;
-        seen.add(x.driver_number);
-        return true;
-      }));
-      setLoading("");
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("drivers", requestId)) return;
-      setErr(e.message);
-      setLoading("");
-    });
-    return () => controller.abort();
-  }, [selSe, isCurrentSelectorRequest, nextSelectorRequestId, resetDriverSelections]);
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    if (!selSe || !d1) {
-      setLaps1([]); setSl1(null); setSt1([]);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("laps1");
-    fetchLaps(selSe.session_key, d1, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps1", requestId)) return;
-      setLaps1(l); setSl1(null);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps1", requestId)) return;
-      setLaps1([]);
-    });
-    fetchStints(selSe.session_key, d1, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps1", requestId)) return;
-      setSt1(stints);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps1", requestId)) return;
-      setSt1([]);
-    });
-    return () => controller.abort();
-  }, [selSe, d1, isCurrentSelectorRequest, nextSelectorRequestId]);
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    if (!selSe || !d2) {
-      setLaps2([]); setSl2(null); setSt2([]);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("laps2");
-    fetchLaps(selSe.session_key, d2, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps2", requestId)) return;
-      setLaps2(l); setSl2(null);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps2", requestId)) return;
-      setLaps2([]);
-    });
-    fetchStints(selSe.session_key, d2, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps2", requestId)) return;
-      setSt2(stints);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps2", requestId)) return;
-      setSt2([]);
-    });
-    return () => controller.abort();
-  }, [selSe, d2, isCurrentSelectorRequest, nextSelectorRequestId]);
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    if (!selSe || !d3) {
-      setLaps3([]); setSl3(null); setSt3([]); setLoc3(null); setTel3(null);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("laps3");
-    fetchLaps(selSe.session_key, d3, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps3", requestId)) return;
-      setLaps3(l); setSl3(null);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps3", requestId)) return;
-      setLaps3([]);
-    });
-    fetchStints(selSe.session_key, d3, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps3", requestId)) return;
-      setSt3(stints);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps3", requestId)) return;
-      setSt3([]);
-    });
-    return () => controller.abort();
-  }, [selSe, d3, isCurrentSelectorRequest, nextSelectorRequestId]);
-  useEffect(() => {
-    if (presetActiveRef.current) return;
-    if (!selSe || !d4) {
-      setLaps4([]); setSl4(null); setSt4([]); setLoc4(null); setTel4(null);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextSelectorRequestId("laps4");
-    fetchLaps(selSe.session_key, d4, { signal: controller.signal }).then((l) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps4", requestId)) return;
-      setLaps4(l); setSl4(null);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps4", requestId)) return;
-      setLaps4([]);
-    });
-    fetchStints(selSe.session_key, d4, { signal: controller.signal }).then((stints) => {
-      if (controller.signal.aborted || !isCurrentSelectorRequest("laps4", requestId)) return;
-      setSt4(stints);
-    }).catch((e) => {
-      if (isAbortError(e) || !isCurrentSelectorRequest("laps4", requestId)) return;
-      setSt4([]);
-    });
-    return () => controller.abort();
-  }, [selSe, d4, isCurrentSelectorRequest, nextSelectorRequestId]);
-  useEffect(() => { if (lapSelect1.fastestLapNumber && !sl1) setSl1(lapSelect1.fastestLapNumber); }, [lapSelect1.fastestLapNumber, sl1]);
-  useEffect(() => { if (lapSelect2.fastestLapNumber && !sl2) setSl2(lapSelect2.fastestLapNumber); }, [lapSelect2.fastestLapNumber, sl2]);
-  useEffect(() => { if (lapSelect3.fastestLapNumber && !sl3) setSl3(lapSelect3.fastestLapNumber); }, [lapSelect3.fastestLapNumber, sl3]);
-  useEffect(() => { if (lapSelect4.fastestLapNumber && !sl4) setSl4(lapSelect4.fastestLapNumber); }, [lapSelect4.fastestLapNumber, sl4]);
-
-  // URL restore
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!u?.mk || !mts.length || restoreFlagsRef.current.meeting) return;
-    const m = mts.find((x) => String(x.meeting_key) === u.mk);
-    if (!m) return;
-    restoreFlagsRef.current.meeting = true;
-    setSelMt(m);
-  }, [mts, restoreTick]);
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!u?.sk || !sess.length || restoreFlagsRef.current.session) return;
-    const s = sess.find((x) => String(x.session_key) === u.sk);
-    if (!s) return;
-    restoreFlagsRef.current.session = true;
-    setSelSe(s);
-  }, [sess, restoreTick]);
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!drvs.length || restoreFlagsRef.current.drivers) return;
-    const nextDrivers = {
-      d1: u?.d1 ? Number(u.d1) : null,
-      d2: u?.d2 ? Number(u.d2) : null,
-      d3: u?.d3 ? Number(u.d3) : null,
-      d4: u?.d4 ? Number(u.d4) : null,
-    };
-    if (!nextDrivers.d1 && !nextDrivers.d2 && !nextDrivers.d3 && !nextDrivers.d4) return;
-    restoreFlagsRef.current.drivers = true;
-    setD1(nextDrivers.d1);
-    setD2(nextDrivers.d2);
-    setD3(nextDrivers.d3);
-    setD4(nextDrivers.d4);
-    const encodedCount = Number(u?.numDrivers);
-    const nextCount = encodedCount >= 2 && encodedCount <= 4
-      ? encodedCount
-      : nextDrivers.d4 ? 4 : nextDrivers.d3 ? 3 : 2;
-    setNumDrivers(nextCount);
-  }, [drvs, restoreTick]);
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!u?.l1 || !laps1.length || restoreFlagsRef.current.lap1) return;
-    restoreFlagsRef.current.lap1 = true;
-    setSl1(Number(u.l1));
-  }, [laps1, restoreTick]);
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!u?.l2 || !laps2.length || restoreFlagsRef.current.lap2) return;
-    restoreFlagsRef.current.lap2 = true;
-    setSl2(Number(u.l2));
-  }, [laps2, restoreTick]);
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!u?.l3 || !laps3.length || restoreFlagsRef.current.lap3) return;
-    restoreFlagsRef.current.lap3 = true;
-    setSl3(Number(u.l3));
-  }, [laps3, restoreTick]);
-  useEffect(() => {
-    const u = restoreStateRef.current;
-    if (!u?.l4 || !laps4.length || restoreFlagsRef.current.lap4) return;
-    restoreFlagsRef.current.lap4 = true;
-    setSl4(Number(u.l4));
-  }, [laps4, restoreTick]);
-
   useEffect(() => () => {
-    loadAbortRef.current?.abort();
-    auxAbortRef.current?.abort();
     cancelCountdown();
     if (showreelTimerRef.current) window.clearTimeout(showreelTimerRef.current);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
     if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
   }, [cancelCountdown]);
-
-  const beginCancelableLoad = useCallback(() => {
-    loadAbortRef.current?.abort();
-    const controller = new AbortController();
-    loadAbortRef.current = controller;
-    setCanCancelLoad(true);
-    return controller;
-  }, []);
-
-  const finishCancelableLoad = useCallback((controller) => {
-    if (loadAbortRef.current === controller) loadAbortRef.current = null;
-    setCanCancelLoad(false);
-  }, []);
-
-  const beginAuxLoad = useCallback(() => {
-    auxAbortRef.current?.abort();
-    const controller = new AbortController();
-    auxAbortRef.current = controller;
-    return controller;
-  }, []);
-
-  const finishAuxLoad = useCallback((controller) => {
-    if (auxAbortRef.current === controller) auxAbortRef.current = null;
-  }, []);
-
-  const cancelAuxLoading = useCallback(() => {
-    auxAbortRef.current?.abort();
-    auxAbortRef.current = null;
-    setH2hProgress(null);
-  }, []);
-
-  const cancelLoading = useCallback(() => {
-    if (!loadAbortRef.current) return;
-    loadAbortRef.current.abort();
-    loadAbortRef.current = null;
-    presetActiveRef.current = false;
-    setCanCancelLoad(false);
-    setLoading("");
-    setLdPct(undefined);
-    setPlay(false);
-  }, []);
 
   const clearShowreelTimer = useCallback(() => {
     if (!showreelTimerRef.current) return;
@@ -700,7 +385,7 @@ export default function App({ embed }) {
     clearShowreelTimer();
     if (abortLoad) cancelLoading();
     setPlay(false);
-  }, [cancelLoading, clearShowreelTimer]);
+  }, [cancelLoading, clearShowreelTimer, setPlay]);
 
   const focusConfiguration = useCallback(() => {
     const top = selectorsRef.current ? selectorsRef.current.getBoundingClientRect().top + window.scrollY - 12 : 0;
@@ -716,10 +401,33 @@ export default function App({ embed }) {
     toastTimerRef.current = window.setTimeout(() => setToast(null), 2800);
   }, []);
 
-  const bumpShareMsg = useCallback((message) => {
-    if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
-    setShareMsg(message);
-    shareMsgTimerRef.current = window.setTimeout(() => setShareMsg(""), 2200);
+  const {
+    gallery,
+    shareMsg,
+    shareDialogUrl,
+    shareDialogNotice,
+    clearShareDialog,
+    copyShareDialogUrl,
+    share,
+    saveToGallery,
+    generateSocialCard,
+    takeScreenshot,
+    clearGallery,
+  } = useShareAndGallery({
+    shareUrl,
+    shareTitle,
+    canShare: Boolean(selMt && selSe && shareUrl),
+    canNativeShare: mob && !embed,
+    comparison: shareComparison,
+    screenshotRef: cRef,
+    is2DView,
+    mob,
+    pushToast,
+  });
+
+  const closeTour = useCallback(() => {
+    try { localStorage.setItem("f1s-toured", "1"); } catch {}
+    setShowTour(false);
   }, []);
 
   const restoreComparisonFromUrl = useCallback((rawUrl) => {
@@ -737,53 +445,26 @@ export default function App({ embed }) {
     setShowreel(false);
     setErr("");
     setSceneErr("");
-    setShowMobMenu(false);
-    setShowPresets(false);
-    setShowStats(false);
-    setShowLaps(false);
-    setShowKeys(false);
-    setShowH2H(false);
-    setShowDash(false);
-    setH2hData(null);
-    setDashData(null);
-    setH2hProgress(null);
-    setShowGallery(false);
-    setShowEmbed(false);
-    setShowTelOverlay(false);
-    setShareDialogUrl("");
-    setShareDialogNotice("");
-    const nextTheme = parseThemeMode(nextState.theme);
-    if (nextTheme !== null) setIsDark(nextTheme);
-    const nextTrackView = normalizeTrackView(nextState.trackView);
-    if (nextTrackView) {
-      setTrackView(nextTrackView);
-      if (nextTrackView === "2d") setSceneErr("");
-    }
+    resetAuxiliaryViews();
+    resetAuxiliaryData();
+    clearShareDialog();
+    setThemeMode(nextState.theme);
+    setTrackViewFromValue(nextState.trackView);
     const nextCam = normalizeCamMode(nextState.cam);
     if (nextCam) setCam(nextCam);
     const nextVizMode = normalizeVizMode(nextState.vizMode);
     if (nextVizMode) setVizMode(nextVizMode);
-    const nextSpeed = normalizePlaybackSpeed(nextState.speed);
-    if (nextSpeed) setSpd(nextSpeed);
-    if (nextState.loop != null) setLoop(parseLoopFlag(nextState.loop));
-    const nextTab = normalizeInlineTab(nextState.tab);
-    setMobTab(nextTab);
-    if (!embed && nextState.tab) setShowTel(nextTab === "telemetry");
+    setSpeedFromValue(nextState.speed);
+    if (nextState.loop != null) setLoopFromValue(nextState.loop);
+    restoreAuxiliaryTab(nextState.tab);
     restoreStateRef.current = nextState;
     restoreFlagsRef.current = createRestoreFlags();
     urlLoaded.current = true;
-    resetDriverSelections({ resetDriverCount: true });
-    setMts([]);
-    setSelMt(null);
-    setSess([]);
-    setSelSe(null);
-    setDrvs([]);
-    setYear(Number(nextState.year) || DEFAULT_YEAR);
+    resetForUrlRestore(nextState);
     const nextUrl = encodeURL(nextState);
     window.history.replaceState(null, "", nextUrl.split(window.location.origin)[1]);
-    setRestoreTick((tick) => tick + 1);
     pushToast("Η σύγκριση επανήλθε από τη συλλογή.", "success");
-  }, [cancelAuxLoading, cancelCountdown, cancelLoading, embed, pushToast, resetDriverSelections, stopShowreelRuntime]);
+  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearShareDialog, pushToast, resetAuxiliaryData, resetAuxiliaryViews, resetForUrlRestore, restoreAuxiliaryTab, setErr, setLoopFromValue, setSceneErr, setSpeedFromValue, setThemeMode, setTrackViewFromValue, stopShowreelRuntime]);
 
   const changeMatchup = useCallback(() => {
     cancelLoading();
@@ -794,24 +475,13 @@ export default function App({ embed }) {
     clearReplayData();
     setSceneErr("");
     setErr("");
-    setShowTelOverlay(false);
-    setShowStats(false);
-    setShowLaps(false);
-    setShowH2H(false);
-    setH2hProgress(null);
-    setShowDash(false);
-    setShowGallery(false);
-    setShowEmbed(false);
-    setShowKeys(false);
-    setShowMobMenu(false);
-    setShowTel(false);
-    if (mob || embed) setMobTab("3d");
+    resetAuxiliaryViews({ resetTelemetry: true, resetTab: mob || embed });
     if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
     setHighlightConfig(true);
     highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
     focusConfiguration();
     pushToast("Η μπάρα επιλογών είναι έτοιμη. Διάλεξε νέα σεζόν, πίστα ή σύγκριση οδηγών.", "info");
-  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearReplayData, embed, mob, focusConfiguration, pushToast, stopShowreelRuntime]);
+  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearReplayData, embed, mob, focusConfiguration, pushToast, resetAuxiliaryViews, setErr, setSceneErr, stopShowreelRuntime]);
 
   const openAuxView = useCallback((mode) => {
     if (mode === "telemetry" && !embed && !mob) {
@@ -827,7 +497,7 @@ export default function App({ embed }) {
     }
     if (mode === "stats") setShowStats(true);
     if (mode === "laps") setShowLaps(true);
-  }, [cancelAuxLoading, embed, mob, pushToast]);
+  }, [cancelAuxLoading, embed, mob, pushToast, setMobTab, setShowLaps, setShowStats, setShowTel, setShowTelOverlay]);
 
   // ─── Actions ───
   const loadData = useCallback(async () => {
@@ -837,44 +507,21 @@ export default function App({ embed }) {
       stopShowreelRuntime(false);
       setShowreel(false);
     }
-    const controller = beginCancelableLoad();
-    setLoading("Ανάκτηση τηλεμετρίας...");
-    setErr("");
-    setSceneErr("");
-    setLdPct(0);
-    try {
-      const sk = selSe.session_key;
-      const la1 = laps1.find((l) => l.lap_number === sl1), la2 = laps2.find((l) => l.lap_number === sl2);
-      if (!la1?.date_start || !la2?.date_start) { setErr("Δεν υπάρχουν διαθέσιμα timestamps γύρου."); setLoading(""); setLdPct(undefined); return; }
-      const e1 = new Date(new Date(la1.date_start).getTime() + (la1.lap_duration || 120) * 1000).toISOString();
-      const e2 = new Date(new Date(la2.date_start).getTime() + (la2.lap_duration || 120) * 1000).toISOString();
-      setLdPct(15);
-      const reqOptions = { signal: controller.signal };
-      const locProms = [fetchLocation(sk, d1, la1.date_start, e1, reqOptions), fetchLocation(sk, d2, la2.date_start, e2, reqOptions)];
-      const telProms = [fetchCarData(sk, d1, la1.date_start, e1, reqOptions), fetchCarData(sk, d2, la2.date_start, e2, reqOptions)];
-      const la3 = numDrivers >= 3 && d3 && sl3 ? laps3.find((l) => l.lap_number === sl3) : null;
-      if (la3?.date_start) { const e3 = new Date(new Date(la3.date_start).getTime() + (la3.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d3, la3.date_start, e3, reqOptions)); telProms.push(fetchCarData(sk, d3, la3.date_start, e3, reqOptions)); }
-      const la4 = numDrivers >= 4 && d4 && sl4 ? laps4.find((l) => l.lap_number === sl4) : null;
-      if (la4?.date_start) { const e4 = new Date(new Date(la4.date_start).getTime() + (la4.lap_duration || 120) * 1000).toISOString(); locProms.push(fetchLocation(sk, d4, la4.date_start, e4, reqOptions)); telProms.push(fetchCarData(sk, d4, la4.date_start, e4, reqOptions)); }
-      setLdPct(20); const locs = await Promise.all(locProms); setLdPct(55); const tels = await Promise.all(telProms);
-      if (locs[0].length < 5 || locs[1].length < 5) { setErr("Τα δεδομένα δεν επαρκούν."); setLoading(""); setLdPct(undefined); return; }
-      setLoc1(locs[0]); setLoc2(locs[1]); setTel1(tels[0]); setTel2(tels[1]);
-      if (locs[2]) { setLoc3(locs[2]); setTel3(tels[2]); } else { setLoc3(null); setTel3(null); }
-      if (locs[3]) { setLoc4(locs[3]); setTel4(tels[3]); } else { setLoc4(null); setTel4(null); }
-      const _ci = getCircuitInfo(selMt);
-      const _rawTp = norm(locs[0]);
-      let _area = 0; for (let _i = 0; _i < _rawTp.length; _i++) { const _j = (_i + 1) % _rawTp.length; _area += _rawTp[_i].x * _rawTp[_j].z - _rawTp[_j].x * _rawTp[_i].z; }
-      const _flip = _ci.clockwise !== (_area < 0);
-      setCircuitFlip(_flip); setCircuitTurns(_ci.turns);
-      setTp(norm(locs[0], _flip)); setProg(0); setPlay(false); setLdPct(100); setLoading(""); setLdPct(undefined);
-    } catch (e) {
-      if (!isAbortError(e)) setErr(e.message);
-      setLoading("");
-      setLdPct(undefined);
-    } finally {
-      finishCancelableLoad(controller);
-    }
-  }, [cancelCountdown, selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, beginCancelableLoad, finishCancelableLoad, numDrivers, stopShowreelRuntime]);
+    await loadReplayComparison({
+      sessionKey: selSe.session_key,
+      meeting: selMt,
+      drivers: [
+        { slot: 1, driverNumber: d1, lap: findLapByNumber(laps1, sl1) },
+        { slot: 2, driverNumber: d2, lap: findLapByNumber(laps2, sl2) },
+        ...(numDrivers >= 3 && d3 && sl3
+          ? [{ slot: 3, driverNumber: d3, lap: findLapByNumber(laps3, sl3) }]
+          : []),
+        ...(numDrivers >= 4 && d4 && sl4
+          ? [{ slot: 4, driverNumber: d4, lap: findLapByNumber(laps4, sl4) }]
+          : []),
+      ],
+    });
+  }, [cancelCountdown, selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, numDrivers, stopShowreelRuntime, loadReplayComparison]);
 
   // Auto-load when URL params are fully restored (shared links + embed)
   useEffect(() => {
@@ -887,291 +534,48 @@ export default function App({ embed }) {
     return () => window.clearTimeout(timer);
   }, [selSe, d1, d2, sl1, sl2, loadData]);
 
-  const loadPreset = useCallback(async (pr, options = {}) => {
-    const { preserveShowreel = false } = options;
-    cancelCountdown();
-    if (!preserveShowreel && showreelRef.current) {
-      stopShowreelRuntime(false);
-      setShowreel(false);
-    }
-    const controller = beginCancelableLoad();
-    setShowPresets(false); setShowMobMenu(false); setLoading("Φόρτωση preset..."); setErr(""); setSceneErr(""); setLdPct(0); presetActiveRef.current = true;
-    try {
-      if (UNAVAILABLE_PRESET_YEARS.includes(pr.year)) throw new Error(`Τα δεδομένα preset για το ${pr.year} δεν είναι διαθέσιμα ακόμη.`);
-      cancelAuxLoading();
-      resetDriverSelections({ resetDriverCount: true });
-      setShowH2H(false);
-      setShowDash(false);
-      setH2hData(null);
-      setDashData(null);
-      setH2hProgress(null);
-      setMobTab("3d");
-      const reqOptions = { signal: controller.signal };
-      const allMts = await fetchMeetings(pr.year, reqOptions); const filteredMts = allMts.filter((x) => x.meeting_name);
-      const presetMeeting = normalizeText(pr.meeting).replace(" grand prix", "");
-      const mt = filteredMts.find((x) => {
-        const meetingName = normalizeText(x.meeting_name).replace(" grand prix", "");
-        return meetingName.includes(presetMeeting) || presetMeeting.includes(meetingName);
-      });
-      if (!mt) throw new Error(`Δεν βρέθηκε το Γκραν Πρι "${pr.meeting}"`); setLdPct(10);
-      const allSess = await fetchSessions(mt.meeting_key, reqOptions); const filteredSess = allSess.filter((s) => ["Qualifying","Race","Sprint","Sprint Qualifying","Sprint Shootout","Practice 1","Practice 2","Practice 3"].includes(s.session_name));
-      const se = filteredSess.find((s) => s.session_name === pr.session); if (!se) throw new Error("Δεν βρέθηκε σκέλος"); setLdPct(20);
-      const allDrvs = await fetchDrivers(se.session_key, reqOptions); const seen = new Set(); const uniqueDrvs = allDrvs.filter((x) => { if (seen.has(x.driver_number)) return false; seen.add(x.driver_number); return true; }); setLdPct(30);
-      const [l1Data, l2Data] = await Promise.all([fetchLaps(se.session_key, pr.d1, reqOptions), fetchLaps(se.session_key, pr.d2, reqOptions)]);
-      const fast1 = bestLap(l1Data), fast2 = bestLap(l2Data); if (!fast1 || !fast2) throw new Error("Δεν βρέθηκαν έγκυροι γύροι"); setLdPct(45);
-      const [st1Data, st2Data] = await Promise.all([fetchStints(se.session_key, pr.d1, reqOptions).catch(() => []), fetchStints(se.session_key, pr.d2, reqOptions).catch(() => [])]);
-      setYear(pr.year); setMts(filteredMts); setSelMt(mt); setSess(filteredSess); setSelSe(se); setDrvs(uniqueDrvs); setD1(pr.d1); setD2(pr.d2);
-      setD3(null); setD4(null);
-      setLaps1(l1Data); setLaps2(l2Data); setSl1(fast1.lap_number); setSl2(fast2.lap_number); setSt1(st1Data); setSt2(st2Data); setLdPct(50);
-      setLaps3([]); setLaps4([]); setSl3(null); setSl4(null); setSt3([]); setSt4([]);
-      setLoc3(null); setLoc4(null); setTel3(null); setTel4(null);
-      setLoading("Ανάκτηση τηλεμετρίας..."); const sk = se.session_key;
-      const end1 = new Date(new Date(fast1.date_start).getTime() + (fast1.lap_duration || 120) * 1000).toISOString();
-      const end2 = new Date(new Date(fast2.date_start).getTime() + (fast2.lap_duration || 120) * 1000).toISOString(); setLdPct(60);
-      const [lo1, lo2] = await Promise.all([fetchLocation(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchLocation(sk, pr.d2, fast2.date_start, end2, reqOptions)]); setLdPct(80);
-      const [ca1, ca2] = await Promise.all([fetchCarData(sk, pr.d1, fast1.date_start, end1, reqOptions), fetchCarData(sk, pr.d2, fast2.date_start, end2, reqOptions)]);
-      if (lo1.length < 5 || lo2.length < 5) throw new Error("Δεν υπάρχουν αρκετά δεδομένα θέσης");
-      const _ci2 = getCircuitInfo(mt);
-      const _rawTp2 = norm(lo1);
-      let _area2 = 0; for (let _i = 0; _i < _rawTp2.length; _i++) { const _j = (_i + 1) % _rawTp2.length; _area2 += _rawTp2[_i].x * _rawTp2[_j].z - _rawTp2[_j].x * _rawTp2[_i].z; }
-      const _flip2 = _ci2.clockwise !== (_area2 < 0);
-      setCircuitFlip(_flip2); setCircuitTurns(_ci2.turns);
-      setLoc1(lo1); setLoc2(lo2); setTel1(ca1); setTel2(ca2); setTp(norm(lo1, _flip2)); setProg(0); setPlay(false); setLdPct(100);
-      setLoading(""); setLdPct(undefined);
-    } catch (e) {
-      if (!isAbortError(e)) setErr(e.message);
-      setLoading(""); setLdPct(undefined);
-    } finally {
-      presetActiveRef.current = false;
-      finishCancelableLoad(controller);
-    }
-  }, [UNAVAILABLE_PRESET_YEARS, beginCancelableLoad, cancelAuxLoading, cancelCountdown, finishCancelableLoad, resetDriverSelections, stopShowreelRuntime]);
-
-  const share = useCallback(async () => {
-    if (!selMt || !selSe || !shareUrl) return;
-    const url = shareUrl;
-    window.history.replaceState(null, "", url.split(window.location.origin)[1]);
-    const shareTitle = `${APP_NAME} | ${formatMeetingLabel(selMt.meeting_name)} ${year}`;
-    if (navigator.share && mob && !embed) {
-      try {
-        await navigator.share({ title: shareTitle, text: "Σύγκριση γύρων F1 με τηλεμετρία", url });
-        setShareDialogUrl("");
-        setShareDialogNotice("");
-        bumpShareMsg("ΕΣΤΑΛΗ");
-        pushToast("Άνοιξε το παράθυρο κοινοποίησης.", "success");
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-      }
-    }
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(url);
-      setShareDialogUrl(url);
-      setShareDialogNotice("Ο σύνδεσμος αντιγράφηκε στο clipboard. Μπορείς να τον κοινοποιήσεις άμεσα ή να τον ξανααντιγράψεις πιο κάτω.");
-      bumpShareMsg("ΑΝΤΙΓΡ.");
-      pushToast("Ο σύνδεσμος αντιγράφηκε στο clipboard.", "success");
-    } catch (error) {
-      if (error?.name === "AbortError") return;
-      setShareDialogUrl(url);
-      setShareDialogNotice("Η πρόσβαση στο clipboard μπλοκαρίστηκε. Αντέγραψε τον σύνδεσμο από κάτω.");
-      bumpShareMsg("ΕΤΟΙΜΟ");
-      pushToast("Ο σύνδεσμος είναι έτοιμος για αντιγραφή.", "info");
-    }
-  }, [year, selMt, selSe, shareUrl, mob, embed, bumpShareMsg, pushToast]);
-
-  const saveToGallery = useCallback(() => {
-    if (!di1 || !di2 || !selMt || !li1 || !li2 || !shareUrl) return;
-    const entry = { id: Date.now(), d1n: di1.name_acronym, d2n: di2.name_acronym, gp: selMt.meeting_name, year, delta: delta?.toFixed(3), t1: fmt(li1.lap_duration), t2: fmt(li2.lap_duration), c1: co1, c2: co2, url: shareUrl };
-    const newG = [entry, ...gallery].slice(0, 20); setGallery(newG); try { localStorage.setItem("f1s-gallery", JSON.stringify(newG)); } catch {}
-    pushToast("Η σύγκριση αποθηκεύτηκε στη συλλογή.", "success");
-  }, [di1, di2, selMt, li1, li2, delta, co1, co2, year, shareUrl, gallery, pushToast]);
-
-  const generateSocialCard = useCallback(() => {
-    const cv = document.createElement("canvas"); cv.width = 1200; cv.height = 630; const ctx = cv.getContext("2d");
-    ctx.fillStyle = "#15151e"; ctx.fillRect(0, 0, 1200, 630); ctx.fillStyle = "#E10600"; ctx.fillRect(0, 0, 1200, 6);
-    ctx.fillStyle = "#fff"; ctx.font = "bold 42px sans-serif"; ctx.textAlign = "center"; ctx.fillText("F1 STORIES GHOST CAR", 600, 80);
-    ctx.fillStyle = "#E10600"; ctx.font = "bold 20px sans-serif"; ctx.fillText("Σύγκριση γύρων F1", 600, 115);
-    ctx.fillStyle = "#888"; ctx.font = "24px sans-serif"; ctx.fillText(formatMeetingLabel(selMt?.meeting_name || ""), 600, 160);
-    ctx.fillStyle = co1; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "right"; ctx.fillText(di1?.name_acronym || "Ο1", 530, 310);
-    ctx.fillStyle = "#E10600"; ctx.font = "bold 30px sans-serif"; ctx.textAlign = "center"; ctx.fillText("ΕΝΑΝΤ.", 600, 310);
-    ctx.fillStyle = co2; ctx.font = "bold 72px sans-serif"; ctx.textAlign = "left"; ctx.fillText(di2?.name_acronym || "Ο2", 670, 310);
-    ctx.fillStyle = co1; ctx.font = "bold 32px sans-serif"; ctx.textAlign = "right"; ctx.fillText(fmt(li1?.lap_duration), 530, 380);
-    ctx.fillStyle = co2; ctx.font = "bold 32px sans-serif"; ctx.textAlign = "left"; ctx.fillText(fmt(li2?.lap_duration), 670, 380);
-    if (delta !== null) { ctx.fillStyle = delta > 0 ? "#E10600" : "#00d26a"; ctx.font = "bold 48px sans-serif"; ctx.textAlign = "center"; ctx.fillText((delta > 0 ? "+" : "") + delta.toFixed(3) + "s", 600, 470); }
-    ctx.fillStyle = "#333"; ctx.fillRect(0, 570, 1200, 60); ctx.fillStyle = "#888"; ctx.font = "16px sans-serif"; ctx.textAlign = "center"; ctx.fillText("Δημιουργία F1 Stories • f1stories.gr/ghostcar", 600, 600);
-    const a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = `f1stories-${di1?.name_acronym}-vs-${di2?.name_acronym}.png`; a.click();
-    pushToast("Η social card κατέβηκε.", "success");
-  }, [di1, di2, selMt, li1, li2, delta, co1, co2, pushToast]);
-
-  const takeScreenshot = useCallback(() => {
-    if (mob && !is2DView) {
-      pushToast("Τα 3D screenshots είναι απενεργοποιημένα στο mobile για πιο ομαλή αναπαραγωγή. Πέρασε σε 2D ή χρησιμοποίησε desktop.", "info");
-      return;
-    }
-    const el = cRef.current;
-    if (!el) return;
-    const canvas = el.querySelector("canvas");
-    if (canvas) {
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `f1stories-ghost-${Date.now()}.png`;
-      a.click();
-      pushToast("Το στιγμιότυπο της πίστας κατέβηκε.", "success");
-      return;
-    }
-    const svg = el.querySelector("svg");
-    if (svg) {
-      const a = document.createElement("a");
-      const clone = svg.cloneNode(true);
-      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-      const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = `f1stories-ghost-${Date.now()}.svg`;
-      a.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      pushToast("Η καταγραφή της πίστας κατέβηκε.", "success");
-      return;
-    }
-    pushToast("Δεν υπάρχει ακόμη κάτι για λήψη.", "info");
-  }, [is2DView, mob, pushToast]);
-
-  const loadH2H = useCallback(async () => {
-    if (!d1 || !d2) return;
-    const cacheKey = getComparisonCacheKey(year, d1, d2);
-    const cachedResults = h2hCacheRef.current.get(cacheKey);
-    if (cachedResults) {
-      if (!mob && !embed) setShowH2H(true);
-      setH2hData(cachedResults);
-      setH2hProgress(null);
-      return;
-    }
-    const controller = beginAuxLoad();
-    const reqOptions = { signal: controller.signal };
-    if (!mob && !embed) setShowH2H(true);
-    setH2hData(null);
-    setH2hProgress({ checked: 0, total: 0, currentGp: "", found: 0 });
-    try {
-      const allMts = await fetchMeetings(year, reqOptions);
-      const validMts = allMts.filter((m) => m.meeting_name);
-      const results = [];
-      setH2hProgress({ checked: 0, total: validMts.length, currentGp: validMts[0]?.meeting_name || "", found: 0 });
-      for (let i = 0; i < validMts.length && results.length < 12; i++) {
-        if (controller.signal.aborted) throw createAbortError();
-        const mt = validMts[i];
-        setH2hProgress({ checked: i, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
-        try {
-          if (i > 0 && i % 3 === 0) await abortableSleep(1200, controller.signal);
-          const ss = await fetchSessions(mt.meeting_key, reqOptions);
-          const q = ss.find((s) => s.session_name === "Qualifying");
-          if (!q) {
-            setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
-            continue;
-          }
-          await abortableSleep(400, controller.signal);
-          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1, reqOptions), fetchLaps(q.session_key, d2, reqOptions)]);
-          const b1 = bestLap(l1d), b2 = bestLap(l2d);
-          if (b1 && b2) {
-            results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration });
-            startTransition(() => setH2hData([...results]));
-          }
-        } catch (e) {
-          if (isAbortError(e)) throw e;
-          if (String(e).includes("429")) await abortableSleep(3000, controller.signal);
-        } finally {
-          if (!controller.signal.aborted) setH2hProgress({ checked: i + 1, total: validMts.length, currentGp: mt.meeting_name, found: results.length });
-        }
-      }
-      if (!controller.signal.aborted) {
-        const finalResults = results.length ? [...results] : [];
-        h2hCacheRef.current.set(cacheKey, finalResults);
-        if (finalResults.length === 0) setH2hData([]);
-      }
-    } catch (e) {
-      if (!isAbortError(e)) setH2hData([]);
-    } finally {
-      if (!controller.signal.aborted) setH2hProgress((prev) => prev ? { ...prev, currentGp: "" } : null);
-      finishAuxLoad(controller);
-    }
-  }, [year, d1, d2, beginAuxLoad, finishAuxLoad, mob, embed]);
-
-  const loadSeasonDash = useCallback(async () => {
-    if (!d1 || !d2) return;
-    const cacheKey = getComparisonCacheKey(year, d1, d2);
-    const cachedResults = dashCacheRef.current.get(cacheKey);
-    if (cachedResults) {
-      if (!mob && !embed) setShowDash(true);
-      setDashData(cachedResults);
-      return;
-    }
-    const controller = beginAuxLoad();
-    const reqOptions = { signal: controller.signal };
-    if (!mob && !embed) setShowDash(true);
-    setDashData(null);
-    try {
-      const allMts = await fetchMeetings(year, reqOptions);
-      const results = [];
-      for (let i = 0; i < allMts.length && results.length < 15; i++) {
-        if (controller.signal.aborted) throw createAbortError();
-        const mt = allMts[i];
-        if (!mt.meeting_name) continue;
-        try {
-          if (i > 0 && i % 3 === 0) await abortableSleep(1200, controller.signal);
-          const ss = await fetchSessions(mt.meeting_key, reqOptions);
-          const q = ss.find((s) => s.session_name === "Qualifying");
-          if (!q) continue;
-          await abortableSleep(400, controller.signal);
-          const [l1d, l2d] = await Promise.all([fetchLaps(q.session_key, d1, reqOptions), fetchLaps(q.session_key, d2, reqOptions)]);
-          const b1 = bestLap(l1d), b2 = bestLap(l2d);
-          if (b1 && b2) {
-            results.push({ gp: mt.meeting_name?.replace("Grand Prix", "GP"), t1: b1.lap_duration, t2: b2.lap_duration, d: b1.lap_duration - b2.lap_duration });
-            startTransition(() => setDashData([...results]));
-          }
-        } catch (e) {
-          if (isAbortError(e)) throw e;
-          if (String(e).includes("429")) await abortableSleep(3000, controller.signal);
-        }
-      }
-      if (!controller.signal.aborted) {
-        const finalResults = results.length ? [...results] : [];
-        dashCacheRef.current.set(cacheKey, finalResults);
-        if (finalResults.length === 0) setDashData([]);
-      }
-    } catch (e) {
-      if (!isAbortError(e)) setDashData([]);
-    } finally {
-      finishAuxLoad(controller);
-    }
-  }, [year, d1, d2, beginAuxLoad, finishAuxLoad, mob, embed]);
+  const loadPreset = usePresetLoader({
+    unavailablePresetYears: UNAVAILABLE_PRESET_YEARS,
+    supportedSessionNames: SUPPORTED_SESSION_NAMES,
+    presetActiveRef,
+    showreelRef,
+    cancelCountdown,
+    stopShowreelRuntime,
+    setShowreel,
+    beginCancelableLoad,
+    clearLoadIndicator,
+    finishCancelableLoad,
+    isActiveLoad,
+    loadReplayForActiveLoad,
+    setErr,
+    setLdPct,
+    cancelAuxLoading,
+    resetAuxiliaryData,
+    resetDriverSelections,
+    applyPresetSelectorData,
+    setShowH2H,
+    setShowDash,
+    setMobTab,
+    setShowPresets,
+    setShowMobMenu,
+  });
 
   // ─── Scene — pass progRef for direct 60fps reads ───
-  const progRef = useRef(0);
-  progRef.current = prog;
-  const playRef = useRef(play);
-  playRef.current = play;
   const selectComparisonTab = useCallback((tabId) => {
     if (tabId !== "h2h" && tabId !== "season") cancelAuxLoading();
     setMobTab(tabId);
     if (tabId === "h2h" && !h2hData) loadH2H();
     if (tabId === "season" && !dashData) loadSeasonDash();
     if (tabId === "3d") window.setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-  }, [cancelAuxLoading, dashData, h2hData, loadH2H, loadSeasonDash]);
-  const closeStatsModal = useCallback(() => setShowStats(false), []);
-  const closeLapsModal = useCallback(() => setShowLaps(false), []);
-  const closeKeysModal = useCallback(() => setShowKeys(false), []);
-  const closePresetsModal = useCallback(() => setShowPresets(false), []);
-  const closeGalleryModal = useCallback(() => setShowGallery(false), []);
-  const closeEmbedModal = useCallback(() => setShowEmbed(false), []);
-  const closeTelemetryOverlay = useCallback(() => setShowTelOverlay(false), []);
+  }, [cancelAuxLoading, dashData, h2hData, loadH2H, loadSeasonDash, setMobTab]);
   const closeH2HModal = useCallback(() => {
     cancelAuxLoading();
     setShowH2H(false);
-  }, [cancelAuxLoading]);
+  }, [cancelAuxLoading, setShowH2H]);
   const closeDashModal = useCallback(() => {
     cancelAuxLoading();
     setShowDash(false);
-  }, [cancelAuxLoading]);
+  }, [cancelAuxLoading, setShowDash]);
   const closeInlineTab = useCallback(() => selectComparisonTab("3d"), [selectComparisonTab]);
   const toggleShowreel = useCallback(() => {
     if (showreel) {
@@ -1182,96 +586,28 @@ export default function App({ embed }) {
     setShowreel(true);
   }, [showreel, stopShowreelRuntime]);
   const lapModalDrivers = useMemo(() => ([
-    { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: setSl1 },
-    { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: setSl2 },
-  ]), [di1, co1, laps1, sl1, di2, co2, laps2, sl2]);
-  const handleReplayTouchStart = useCallback((e) => {
-    if (!mob || !tp || !is2DView) return;
-    const target = e.target;
-    if (target instanceof Element && target.closest("button,a,input,select,textarea,label,[data-no-track-scrub='true']")) return;
-    const touch = e.touches?.[0];
-    if (!touch) return;
-    touchScrubRef.current = { active: true, x: touch.clientX, y: touch.clientY };
-  }, [is2DView, mob, tp]);
-  const handleReplayTouchEnd = useCallback((e) => {
-    const gesture = touchScrubRef.current;
-    touchScrubRef.current = { active: false, x: 0, y: 0 };
-    if (!gesture.active) return;
-    const touch = e.changedTouches?.[0];
-    if (!touch) return;
-    const dx = touch.clientX - gesture.x;
-    const dy = Math.abs(touch.clientY - gesture.y);
-    if (Math.abs(dx) <= 50 || Math.abs(dx) <= dy) return;
-    setProg((p) => {
-      const next = Math.max(0, Math.min(1, p + (dx > 0 ? 0.03 : -0.03)));
-      progRef.current = next;
-      return next;
-    });
-  }, []);
-  const handleReplayTouchCancel = useCallback(() => {
-    touchScrubRef.current = { active: false, x: 0, y: 0 };
-  }, []);
-
-  // ─── Playback — write to refs each frame and only throttle non-essential UI sync ───
-  const spdRef = useRef(spd); spdRef.current = spd;
-  const loopRef = useRef(loop); loopRef.current = loop;
-  const trackViewRef = useRef(trackView); trackViewRef.current = trackView;
-  const uiSyncRef = useRef(0);
-  const startWithCountdown = useCallback(() => {
-    if (countdownIntervalRef.current) return;
-    if (prog < 0.01 && tp && !play) {
-      if (embed) {
-        setPlay(true);
-        return;
-      }
-      let c = 5;
-      setCountdown(c);
-      countdownIntervalRef.current = window.setInterval(() => {
-        c -= 1;
-        if (c <= 0) {
-          cancelCountdown();
-          setPlay(true);
-          return;
-        }
-        setCountdown(c);
-      }, 1000);
-      return;
-    }
-    setPlay((current) => !current);
-  }, [cancelCountdown, embed, play, prog, tp]);
-  useEffect(() => {
-    if (!play) { ltRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); return; }
-    function tick(ts) {
-      if (!ltRef.current) ltRef.current = ts;
-      const dt = Math.min((ts - ltRef.current) / 1000, 0.05); ltRef.current = ts;
-      let n = progRef.current + dt * 0.015 * spdRef.current;
-      if (n >= 1) { if (loopRef.current) { n = 0; } else { n = 1; setPlay(false); } }
-      progRef.current = n;
-      // 2D mode relies on React for the track animation, so keep it near display refresh rate.
-      if (ts - uiSyncRef.current > (trackViewRef.current === "2d" ? 16 : 80)) { uiSyncRef.current = ts; setProg(n); }
-      rafRef.current = requestAnimationFrame(tick);
-    }
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [play]);
+    { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: (lapNumber) => selectLapSlot(1, lapNumber) },
+    { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: (lapNumber) => selectLapSlot(2, lapNumber) },
+  ]), [di1, co1, laps1, sl1, selectLapSlot, di2, co2, laps2, sl2]);
+  const comparisonSelectorSlots = useMemo(
+    () => [
+      { slot: 1, label: "Οδηγός 1", color: co1, driver: di1, driverNumber: d1, lapNumber: sl1, selectedLap: li1, lapSelect: lapSelect1 },
+      { slot: 2, label: "Οδηγός 2", color: co2, driver: di2, driverNumber: d2, lapNumber: sl2, selectedLap: li2, lapSelect: lapSelect2 },
+      { slot: 3, label: "Οδηγός 3", color: co3, driver: di3, driverNumber: d3, lapNumber: sl3, selectedLap: li3, lapSelect: lapSelect3 },
+      { slot: 4, label: "Οδηγός 4", color: co4, driver: di4, driverNumber: d4, lapNumber: sl4, selectedLap: li4, lapSelect: lapSelect4 },
+    ],
+    [co1, di1, d1, sl1, li1, lapSelect1, co2, di2, d2, sl2, li2, lapSelect2, co3, di3, d3, sl3, li3, lapSelect3, co4, di4, d4, sl4, li4, lapSelect4]
+  );
+  const canTouchScrubReplay = mob && Boolean(tp) && is2DView;
+  const startReplay = useCallback(() => startWithCountdown(Boolean(tp)), [startWithCountdown, tp]);
 
   // ─── Modal backdrop ───
-  const anyModal = showPresets || showStats || showLaps || showKeys || showH2H || showGallery || showEmbed || showDash || showTelOverlay || !!shareDialogUrl;
+  const anyModal = anyAuxiliaryModal || !!shareDialogUrl;
   const closeAll = useCallback(() => {
     cancelAuxLoading();
-    setShowPresets(false);
-    setShowStats(false);
-    setShowLaps(false);
-    setShowKeys(false);
-    setShowH2H(false);
-    setH2hProgress(null);
-    setShowGallery(false);
-    setShowEmbed(false);
-    setShowDash(false);
-    setShowTelOverlay(false);
-    setShareDialogUrl("");
-    setShareDialogNotice("");
-  }, [cancelAuxLoading]);
+    closeAuxiliaryModals();
+    clearShareDialog();
+  }, [cancelAuxLoading, clearShareDialog, closeAuxiliaryModals]);
 
   // ─── Keyboard ───
   const lastLeftRef = useRef(0);
@@ -1279,7 +615,7 @@ export default function App({ embed }) {
     const h = (e) => {
       if (e.code === "Escape") {
         if (showMobMenu) { setShowMobMenu(false); return; }
-        if (showTour) { setShowTour(false); return; }
+        if (showTour) { closeTour(); return; }
         if (anyModal) { closeAll(); return; }
         if ((mob || embed) && mobTab !== "3d") { setMobTab("3d"); return; }
         if (!mob && !embed && showTel) { setShowTel(false); return; }
@@ -1287,8 +623,8 @@ export default function App({ embed }) {
       }
       if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; }
-      if (e.code === "Space") { e.preventDefault(); if (tp) startWithCountdown(); }
-      if (e.code === "KeyR") { setProg(0); setPlay(false); }
+      if (e.code === "Space") { e.preventDefault(); if (tp) startReplay(); }
+      if (e.code === "KeyR") { resetPlayback(); }
       if (e.code === "KeyD") { toggleTheme(); return; }
       if (e.code === "KeyT") {
         if (!mob && !embed) setShowTel((s) => !s);
@@ -1310,7 +646,29 @@ export default function App({ embed }) {
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [tp, startWithCountdown, showMobMenu, showTour, anyModal, closeAll, mob, embed, mobTab, showTel, toggleTheme, setTrackViewMode, is2DView]);
+  }, [
+    tp,
+    startReplay,
+    resetPlayback,
+    showMobMenu,
+    showTour,
+    closeTour,
+    anyModal,
+    closeAll,
+    mob,
+    embed,
+    mobTab,
+    showTel,
+    toggleTheme,
+    setTrackViewMode,
+    is2DView,
+    setLoop,
+    setProg,
+    setMobTab,
+    setShowKeys,
+    setShowMobMenu,
+    setShowTel,
+  ]);
 
   // Showreel
   useEffect(() => {
@@ -1339,521 +697,321 @@ export default function App({ embed }) {
     return () => {
       stopShowreelRuntime(true);
     };
-  }, [clearShowreelTimer, loadPreset, playablePresets, showreel, stopShowreelRuntime]);
-
-  const renderTrackViewButtons = (compact = false) => TRACK_VIEW_MODES.map((mode) => (
-    <button
-      key={mode}
-      onClick={() => setTrackViewMode(mode)}
-      style={{
-        padding: compact ? "4px 10px" : "4px 12px",
-        fontSize: compact ? 9 : 10,
-        textTransform: "uppercase",
-        background: trackView === mode ? F1.blue : F1.overlay,
-        color: trackView === mode ? "#fff" : F1.textDim,
-        borderColor: trackView === mode ? F1.blue : F1.borderLight,
-        fontWeight: 800,
-        letterSpacing: "0.08em",
-      }}
-    >
-      {mode.toUpperCase()}
-    </button>
-  ));
-  const shellClassName = embed ? "app-shell app-shell-embed" : mob ? "app-shell app-shell-mobile" : "app-shell";
+  }, [clearShowreelTimer, loadPreset, playablePresets, setPlay, showreel, stopShowreelRuntime]);
 
   // ─── RENDER ───
   return (
-    <ThemeProvider value={themeValue}>
-      <div className={shellClassName} style={{ width: "100%", minHeight: embed || mob ? undefined : "100vh", background: F1.carbon, color: F1.text, fontFamily: F1.sans, overflowX: "hidden", display: (embed || mob) ? "flex" : "block", flexDirection: (embed || mob) ? "column" : undefined }}>
-      <style>{`
-        @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
-        *{box-sizing:border-box;margin:0;padding:0}
-        .app-shell-mobile{overflow:hidden;height:100vh}
-        .app-shell-embed{overflow:hidden;height:100vh}
-        @supports (height: 100dvh){
-          .app-shell-mobile{height:100dvh}
-          .app-shell-embed{height:100dvh}
-        }
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${F1.blue}44;border-radius:2px}
-        select,button{font-family:${F1.sans}}
-        select{background:${F1.inputBg};color:${F1.text};border:1px solid ${F1.border};border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;outline:none;transition:border-color .15s;font-weight:600;letter-spacing:0.02em}
-        select:hover,select:focus{border-color:${F1.blue}88}
-        button{background:${F1.cardBg};color:${F1.text};border:1px solid ${F1.border};border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;outline:none;transition:all .12s;font-weight:600}
-        button:hover{border-color:${F1.blue}88;background:${F1.carbonMid}}
-        .f1-btn{background:linear-gradient(135deg,${F1.blue},${F1.blueDark});border-color:${F1.blue};color:#fff;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;font-size:11px}
-        .f1-btn:hover{background:linear-gradient(135deg,${F1.blueDark},#1e40af);box-shadow:0 4px 14px ${F1.blueGlow}}
-        .f1-btn:disabled{opacity:.4;cursor:not-allowed}
-        input[type="range"]{cursor:pointer}
-        input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:${F1.blue};border-radius:50%;cursor:pointer;border:2px solid #fff}
-        .hdr-nav-link{position:relative;font-size:11px;color:${F1.textDim};text-decoration:none;padding:4px 2px;font-weight:600;letter-spacing:0.06em;transition:color .2s ease}
-        .hdr-nav-link::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:2px;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:2px;transition:width .25s ease}
-        .hdr-nav-link:hover{color:#e4e4ec}.hdr-nav-link:hover::after{width:80%}
-        .hdr-logo-link{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;transition:filter .2s ease}
-        .hdr-logo-link:hover{filter:drop-shadow(0 0 6px rgba(59,130,246,0.45))}
-        .hdr-action-btn{background:rgba(255,255,255,0.05)!important;border:1px solid rgba(255,255,255,0.08)!important;color:${F1.textDim}!important;border-radius:8px!important;font-size:10px!important;padding:6px 10px!important;min-height:34px!important;font-weight:600!important;letter-spacing:0.04em!important;transition:all .18s ease!important}
-        .hdr-action-btn:hover{background:rgba(59,130,246,0.12)!important;border-color:rgba(59,130,246,0.3)!important;color:#e4e4ec!important}
-        .hdr-action-btn-active{background:rgba(59,130,246,0.15)!important;border-color:rgba(59,130,246,0.4)!important;color:#93c5fd!important}
-        .hdr-action-btn-icon{min-width:38px!important;padding:0 10px!important;font-size:14px!important}
-      `}</style>
-
-      {/* Modals */}
-      {anyModal && <div onClick={closeAll} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99, backdropFilter: "blur(4px)" }} />}
-      <Suspense fallback={null}>
-        {showPresets && <PresetsModal mob={mob} onClose={closePresetsModal} onLoadPreset={loadPreset} unavailableYears={UNAVAILABLE_PRESET_YEARS} />}
-        {showTelOverlay && <TelemetryModal mob={mob} onClose={closeTelemetryOverlay} panelProps={{ mob, tp, prog, allDrivers, numDrivers, di1, di2, co1, co2, li1, li2, s1, s2, laps1, st1, sl1 }} />}
-        {showStats && tp && <StatsModal mob={mob} allDrivers={allDrivers} onClose={closeStatsModal} />}
-        {showLaps && <LapsModal mob={mob} onClose={closeLapsModal} drivers={lapModalDrivers} />}
-        {showKeys && <KeysModal mob={mob} onClose={closeKeysModal} />}
-        {showH2H && <H2HModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={closeH2HModal} />}
-        {showDash && <DashModal mob={mob} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={closeDashModal} />}
-        {showGallery && <GalleryModal mob={mob} gallery={gallery} onClose={closeGalleryModal} onClear={() => { setGallery([]); try { localStorage.removeItem("f1s-gallery"); } catch {} }} onSelect={restoreComparisonFromUrl} />}
-        {showEmbed && <EmbedModal mob={mob} shareState={shareURLState} onClose={closeEmbedModal} />}
-        {showTour && !embed && <TourOverlay onClose={() => setShowTour(false)} />}
-      </Suspense>
-      {shareDialogUrl && (
-        <div role="dialog" aria-modal="true" aria-label="Σύνδεσμος κοινοποίησης" style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 560, maxWidth: "calc(100vw - 24px)", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 22px 60px rgba(0,0,0,0.4)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>ΕΤΟΙΜΟΣ ΣΥΝΔΕΣΜΟΣ</div>
-              <div style={{ fontSize: 10, color: F1.textMuted, marginTop: 2 }}>{shareDialogNotice || "Ο σύνδεσμος κοινοποίησης είναι έτοιμος πιο κάτω."}</div>
-            </div>
-            <button aria-label="Κλείσιμο παραθύρου κοινοποίησης" onClick={() => { setShareDialogUrl(""); setShareDialogNotice(""); }} style={getModalCloseButtonStyle(F1)}>✕</button>
-          </div>
-          <div style={{ padding: "16px 20px 20px" }}>
-            <input readOnly value={shareDialogUrl} onFocus={(e) => e.target.select()} style={{ width: "100%", background: F1.inputBg, color: F1.text, border: `1px solid ${F1.border}`, borderRadius: 8, padding: "12px 14px", fontSize: 12, outline: "none" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Επίλεξε και αντέγραψε χειροκίνητα τον σύνδεσμο ή χρησιμοποίησε ξανά το κουμπί αντιγραφής.</div>
-              <button
-                className="f1-btn"
-                onClick={async () => {
-                  try {
-                    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-                    await navigator.clipboard.writeText(shareDialogUrl);
-                    setShareDialogNotice("Ο σύνδεσμος αντιγράφηκε στο clipboard.");
-                    bumpShareMsg("ΑΝΤΙΓΡ.");
-                    pushToast("Ο σύνδεσμος αντιγράφηκε στο clipboard.", "success");
-                  } catch {
-                    pushToast("Το clipboard παραμένει μη διαθέσιμο σε αυτή τη συσκευή.", "info");
-                  }
-                }}
-                style={{ padding: "8px 14px", fontSize: 11 }}
-              >
-                ΑΝΤΙΓΡΑΦΗ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <AppShell themeValue={themeValue} F1={F1} embed={embed} mob={mob}>
+      <ModalLayer
+        mob={mob}
+        embed={embed}
+        F1={F1}
+        showBackdrop={anyModal}
+        onCloseAll={closeAll}
+        flags={{
+          showPresets,
+          showTelemetryOverlay: showTelOverlay,
+          showStats,
+          showLaps,
+          showKeys,
+          showH2H,
+          showDash,
+          showGallery,
+          showEmbed,
+          showTour,
+        }}
+        handlers={{
+          onClosePresets: closePresetsModal,
+          onLoadPreset: loadPreset,
+          onCloseTelemetryOverlay: closeTelemetryOverlay,
+          onCloseStats: closeStatsModal,
+          onCloseLaps: closeLapsModal,
+          onCloseKeys: closeKeysModal,
+          onCloseH2H: closeH2HModal,
+          onCloseDash: closeDashModal,
+          onCloseGallery: closeGalleryModal,
+          onClearGallery: clearGallery,
+          onSelectGallery: restoreComparisonFromUrl,
+          onCloseEmbed: closeEmbedModal,
+          onCloseTour: closeTour,
+        }}
+        data={{
+          unavailablePresetYears: UNAVAILABLE_PRESET_YEARS,
+          tp,
+          telemetryPanelProps: {
+            mob,
+            tp,
+            prog,
+            allDrivers,
+            numDrivers,
+            di1,
+            di2,
+            co1,
+            co2,
+            li1,
+            li2,
+            s1,
+            s2,
+            laps1,
+            st1,
+            sl1,
+          },
+          allDrivers,
+          lapModalDrivers,
+          year,
+          di1,
+          di2,
+          co1,
+          co2,
+          h2hData,
+          h2hProgress,
+          dashData,
+          gallery,
+          shareState: shareURLState,
+        }}
+        shareDialog={{
+          url: shareDialogUrl,
+          notice: shareDialogNotice,
+          onClose: clearShareDialog,
+          onCopy: copyShareDialogUrl,
+        }}
+      />
 
       {/* Countdown */}
-      {countdown !== null && (<div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ display: "flex", gap: 16, marginBottom: 32 }}>
-          {[1, 2, 3, 4, 5].map((n) => <div key={n} style={{ width: 40, height: 40, borderRadius: "50%", background: countdown <= (6 - n) ? "#E10600" : F1.cardBg, boxShadow: countdown <= (6 - n) ? "0 0 20px #E10600, 0 0 40px #E1060066" : "none", transition: "all 0.3s", border: `2px solid ${F1.border}` }} />)}
-        </div>
-        <div style={{ fontSize: countdown === 0 ? 72 : 96, fontWeight: 900, color: countdown === 0 ? "#00d26a" : "#fff", fontFamily: F1.mono, textShadow: countdown === 0 ? "0 0 30px #00d26a" : "none" }}>{countdown === 0 ? "ΠΑΜΕ!" : countdown}</div>
-      </div>)}
+      <CountdownOverlay F1={F1} countdown={countdown} />
 
       {/* Header */}
-      {!embed && <div style={{ display: "flex", alignItems: "center", flexShrink: 0, background: isDark ? "rgba(17,17,24,0.92)" : "rgba(245,245,247,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,0,0,0.08)", boxShadow: "0 2px 12px rgba(0,0,0,0.45)", zIndex: 10, position: "relative", padding: mob ? "0 10px" : "0 20px", minHeight: mob ? 44 : 52, gap: mob ? 8 : 18 }}>
-          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" className="hdr-logo-link">
-            <img src={LOGO_SRC} alt="F1 Stories" style={{ height: mob ? 26 : 32, width: "auto" }} onError={(e) => { e.target.style.display = "none"; }} />
-            {!mob && <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-              <span style={{ fontSize: 15, fontWeight: 900, color: F1.text, letterSpacing: "0.04em" }}>F1 STORIES</span>
-              <span style={{ fontSize: 9, fontWeight: 600, color: "#3b82f6", letterSpacing: "0.14em", textTransform: "uppercase" }}>Σύγκριση Γύρων F1</span>
-            </div>}
-          </a>
-          {mob && <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.06em", whiteSpace: "nowrap" }}>F1 Stories</span>}
-          {mob && selMt && <span style={{ fontSize: 9, color: F1.textDim, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 90 }}>{formatMeetingShortLabel(selMt.meeting_name)}</span>}
-          {!mob && <div style={{ display: "flex", gap: 20, marginLeft: 4, paddingTop: 2 }}>
-            {[{ label: "Άρθρα", href: "https://f1stories.gr/blog-module/blog/index.html" }, { label: "YouTube", href: "https://www.youtube.com/@F1_Stories_Original" }, { label: "Βαθμολογίες", href: "https://f1stories.gr/standings/" }].map((l) => (
-              <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="hdr-nav-link">{l.label.toUpperCase()}</a>
-            ))}
-          </div>}
-          {!mob && selMt && <span style={{ fontSize: 10, color: F1.textMuted, fontWeight: 600, letterSpacing: "0.05em", marginLeft: 4, borderLeft: `1px solid ${F1.borderLight}`, paddingLeft: 12 }}>{formatMeetingShortLabel(selMt.meeting_name)} {year}</span>}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: mob ? 4 : 5, flexShrink: 0 }}>
-            {mob ? (<>
-              <button className="hdr-action-btn hdr-action-btn-icon" title="Άνοιγμα preset συγκρίσεων" aria-label="Άνοιγμα preset συγκρίσεων" onClick={() => setShowPresets(true)}>⚡</button>
-              {selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Κοινοποίηση αυτής της σύγκρισης" aria-label="Κοινοποίηση αυτής της σύγκρισης" onClick={share}>{shareMsg ? "✓" : "↗"}</button>}
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Αποθήκευση στη συλλογή" aria-label="Αποθήκευση στη συλλογή" onClick={saveToGallery}>💾</button>}
-              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} aria-label={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
-              <button className={`hdr-action-btn hdr-action-btn-icon${showMobMenu ? " hdr-action-btn-active" : ""}`} title="Άνοιγμα μενού εργαλείων" aria-label="Άνοιγμα μενού εργαλείων" onClick={() => setShowMobMenu((v) => !v)}>☰</button>
-            </>) : (<>
-              <button className="hdr-action-btn" title="Άνοιγμα έτοιμων συγκρίσεων" onClick={() => setShowPresets(true)}>⚡ ΜΑΧΕΣ</button>
-              {selSe && <button className="hdr-action-btn" title="Κοινοποίηση αυτής της σύγκρισης" onClick={share}>{shareMsg || "ΚΟΙΝΟΠΟΙΗΣΗ"}</button>}
-              {tp && <button className="hdr-action-btn" title="Άνοιγμα στατιστικών γύρου" onClick={() => setShowStats(true)}>ΣΤΑΤΙΣΤΙΚΑ</button>}
-              {tp && <button className="hdr-action-btn" title="Προβολή διαθέσιμων γύρων" onClick={() => setShowLaps(true)}>ΓΥΡΟΙ</button>}
-              {tp && d1 && d2 && <button className="hdr-action-btn" title="Ιστορικό αναμετρήσεων H2H" onClick={loadH2H}>H2H</button>}
-              {d1 && d2 && selSe && <button className="hdr-action-btn" title="Ανάλυση σεζόν" onClick={loadSeasonDash}>ΣΕΖΟΝ</button>}
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Αποθήκευση στη συλλογή" aria-label="Αποθήκευση στη συλλογή" onClick={saveToGallery}>💾</button>}
-              <button className="hdr-action-btn hdr-action-btn-icon" title="Άνοιγμα συλλογής" aria-label="Άνοιγμα συλλογής" onClick={() => setShowGallery(true)}>📂</button>
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Δημιουργία κάρτας κοινοποίησης" aria-label="Δημιουργία κάρτας κοινοποίησης" onClick={generateSocialCard}>🖼️</button>}
-              {tp && selSe && <button className="hdr-action-btn hdr-action-btn-icon" title="Ενσωμάτωση αυτής της σύγκρισης" aria-label="Ενσωμάτωση αυτής της σύγκρισης" onClick={() => setShowEmbed(true)}>{"</>"}</button>}
-              {tp && <button className="hdr-action-btn hdr-action-btn-icon" title="Λήψη στιγμιότυπου" aria-label="Λήψη στιγμιότυπου" onClick={takeScreenshot}>📸</button>}
-              <button className={`hdr-action-btn hdr-action-btn-icon${showreel ? " hdr-action-btn-active" : ""}`} title={showreel ? "Διακοπή αυτόματης προβολής" : "Εκκίνηση αυτόματης προβολής"} aria-label={showreel ? "Διακοπή αυτόματης προβολής" : "Εκκίνηση αυτόματης προβολής"} onClick={toggleShowreel}>{showreel ? "⏹" : "🎬"}</button>
-              <button className="hdr-action-btn hdr-action-btn-icon" title={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} aria-label={isDark ? "Μετάβαση σε φωτεινό θέμα" : "Μετάβαση σε σκούρο θέμα"} onClick={toggleTheme}>{isDark ? "☀️" : "🌙"}</button>
-              <button className="hdr-action-btn hdr-action-btn-icon" title="Εμφάνιση συντομεύσεων πληκτρολογίου" aria-label="Εμφάνιση συντομεύσεων πληκτρολογίου" onClick={() => setShowKeys(true)} style={{ fontWeight: 900 }}>?</button>
-            </>)}
-          </div>
-      </div>}
+      {!embed && (
+        <HeaderToolbar
+          mob={mob}
+          F1={F1}
+          isDark={isDark}
+          logoSrc={LOGO_SRC}
+          meetingShortLabel={selMt ? formatMeetingShortLabel(selMt.meeting_name) : ""}
+          year={year}
+          hasSession={Boolean(selSe)}
+          hasReplay={Boolean(tp)}
+          hasPrimaryDrivers={Boolean(d1 && d2)}
+          shareMsg={shareMsg}
+          showMobileMenu={showMobMenu}
+          showreel={showreel}
+          onOpenPresets={() => setShowPresets(true)}
+          onShare={share}
+          onSaveToGallery={saveToGallery}
+          onToggleTheme={toggleTheme}
+          onToggleMobileMenu={() => setShowMobMenu((value) => !value)}
+          onOpenStats={() => setShowStats(true)}
+          onOpenLaps={() => setShowLaps(true)}
+          onLoadH2H={loadH2H}
+          onLoadSeasonDash={loadSeasonDash}
+          onOpenGallery={() => setShowGallery(true)}
+          onGenerateSocialCard={generateSocialCard}
+          onOpenEmbed={() => setShowEmbed(true)}
+          onTakeScreenshot={takeScreenshot}
+          onToggleShowreel={toggleShowreel}
+          onOpenKeys={() => setShowKeys(true)}
+        />
+      )}
 
       {/* Mobile menu panel */}
-      {mob && showMobMenu && !embed && (<>
-        <div onClick={() => setShowMobMenu(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 49, backdropFilter: "blur(4px)" }} />
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid rgba(59,130,246,0.2)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", animation: "fadeIn .15s", padding: "12px 14px 14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>ΕΡΓΑΛΕΙΑ</span>
-            <button title="Κλείσιμο μενού εργαλείων" aria-label="Κλείσιμο μενού εργαλείων" onClick={() => setShowMobMenu(false)} style={{ fontSize: 14, padding: "2px 8px", background: "transparent", border: "none", color: F1.textMuted }}>✕</button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-            {[
-              { icon: "📈", label: "Στατ.", action: () => { selectComparisonTab("stats"); setShowMobMenu(false); }, show: !!tp },
-              { icon: "⏱", label: "Γύροι", action: () => { selectComparisonTab("laps"); setShowMobMenu(false); }, show: !!tp },
-              { icon: "⚔️", label: "H2H", action: () => { selectComparisonTab("h2h"); setShowMobMenu(false); }, show: !!(tp && d1 && d2) },
-              { icon: "🏆", label: "Σεζόν", action: () => { selectComparisonTab("season"); setShowMobMenu(false); }, show: !!(d1 && d2 && selSe) },
-              { icon: "📂", label: "Συλλογή", action: () => { setShowGallery(true); setShowMobMenu(false); }, show: true },
-              { icon: "🖼️", label: "Κάρτα", action: () => { generateSocialCard(); setShowMobMenu(false); }, show: !!tp },
-              { icon: "</>", label: "Ενσώμ.", action: () => { setShowEmbed(true); setShowMobMenu(false); }, show: !!(tp && selSe) },
-              { icon: "📸", label: "Στιγμιότ.", action: () => { takeScreenshot(); setShowMobMenu(false); }, show: !!tp },
-            ].filter((a) => a.show).map((a) => (
-              <button key={a.label} onClick={a.action} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 4px", borderRadius: 8, background: F1.cardBg, border: `1px solid ${F1.borderLight}`, fontSize: 9, color: F1.textDim, fontWeight: 600, letterSpacing: "0.02em" }}>
-                <span style={{ fontSize: 18 }}>{a.icon}</span>
-                {a.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </>)}
+      {mob && showMobMenu && !embed && (
+        <MobileToolMenu
+          F1={F1}
+          isDark={isDark}
+          hasReplay={Boolean(tp)}
+          hasPrimaryDrivers={Boolean(d1 && d2)}
+          hasSession={Boolean(selSe)}
+          onClose={() => setShowMobMenu(false)}
+          onSelectTab={selectComparisonTab}
+          onOpenGallery={() => setShowGallery(true)}
+          onGenerateSocialCard={generateSocialCard}
+          onOpenEmbed={() => setShowEmbed(true)}
+          onTakeScreenshot={takeScreenshot}
+        />
+      )}
 
       {/* Selectors */}
-      {!embed && <div ref={selectorsRef} style={{ padding: mob ? "6px 8px" : "8px 18px", flexShrink: 0, borderBottom: `1px solid ${highlightConfig ? `${F1.blue}77` : F1.borderLight}`, background: F1.carbonLight, boxShadow: highlightConfig ? `0 0 0 2px ${F1.blue}22 inset, 0 0 24px ${F1.blueGlow}` : "none", transition: "box-shadow .25s ease, border-color .25s ease" }}>
-        {/* Row 1: Event selectors */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center", marginBottom: mob ? 4 : 0 }}>
-          <select ref={yearSelectRef} value={year} onChange={(e) => setYear(Number(e.target.value))} style={{ width: mob ? 124 : "auto", fontSize: mob ? 11 : 12 }}>
-            {AVAILABLE_YEARS.map((y) => <option key={y} value={y}>{y === 2026 ? "2026 (πρώιμα / μερικά)" : y}</option>)}
-          </select>
-          <select value={selMt?.meeting_key || ""} onChange={(e) => setSelMt(mts.find((m) => m.meeting_key === Number(e.target.value)) || null)} style={{ minWidth: mob ? 100 : 155, flex: mob ? 1 : undefined, fontSize: mob ? 11 : 12 }}><option value="">Γκραν Πρι</option>{mts.map((m) => <option key={m.meeting_key} value={m.meeting_key}>{formatMeetingLabel(m.meeting_name)}</option>)}</select>
-          <select value={selSe?.session_key || ""} onChange={(e) => setSelSe(sess.find((s) => s.session_key === Number(e.target.value)) || null)} disabled={!sess.length} style={{ minWidth: mob ? 75 : 115, fontSize: mob ? 11 : 12 }}><option value="">Σκέλος</option>{sess.map((s) => <option key={s.session_key} value={s.session_key}>{formatSessionLabel(s.session_name)}</option>)}</select>
-        </div>
-        {/* Row 2: Driver selectors */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: mob ? 4 : 6, alignItems: "center" }}>
-          {!mob && <div style={{ width: 1, height: 20, background: `${F1.blue}33` }} />}
-          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <div style={{ width: 3, height: 16, background: co1, borderRadius: 1 }} />
-            <select title={driverFullName(di1) || "Επιλογή οδηγού 1"} value={d1 || ""} onChange={(e) => { setD1(Number(e.target.value)); setSl1(null); setLaps1([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 1</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
-            {lapSelect1.options.length > 0 && <select title={li1 ? fmt(li1.lap_duration) : "Επιλογή γύρου"} value={sl1 || ""} onChange={(e) => setSl1(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect1.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect1.fastestLapNumber)}</option>)}</select>}
-          </div>
-          <span style={{ color: F1.blue, fontSize: mob ? 9 : 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <div style={{ width: 3, height: 16, background: co2, borderRadius: 1 }} />
-            <select title={driverFullName(di2) || "Επιλογή οδηγού 2"} value={d2 || ""} onChange={(e) => { setD2(Number(e.target.value)); setSl2(null); setLaps2([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 2</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>
-            {lapSelect2.options.length > 0 && <select title={li2 ? fmt(li2.lap_duration) : "Επιλογή γύρου"} value={sl2 || ""} onChange={(e) => setSl2(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect2.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect2.fastestLapNumber)}</option>)}</select>}
-          </div>
-          {numDrivers >= 3 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co3, borderRadius: 1 }} /><select title={driverFullName(di3) || "Επιλογή οδηγού 3"} value={d3 || ""} onChange={(e) => { setD3(Number(e.target.value)); setSl3(null); setLaps3([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 3</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect3.options.length > 0 && <select value={sl3 || ""} onChange={(e) => setSl3(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect3.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect3.fastestLapNumber)}</option>)}</select>}</div></>}
-          {numDrivers >= 4 && <><span style={{ color: F1.textMuted, fontSize: 9, fontWeight: 700 }}>+</span><div style={{ display: "flex", alignItems: "center", gap: 3 }}><div style={{ width: 3, height: 16, background: co4, borderRadius: 1 }} /><select title={driverFullName(di4) || "Επιλογή οδηγού 4"} value={d4 || ""} onChange={(e) => { setD4(Number(e.target.value)); setSl4(null); setLaps4([]); }} disabled={!drvs.length} style={{ minWidth: mob ? 150 : 220, fontSize: mob ? 11 : 12 }}><option value="">Οδηγός 4</option>{drvs.map((x) => <option key={x.driver_number} value={x.driver_number}>{formatDriverOption(x)}</option>)}</select>{lapSelect4.options.length > 0 && <select value={sl4 || ""} onChange={(e) => setSl4(Number(e.target.value))} style={{ width: mob ? 148 : 172, fontSize: mob ? 11 : 12 }}><option value="">Γύρος</option>{lapSelect4.options.map((l) => <option key={l.lap_number} value={l.lap_number}>{formatLapOption(l, lapSelect4.fastestLapNumber)}</option>)}</select>}</div></>}
-          {numDrivers < 4 && drvs.length > 0 && <button onClick={() => setNumDrivers((n) => Math.min(4, n + 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.green }}>+Ο{numDrivers + 1}</button>}
-          {numDrivers > 2 && <button onClick={() => setNumDrivers((n) => Math.max(2, n - 1))} style={{ padding: "2px 6px", fontSize: 9, color: F1.red }}>−</button>}
-          <button className="f1-btn" onClick={loadData} disabled={!d1 || !d2 || !sl1 || !sl2 || !!loading} style={{ padding: mob ? "4px 10px" : "5px 12px", fontSize: mob ? 10 : 11 }}>{loading ? "..." : "ΣΥΓΚΡΙΣΗ"}</button>
-        </div>
-        {noMeetings && <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>Δεν υπάρχουν ακόμη δεδομένα Γκραν Πρι για το {year}. Δοκίμασε το 2025 για την πιο πλήρη σεζόν τηλεμετρίας.</div>}
-      </div>}
+      {!embed && (
+        <ComparisonSelectors
+          containerRef={selectorsRef}
+          yearSelectRef={yearSelectRef}
+          mob={mob}
+          F1={F1}
+          highlightConfig={highlightConfig}
+          availableYears={AVAILABLE_YEARS}
+          year={year}
+          meetings={mts}
+          selectedMeeting={selMt}
+          sessions={sess}
+          selectedSession={selSe}
+          drivers={drvs}
+          slots={comparisonSelectorSlots}
+          numDrivers={numDrivers}
+          loading={loading}
+          noMeetings={noMeetings}
+          formatMeetingLabel={formatMeetingLabel}
+          onYearChange={setYear}
+          onSelectMeeting={selectMeeting}
+          onSelectSession={selectSession}
+          onSelectDriver={selectDriverSlot}
+          onSelectLap={selectLapSlot}
+          onAddDriver={() => setNumDrivers((count) => Math.min(4, count + 1))}
+          onRemoveDriver={() => setNumDrivers((count) => Math.max(2, count - 1))}
+          onLoadData={loadData}
+        />
+      )}
 
-      {!embed && alertErr && <div style={{ padding: "8px 18px", background: `${F1.red}11`, borderBottom: `1px solid ${F1.red}22`, fontSize: 12, color: F1.red, display: "flex", alignItems: "center", gap: 8 }}><span style={{ flex: 1 }}>{alertErr}</span><button aria-label="Απόκρυψη σφάλματος" onClick={() => { setErr(""); setSceneErr(""); }} style={{ minWidth: 34, minHeight: 34, padding: "0 10px", fontSize: 14, lineHeight: 1 }}>✕</button></div>}
-      {!embed && loading && <div style={{ padding: "8px 18px", borderBottom: `1px solid ${F1.borderLight}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-          <div style={{ flex: 1, fontSize: 11, color: F1.textDim, fontFamily: F1.mono }}>{loading}</div>
-          {canCancelLoad && <button onClick={cancelLoading} style={{ padding: "4px 10px", fontSize: 10 }}>ΑΚΥΡΟ</button>}
-        </div>
-        {ldPct !== undefined && <div style={{ height: 2, background: F1.borderLight, borderRadius: 1, overflow: "hidden" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 1, transition: "width .3s" }} /></div>}
-      </div>}
-      {!embed && mob && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, overflowX: "auto", flexShrink: 0 }}>
-        {[
-          { id: "3d", label: "🏎️ Πίστα" },
-          { id: "telemetry", label: "📊 Τηλεμετρία" },
-          { id: "stats", label: "📈 Στατιστικά" },
-          { id: "laps", label: "⏱ Γύροι" },
-          { id: "h2h", label: "⚔️ H2H" },
-          { id: "season", label: "🏆 Σεζόν" },
-        ].map((tab) => <button key={tab.id} onClick={() => selectComparisonTab(tab.id)} style={{ flex: "0 0 auto", borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: 10, padding: "7px 10px", textTransform: "none", whiteSpace: "nowrap", color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
-      </div>}
-
-      {/* Embed tab bar */}
-      {embed && tp && <div style={{ display: "flex", borderBottom: `1px solid ${F1.borderLight}`, background: F1.carbonLight, flexShrink: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-        {[
-          { id: "3d", label: mob ? "🏎️" : "🏎️ Πίστα", title: "Πίστα" },
-          { id: "telemetry", label: mob ? "📊" : "📊 Τηλεμετρία", title: "Τηλεμετρία" },
-          { id: "stats", label: mob ? "📈" : "📈 Στατιστικά", title: "Στατιστικά" },
-          { id: "laps", label: mob ? "⏱" : "⏱ Γύροι", title: "Γύροι" },
-          { id: "h2h", label: mob ? "⚔️" : "⚔️ H2H", title: "H2H" },
-          { id: "season", label: mob ? "🏆" : "🏆 Σεζόν", title: "Σεζόν" },
-        ].map((tab) => <button key={tab.id} title={tab.title} onClick={() => selectComparisonTab(tab.id)} style={{ flex: mob ? "1 0 auto" : 1, borderRadius: 0, border: "none", borderBottom: mobTab === tab.id ? `2px solid ${F1.blue}` : "2px solid transparent", background: mobTab === tab.id ? F1.cardBg : "transparent", fontWeight: mobTab === tab.id ? 700 : 400, fontSize: mob ? 16 : 10, padding: mob ? "8px 0" : "7px 4px", textTransform: "none", whiteSpace: "nowrap", letterSpacing: "0.02em", minWidth: mob ? 0 : undefined, color: mobTab === tab.id ? F1.text : F1.textDim }}>{tab.label}</button>)}
-      </div>}
+      {!embed && (
+        <ErrorBanner
+          F1={F1}
+          message={alertErr}
+          onClose={() => {
+            setErr("");
+            setSceneErr("");
+          }}
+        />
+      )}
+      {!embed && (
+        <LoadingStatusBar F1={F1} message={loading} progress={ldPct} canCancel={canCancelLoad} onCancel={cancelLoading} />
+      )}
+      {tp && ((mob && !embed) || embed) && (
+        <InlineTabBar F1={F1} mob={mob} embed={embed} activeTab={mobTab} onSelectTab={selectComparisonTab} />
+      )}
 
       {/* Main area */}
       <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
-        {/* Track stage */}
-        <div style={{ flex: 1, position: "relative", minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto", display: (embed && mobTab !== "3d") ? "none" : (mob && mobTab !== "3d") ? "none" : undefined }}>
-            <div
-              ref={cRef}
-              style={{
-                width: "100%",
-                height: "100%",
-                background: F1.carbon,
-                cursor: is2DView ? "default" : "grab",
-                minHeight: embed && mob ? 220 : (embed || mob) ? 0 : "auto",
-                touchAction: is2DView ? "pan-y" : "none",
-                display: is2DView ? "flex" : "block",
-                alignItems: is2DView ? "center" : undefined,
-                justifyContent: is2DView ? "center" : undefined,
-                padding: is2DView ? (mob ? 12 : 18) : 0,
-                overflow: is2DView ? "auto" : "hidden",
-              }}
-            >
-              {tp && !is2DView && (
-                <Suspense fallback={null}>
-                  <SceneStage3D
-                    containerRef={cRef}
-                    tp={tp}
-                    l1={loc1}
-                    l2={loc2}
-                    progRef={progRef}
-                    playRef={playRef}
-                    speedRef={spdRef}
-                    c1={co1}
-                    c2={co2}
-                    cam={cam}
-                    lab1={di1?.name_acronym || ""}
-                    lab2={di2?.name_acronym || ""}
-                    telData1={tel1}
-                    vizMode={vizMode}
-                    isDark={isDark}
-                    l3={loc3}
-                    l4={loc4}
-                    c3={co3}
-                    c4={co4}
-                    lab3={di3?.name_acronym || ""}
-                    lab4={di4?.name_acronym || ""}
-                    onError={setSceneErr}
-                    circuitFlip={circuitFlip}
-                    circuitTurns={circuitTurns}
-                    enabled={!is2DView}
-                    visible={isSceneVisible}
-                  />
-                </Suspense>
-              )}
-              {tp && is2DView && (
-                <div style={{ width: "min(1080px, 100%)", display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(0, 1fr) 304px", gap: mob ? 14 : 18, alignItems: "start", animation: "fadeIn .25s" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.blue, marginBottom: 4 }}>ΕΛΑΦΡΙΑ ΠΡΟΒΟΛΗ 2D</div>
-                        <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>SVG replay με ζωντανά σημεία προόδου. Το WebGL μένει κλειστό σε αυτή τη λειτουργία για παλαιότερες GPU, ενσωματωμένα γραφικά και συσκευές σε εξοικονόμηση μπαταρίας.</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {renderTrackViewButtons()}
-                      </div>
-                    </div>
-                    <div onTouchStart={handleReplayTouchStart} onTouchEnd={handleReplayTouchEnd} onTouchCancel={handleReplayTouchCancel}>
-                      <TrackReplay2D tp={tp} drivers={replayDrivers} prog={prog} flip={circuitFlip} />
-                    </div>
-                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Το scrubber και τα controls πιο κάτω εξακολουθούν να οδηγούν το replay, ενώ τηλεμετρία, στατιστικά και πίνακες γύρων παραμένουν διαθέσιμα.</div>
-                  </div>
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {delta !== null && (
-                      <div style={{ minWidth: 0, padding: "12px 14px", borderRadius: 12, background: F1.cardBg, border: `1px solid ${F1.blue}33` }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: F1.textMuted, letterSpacing: "0.08em", marginBottom: 6 }}>ΔΙΑΦΟΡΑ ΓΥΡΟΥ</div>
-                        <div style={{ fontSize: 28, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.05 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}s</div>
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 10, color: F1.textDim }}>
-                          <span style={{ color: co1 }}>{di1?.name_acronym} {fmt(li1?.lap_duration)}</span>
-                          <span style={{ color: co2 }}>{di2?.name_acronym} {fmt(li2?.lap_duration)}</span>
-                        </div>
-                      </div>
-                    )}
-                    {replayDriverCards.map((driver) => (
-                      <div key={driver.label} style={{ minWidth: 0, padding: "10px 12px", borderRadius: 12, background: F1.cardBg, border: `1px solid ${driver.color}33`, textAlign: "left" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                          <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>{driver.label}</div>
-                          <div style={{ fontSize: 10, color: F1.textMuted }}>{Math.round(prog * 100)}%</div>
-                        </div>
-                        <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>{fmt((driver.lapDuration || 0) * prog)}</div>
-                        <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
-                          <span>{Math.round(driver.current?.speed || 0)} km/h</span>
-                          <span>ΓΚΑΖΙ {Math.round(driver.current?.throttle || 0)}%</span>
-                          <span>{driver.current?.brake > 0 ? "ΦΡΕΝΟ" : "ΡΟΛΑΡΙΣΜΑ"}</span>
-                          {driver.tire && <span>{driver.tire}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            {tp && !effectiveSceneErr && !is2DView && (embed && mob ? (
-              /* Embed phone: compact cam cycle button + viz toggle */
-              <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {renderTrackViewButtons(true)}
-                <button onClick={() => setCam((c) => { const i = CAM_MODES.indexOf(c); return CAM_MODES[(i + 1) % CAM_MODES.length]; })} style={{ padding: "4px 10px", fontSize: 9, background: F1.overlay, backdropFilter: "blur(6px)", borderColor: F1.blue, color: "#fff", fontWeight: 700, letterSpacing: "0.04em" }}>📷 {CAM_LABELS[cam]}</button>
-                {vizMode !== "normal" && <button onClick={() => setVizMode("normal")} style={{ padding: "4px 8px", fontSize: 9, background: "#0088ff44", backdropFilter: "blur(6px)", borderColor: "#0088ff", color: "#fff", fontWeight: 700 }}>✕ {vizMode === "brake" ? "Φρένο" : "Ταχύτητα"}</button>}
-              </div>
-            ) : (
-              <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3, flexWrap: "wrap" }}>
-                {renderTrackViewButtons()}
-                <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-                {CAM_MODES.map((m) => <button key={m} onClick={() => setCam(m)} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: cam === m ? F1.blue : F1.overlay, color: cam === m ? "#fff" : F1.textDim, borderColor: cam === m ? F1.blue : F1.borderLight, fontWeight: 700 }}>{CAM_LABELS[m]}</button>)}
-                <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-                <button onClick={() => setVizMode((v) => v === "normal" ? "heatmap" : v === "heatmap" ? "brake" : "normal")} style={{ padding: "3px 8px", fontSize: 9, textTransform: "uppercase", background: vizMode !== "normal" ? "#0088ff" : F1.overlay, color: vizMode !== "normal" ? "#fff" : F1.textDim, borderColor: vizMode !== "normal" ? "#0088ff" : F1.borderLight, fontWeight: 700 }}>{vizMode === "brake" ? "🟥 Φρένο" : vizMode === "heatmap" ? "🌡 Ταχύτητα" : "🌡 Θερμικό"}</button>
-              </div>
-            ))}
-            {tp && !effectiveSceneErr && !is2DView && !mob && !embed && <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}><MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} flip={circuitFlip} /></div>}
-            {/* Interval delta — top-right on embed mobile to avoid bottom overlap */}
-            {delta !== null && tp && !is2DView && <div style={{ position: "absolute", ...(embed && mob ? { top: 8, right: 8 } : { bottom: 8, left: 10 }), zIndex: 3, animation: "fadeIn .4s" }}>
-              <div style={{ background: F1.overlay, backdropFilter: "blur(8px)", borderRadius: 6, padding: embed && mob ? "4px 10px" : mob ? "5px 12px" : "6px 16px", border: `1px solid ${F1.blue}33`, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ fontSize: 7, color: F1.textMuted, letterSpacing: "0.15em", fontWeight: 700, textTransform: "uppercase" }}>Δ</div>
-                <div style={{ fontSize: embed && mob ? 15 : mob ? 18 : 24, fontWeight: 900, fontFamily: F1.mono, color: delta > 0 ? F1.red : F1.green, lineHeight: 1.1 }}>{delta > 0 ? "+" : ""}{delta.toFixed(3)}<span style={{ fontSize: "0.5em", opacity: 0.7 }}>s</span></div>
-                {!(embed && mob) && <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
-                  <span style={{ fontSize: 9, color: co1, fontFamily: F1.mono, fontWeight: 700 }}>{di1?.name_acronym} {fmt(li1?.lap_duration)}</span>
-                  <span style={{ fontSize: 9, color: co2, fontFamily: F1.mono, fontWeight: 700 }}>{di2?.name_acronym} {fmt(li2?.lap_duration)}</span>
-                </div>}
-              </div>
-            </div>}
-            {/* Sector deltas — hide on embed mobile (screen too small) */}
-            {tp && li1 && li2 && !is2DView && !(embed && mob) && <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8, zIndex: 2, maxWidth: "95%" }}>
-              <SectorDelta s={1} t1={li1.duration_sector_1} t2={li2.duration_sector_1} c1={co1} c2={co2} />
-              <SectorDelta s={2} t1={li1.duration_sector_2} t2={li2.duration_sector_2} c1={co1} c2={co2} />
-              <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
-            </div>}
-            {tp && effectiveSceneErr && <div style={{ position: "absolute", inset: mob ? 12 : 20, zIndex: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ width: "min(900px, 100%)", padding: mob ? "18px 16px" : "22px 24px", borderRadius: 16, border: `1px solid ${F1.red}33`, background: `${F1.overlay}`, backdropFilter: "blur(14px)", boxShadow: "0 18px 40px rgba(0,0,0,0.35)" }}>
-                <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "minmax(260px, 320px) 1fr", gap: mob ? 16 : 22, alignItems: "center" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>2D ΕΦΕΔΡΙΚΗ ΑΝΑΠΑΡΑΓΩΓΗ</div>
-                    <TrackReplay2D tp={tp} drivers={replayDrivers} prog={prog} flip={circuitFlip} />
-                    <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: mob ? "1fr" : `repeat(${Math.max(2, Math.min(4, replayDriverCards.length || 2))}, minmax(0, 1fr))`, gap: 10 }}>
-                      {replayDriverCards.map((driver) => (
-                        <div key={driver.label} style={{ minWidth: 0, padding: "10px 12px", borderRadius: 10, background: F1.cardBg, border: `1px solid ${driver.color}33`, textAlign: "left" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                            <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>{driver.label}</div>
-                            <div style={{ fontSize: 10, color: F1.textMuted }}>{Math.round(prog * 100)}%</div>
-                          </div>
-                          <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>{fmt((driver.lapDuration || 0) * prog)}</div>
-                          <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
-                            <span>{Math.round(driver.current?.speed || 0)} km/h</span>
-                            <span>ΓΚΑΖΙ {Math.round(driver.current?.throttle || 0)}%</span>
-                            <span>{driver.current?.brake > 0 ? "ΦΡΕΝΟ" : "ΡΟΛΑΡΙΣΜΑ"}</span>
-                            {driver.tire && <span>{driver.tire}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>Το scrubber και τα controls πιο κάτω οδηγούν πλέον ένα 2D replay πίστας με ζωντανά σημεία προόδου.</div>
-                  </div>
-                  <div style={{ textAlign: mob ? "center" : "left" }}>
-                    <div style={{ fontSize: mob ? 15 : 18, fontWeight: 800, color: F1.text, lineHeight: 1.45, marginBottom: 8 }}>{effectiveSceneErr}</div>
-                    <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.7, marginBottom: 14 }}>Η σύγκριση παραμένει χρήσιμη και χωρίς WebGL. Άνοιξε τηλεμετρία, στατιστικά ή πίνακες γύρων, ή επέστρεψε στη μπάρα επιλογών για νέα σύγκριση.</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: mob ? "center" : "flex-start" }}>
-                      <button onClick={() => setTrackViewMode("2d")} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>ΧΡΗΣΗ 2D</button>
-                      <button onClick={() => openAuxView("telemetry")} style={{ padding: "8px 13px", fontSize: 11 }}>ΤΗΛΕΜΕΤΡΙΑ</button>
-                      <button onClick={() => openAuxView("stats")} style={{ padding: "8px 13px", fontSize: 11 }}>ΣΤΑΤΙΣΤΙΚΑ</button>
-                      <button onClick={() => openAuxView("laps")} style={{ padding: "8px 13px", fontSize: 11 }}>ΓΥΡΟΙ</button>
-                      {!embed && <button onClick={changeMatchup} className="f1-btn" style={{ padding: "8px 13px", fontSize: 11 }}>ΝΕΑ ΣΥΓΚΡΙΣΗ</button>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>}
-            {!tp && !loading && !embed && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .6s", padding: 20 }}>
-              <img src={LOGO_SRC} alt="" style={{ height: 60, marginBottom: 16, opacity: 0.6 }} onError={(e) => { e.target.style.display = "none"; }} />
-              <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: "#fff", marginBottom: 4 }}>{APP_NAME}</div>
-              <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>{APP_SUBTITLE}</div>
-              <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>Σύγκρινε γύρους κατατακτήριων σε 3D ή πέρασε σε ελαφρύ 2D replay όταν το μηχάνημα χρειάζεται πιο ελαφριά προβολή.</div>
-              <div style={{ marginTop: 18, display: "flex", gap: 8, justifyContent: "center" }}>
-                <button onClick={() => setShowPresets(true)} className="f1-btn" style={{ padding: "8px 20px", fontSize: 12 }}>⚡ ΓΡΗΓΟΡΗ ΕΚΚΙΝΗΣΗ</button>
-                <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: F1.textDim, textDecoration: "none", padding: "8px 14px", border: `1px solid ${F1.border}`, borderRadius: 4, fontWeight: 600 }}>f1stories.gr →</a>
-              </div>
-            </div>}
-            {embed && !tp && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center", animation: "fadeIn .4s" }}>
-              {loading ? (<><div style={{ fontSize: 13, fontWeight: 700, color: F1.text, fontFamily: F1.mono, marginBottom: 6 }}>{loading}</div>{ldPct !== undefined && <div style={{ height: 3, width: 220, background: F1.borderLight, borderRadius: 2, overflow: "hidden", margin: "0 auto 10px" }}><div style={{ height: "100%", width: `${ldPct}%`, background: F1.blue, borderRadius: 2, transition: "width .3s" }} /></div>}{canCancelLoad && <button onClick={cancelLoading} style={{ padding: "5px 10px", fontSize: 10 }}>ΑΚΥΡΟ</button>}</>) : alertErr ? <div style={{ fontSize: 12, color: F1.red, fontFamily: F1.mono }}>{alertErr}</div> : (<><div style={{ width: 28, height: 28, border: `3px solid ${F1.blue}`, borderTopColor: "transparent", borderRadius: "50%", margin: "0 auto 12px", animation: "spin 0.8s linear infinite" }} /><div style={{ fontSize: 13, fontWeight: 700, color: F1.textDim, fontFamily: F1.mono }}>ΦΟΡΤΩΣΗ ΣΥΓΚΡΙΣΗΣ</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>)}
-            </div>}
-          </div>
+        <ReplayStage
+          mob={mob}
+          embed={embed}
+          F1={F1}
+          logoSrc={LOGO_SRC}
+          appName={APP_NAME}
+          appSubtitle={APP_SUBTITLE}
+          containerRef={cRef}
+          tp={tp}
+          mobTab={mobTab}
+          is2DView={is2DView}
+          isSceneVisible={isSceneVisible}
+          sceneError={effectiveSceneErr}
+          trackView={trackView}
+          onTrackViewMode={setTrackViewMode}
+          cam={cam}
+          onCameraModeChange={setCam}
+          vizMode={vizMode}
+          onVizModeChange={setVizMode}
+          loc1={loc1}
+          loc2={loc2}
+          loc3={loc3}
+          loc4={loc4}
+          prog={prog}
+          progRef={progRef}
+          playRef={playRef}
+          speedRef={spdRef}
+          co1={co1}
+          co2={co2}
+          co3={co3}
+          co4={co4}
+          di1={di1}
+          di2={di2}
+          di3={di3}
+          di4={di4}
+          li1={li1}
+          li2={li2}
+          tel1={tel1}
+          replayDrivers={replayDrivers}
+          replayDriverCards={replayDriverCards}
+          delta={delta}
+          circuitFlip={circuitFlip}
+          circuitTurns={circuitTurns}
+          isDark={isDark}
+          loading={loading}
+          loadingProgress={ldPct}
+          canCancelLoad={canCancelLoad}
+          alertErr={alertErr}
+          onCancelLoad={cancelLoading}
+          onSceneError={setSceneErr}
+          onReplayTouchStart={handleReplayTouchStart}
+          onReplayTouchEnd={handleReplayTouchEnd}
+          onReplayTouchCancel={handleReplayTouchCancel}
+          canTouchScrubReplay={canTouchScrubReplay}
+          onOpenAuxView={openAuxView}
+          onChangeMatchup={changeMatchup}
+          onOpenPresets={() => setShowPresets(true)}
+        />
 
-        {/* Telemetry panel — desktop sidebar or mobile/embed tab */}
-        {((!mob && !embed && showTel && tp && !effectiveSceneErr) || ((mob || embed) && mobTab === "telemetry" && tp)) && (
-          <div style={{ width: (!mob && !embed) ? 310 : "100%", borderLeft: (!mob && !embed) ? `1px solid ${F1.borderLight}` : "none", background: F1.panelBg, display: "flex", flexDirection: "column", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, maxHeight: (!mob && !embed) ? "auto" : undefined, overflow: "auto", animation: "fadeIn .2s" }}>
-            <TelemetryPanel mob={mob || embed} tp={tp} prog={prog} allDrivers={allDrivers} numDrivers={numDrivers} di1={di1} di2={di2} co1={co1} co2={co2} li1={li1} li2={li2} s1={s1} s2={s2} laps1={laps1} st1={st1} sl1={sl1} />
-          </div>
-        )}
-
-        {/* Inline Stats tab (embed + mobile) */}
-        {(embed || mob) && mobTab === "stats" && tp && (
-          <Suspense fallback={null}>
-            <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 0, animation: "fadeIn .2s" }}>
-              <StatsModal mob={true} allDrivers={allDrivers} onClose={closeInlineTab} inline />
-            </div>
-          </Suspense>
-        )}
-
-        {/* Inline Laps tab */}
-        {(embed || mob) && mobTab === "laps" && tp && (
-          <Suspense fallback={null}>
-            <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
-              <LapsModal mob={true} onClose={closeInlineTab} inline drivers={lapModalDrivers} />
-            </div>
-          </Suspense>
-        )}
-
-        {/* Inline H2H tab */}
-        {(embed || mob) && mobTab === "h2h" && tp && (
-          <Suspense fallback={null}>
-            <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
-              <H2HModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} h2hData={h2hData} progress={h2hProgress} onClose={closeInlineTab} inline />
-            </div>
-          </Suspense>
-        )}
-
-        {/* Inline Season tab */}
-        {(embed || mob) && mobTab === "season" && tp && (
-          <Suspense fallback={null}>
-            <div style={{ flex: 1, minHeight: 0, overflow: "auto", animation: "fadeIn .2s" }}>
-              <DashModal mob={true} year={year} di1={di1} di2={di2} co1={co1} co2={co2} dashData={dashData} onClose={closeInlineTab} inline />
-            </div>
-          </Suspense>
-        )}
+        <AuxiliaryContentArea
+          mob={mob}
+          embed={embed}
+          F1={F1}
+          tp={tp}
+          activeTab={mobTab}
+          showTelemetry={showTel}
+          sceneError={effectiveSceneErr}
+          telemetryProps={{
+            tp,
+            prog,
+            allDrivers,
+            numDrivers,
+            di1,
+            di2,
+            co1,
+            co2,
+            li1,
+            li2,
+            s1,
+            s2,
+            laps1,
+            st1,
+            sl1,
+          }}
+          inlineTabProps={{
+            allDrivers,
+            lapModalDrivers,
+            year,
+            di1,
+            di2,
+            co1,
+            co2,
+            h2hData,
+            h2hProgress,
+            dashData,
+            onClose: closeInlineTab,
+          }}
+        />
       </div>
 
       {/* Playback bar */}
-      {tp && <div style={{ display: "flex", alignItems: "center", gap: embed && mob ? 4 : mob ? 6 : 10, padding: embed && mob ? "5px 8px" : mob ? "6px 10px" : "6px 18px", background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`, borderTop: `1px solid ${F1.blue}22`, flexShrink: 0 }}>
-        {!(embed && mob) && <button title="Επανεκκίνηση αναπαραγωγής" aria-label="Επανεκκίνηση αναπαραγωγής" onClick={() => { setProg(0); setPlay(false); }} style={{ padding: "3px 7px", fontSize: 11 }}>{mob ? "⏮" : "⏮ ΑΡΧΗ"}</button>}
-        <button title={play ? "Παύση αναπαραγωγής" : "Εναρξη σύγκρισης"} aria-label={play ? "Παύση αναπαραγωγής" : "Εναρξη σύγκρισης"} onClick={startWithCountdown} style={{ padding: embed && mob ? "5px 10px" : "3px 9px", fontSize: embed && mob ? 15 : 12, background: play ? `${F1.blue}33` : F1.cardBg, borderColor: play ? F1.blue : F1.border, fontWeight: 700, letterSpacing: embed && mob ? undefined : "0.04em" }}>{embed && mob ? (play ? "⏸" : "▶") : play ? "⏸ ΠΑΥΣΗ" : "▶ ΠΑΙΞΕ"}</button>
-        {!(embed && mob) && <button title={loop ? "Απενεργοποίηση επανάληψης" : "Ενεργοποίηση επανάληψης"} aria-label={loop ? "Απενεργοποίηση επανάληψης" : "Ενεργοποίηση επανάληψης"} onClick={() => setLoop(!loop)} style={{ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 }}>{mob ? "🔁" : "🔁 ΕΠΑΝ."}</button>}
-        <input type="range" min="0" max="1" step="0.001" value={prog} onChange={(e) => { const v = parseFloat(e.target.value); progRef.current = v; setProg(v); }} style={{ flex: 1, height: embed && mob ? 6 : 4, accentColor: F1.blue }} />
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: embed && mob ? 46 : mob ? 55 : 70 }}>
-          {allDrivers.map((d, i) => <span key={i} style={{ fontSize: embed && mob ? 9 : 10, color: d.co, fontFamily: F1.mono, fontWeight: 700, lineHeight: 1.2 }}>{fmt(d.li?.lap_duration ? prog * d.li.lap_duration : 0)}</span>)}
-        </div>
-        {!embed && <button title="Επιστροφή στις επιλογές" aria-label="Επιστροφή στις επιλογές" onClick={changeMatchup} style={{ padding: "3px 8px", fontSize: 10 }}>ΡΥΘΜΙΣΗ</button>}
-        <select value={spd} onChange={(e) => setSpd(parseFloat(e.target.value))} style={{ width: embed && mob ? 42 : 48, padding: "2px 3px", fontSize: 10 }}>
-          <option value={0.25}>.25x</option><option value={0.5}>.5x</option><option value={1}>1x</option><option value={2}>2x</option><option value={4}>4x</option>
-        </select>
-        {!mob && !embed && <button title={showTel ? "Απόκρυψη τηλεμετρίας" : "Εμφάνιση τηλεμετρίας"} aria-label={showTel ? "Απόκρυψη τηλεμετρίας" : "Εμφάνιση τηλεμετρίας"} onClick={() => setShowTel(!showTel)} style={{ padding: "3px 7px", fontSize: 10, opacity: showTel ? 1 : 0.35 }}>{showTel ? "📊 ON" : "📊 OFF"}</button>}
-        {embed && !mob && <button onClick={share} style={{ padding: "3px 8px", fontSize: 9, letterSpacing: "0.04em" }}>{shareMsg || "↗ ΚΟΙΝΟΠ."}</button>}
-        {embed && shareUrl && <a href={shareUrl} target="_blank" rel="noopener noreferrer" style={{ padding: embed && mob ? "5px 8px" : "3px 8px", fontSize: 9, color: F1.blue, textDecoration: "none", fontWeight: 700, border: `1px solid ${F1.blue}44`, borderRadius: 4, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{embed && mob ? "↗" : "ΑΝΟΙΓΜΑ ΣΤΗΝ ΕΦΑΡΜΟΓΗ ↗"}</a>}
-        {embed && !mob && <span style={{ fontSize: 8, color: F1.textMuted, whiteSpace: "nowrap", marginLeft: "auto" }}>Από <a href="https://f1stories.gr/ghostcar/" target="_blank" rel="noopener noreferrer" style={{ color: F1.blue, textDecoration: "none", fontWeight: 700 }}>F1 Stories</a></span>}
-      </div>}
+      {tp && (
+        <PlaybackBar
+          mob={mob}
+          embed={embed}
+          F1={F1}
+          play={play}
+          loop={loop}
+          progress={prog}
+          speed={spd}
+          playbackSpeeds={PLAYBACK_SPEEDS}
+          drivers={allDrivers}
+          showTelemetry={showTel}
+          shareMsg={shareMsg}
+          shareUrl={shareUrl}
+          onReset={resetPlayback}
+          onStart={startReplay}
+          onToggleLoop={() => setLoop((value) => !value)}
+          onProgressChange={(value) => {
+            progRef.current = value;
+            setProg(value);
+          }}
+          onSetup={changeMatchup}
+          onSpeedChange={setSpd}
+          onToggleTelemetry={() => setShowTel((value) => !value)}
+          onShare={share}
+        />
+      )}
 
       {/* Footer */}
-      {!embed && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: mob ? 8 : 16, padding: "8px 18px", flexShrink: 0, background: F1.carbon, borderTop: `1px solid ${F1.borderLight}`, flexWrap: "wrap" }}>
-          <a href="https://f1stories.gr/" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
-            <img src={LOGO_SRC} alt="" style={{ height: 18 }} onError={(e) => { e.target.style.display = "none"; }} />
-            <span style={{ fontSize: 10, color: F1.textDim, fontWeight: 600 }}>f1stories.gr</span>
-          </a>
-          <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
-          <span style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>Δεδομένα από το OpenF1 API</span>
-          <span style={{ fontSize: 9, color: F1.textMuted }}>•</span>
-          <span style={{ fontSize: 9, color: F1.textMuted }}>© {new Date().getFullYear()} F1 Stories</span>
-        </div>
-      )}
-      {toast && <div role="status" aria-live="polite" style={{ position: "fixed", right: 16, bottom: tp ? 72 : 16, zIndex: 250, maxWidth: mob ? "calc(100vw - 32px)" : 320, padding: "10px 14px", borderRadius: 10, background: toast.tone === "success" ? `${F1.green}22` : `${F1.blue}18`, border: `1px solid ${toast.tone === "success" ? `${F1.green}55` : `${F1.blue}44`}`, color: F1.text, boxShadow: "0 14px 30px rgba(0,0,0,0.25)", fontSize: 12, lineHeight: 1.5 }}>{toast.message}</div>}
-      </div>
-    </ThemeProvider>
+      {!embed && <AppFooter mob={mob} F1={F1} logoSrc={LOGO_SRC} />}
+      <Toast mob={mob} F1={F1} toast={toast} hasPlaybackBar={Boolean(tp)} />
+    </AppShell>
   );
 }

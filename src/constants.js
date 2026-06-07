@@ -1,3 +1,5 @@
+export { CIRCUIT_DATA, getCircuitInfo } from "./domain/circuit.js";
+
 // ─── F1 Stories Design System — Aligned with f1stories.gr ───
 // Dark: "Neutral Charcoal" — matches f1stories.gr dark mode
 // Light: "Clean White" — Apple-inspired, matches f1stories.gr light mode
@@ -164,63 +166,4 @@ export const SESSION_LABELS = {
 
 export function formatSessionLabel(sessionName) {
   return SESSION_LABELS[sessionName] || sessionName;
-}
-
-// ─── Circuit data: turns and driving direction ───
-// clockwise: true = CW when viewed from above (cars mostly turn right first)
-// clockwise: false = anticlockwise (cars mostly turn left first)
-export const CIRCUIT_DATA = {
-  "bahrain":          { turns: 15, clockwise: true  },
-  "jeddah":           { turns: 27, clockwise: false },
-  "melbourne":        { turns: 16, clockwise: true  },
-  "baku":             { turns: 20, clockwise: false },
-  "miami":            { turns: 19, clockwise: true  },
-  "imola":            { turns: 19, clockwise: false },
-  "monaco":           { turns: 19, clockwise: true  },
-  "barcelona":        { turns: 16, clockwise: true  },
-  "spielberg":        { turns: 10, clockwise: true  },
-  "montreal":         { turns: 14, clockwise: true  },
-  "silverstone":      { turns: 18, clockwise: true  },
-  "budapest":         { turns: 14, clockwise: true  },
-  "spa-francorchamps":{ turns: 19, clockwise: true  },
-  "spa":              { turns: 19, clockwise: true  },
-  "zandvoort":        { turns: 14, clockwise: true  },
-  "monza":            { turns: 11, clockwise: true  },
-  "singapore":        { turns: 19, clockwise: false },
-  "suzuka":           { turns: 18, clockwise: true  },
-  "lusail":           { turns: 16, clockwise: true  },
-  "austin":           { turns: 20, clockwise: false },
-  "mexico city":      { turns: 17, clockwise: true  },
-  "mexico":           { turns: 17, clockwise: true  },
-  "sao paulo":        { turns: 15, clockwise: false },
-  "las vegas":        { turns: 17, clockwise: false },
-  "abu dhabi":        { turns: 16, clockwise: true  },
-  "shanghai":         { turns: 16, clockwise: true  },
-  "portimao":         { turns: 15, clockwise: true  },
-  "sochi":            { turns: 18, clockwise: true  },
-  "istanbul":         { turns: 14, clockwise: false },
-  "mugello":          { turns: 15, clockwise: true  },
-  "nurburgring":      { turns: 15, clockwise: true  },
-};
-
-const _normKey = (s) =>
-  String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-
-export function getCircuitInfo(meeting) {
-  if (!meeting) return { turns: 20, clockwise: true };
-  const key = _normKey(meeting.circuit_short_name || "");
-  const name = _normKey(meeting.meeting_name || "").replace(/\s*grand\s*prix\s*/, "").trim();
-  // Exact match on circuit_short_name
-  if (key && CIRCUIT_DATA[key]) return CIRCUIT_DATA[key];
-  // Partial match on circuit_short_name
-  for (const [k, v] of Object.entries(CIRCUIT_DATA)) {
-    if (key && (key.includes(k) || k.includes(key))) return v;
-  }
-  // Exact match on GP name (stripped)
-  if (name && CIRCUIT_DATA[name]) return CIRCUIT_DATA[name];
-  // Partial match on GP name
-  for (const [k, v] of Object.entries(CIRCUIT_DATA)) {
-    if (name && (name.includes(k) || k.includes(name))) return v;
-  }
-  return { turns: 20, clockwise: true };
 }

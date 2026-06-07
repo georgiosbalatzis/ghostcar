@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 
+export { bestLap } from "./domain/laps.js";
+
 const DEFAULT_URL_BASE = "https://f1stories.gr/ghostcar/";
 
 // ─── Smooth cubic Catmull-Rom interpolation (replaces linear lerp) ───
@@ -64,11 +66,6 @@ export function telAt(tel, t) {
     drs: f > 0.5 ? (b.drs || 0) : (a.drs || 0),
     n_gear: f > 0.5 ? (b.n_gear || b.gear || 0) : (a.n_gear || a.gear || 0),
   };
-}
-
-export function bestLap(laps) {
-  const v = laps.filter((l) => l.lap_duration > 10 && l.date_start);
-  return v.length ? v.reduce((a, b) => (a.lap_duration < b.lap_duration ? a : b)) : null;
 }
 
 export function useIsMobile() {

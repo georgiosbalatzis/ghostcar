@@ -8,11 +8,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
   const F1 = useF1();
 
   // Live telemetry at current playback position — computed here so allDrivers can stay stable
-  const currentTel = useMemo(
-    () => allDrivers.map((d) => telAt(d.tel, prog)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [prog, allDrivers]
-  );
+  const currentTel = useMemo(() => allDrivers.map((d) => telAt(d.tel, prog)), [prog, allDrivers]);
 
   // Elevation path — only recomputes when track changes
   const elevationPath = useMemo(() => {
@@ -63,6 +59,9 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
 
   // Current sector index — cheap, fine inline
   const sIdx = prog < 0.333 ? 0 : prog < 0.666 ? 1 : 2;
+  const speedTraces = useMemo(() => allDrivers.map((d) => ({ data: d.s, color: d.co })), [allDrivers]);
+  const throttleTraces = useMemo(() => allDrivers.map((d) => ({ data: d.t, color: d.co })), [allDrivers]);
+  const brakeTraces = useMemo(() => allDrivers.map((d) => ({ data: d.b, color: d.co })), [allDrivers]);
 
   return (
     <div style={{ padding: mob ? 10 : 14, overflowY: "auto", flex: 1 }}>
@@ -76,7 +75,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
               <svg width={numDrivers > 2 ? "70" : "90"} height={numDrivers > 2 ? "42" : "55"} viewBox="0 0 90 55" style={{ margin: "2px auto" }}>
                 <path d="M 10 50 A 35 35 0 0 1 80 50" fill="none" stroke={F1.border} strokeWidth="4" strokeLinecap="round" />
                 <path d="M 10 50 A 35 35 0 0 1 80 50" fill="none" stroke={x.co} strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(Math.min(ct.speed, 360) / 360) * 110} 110`} />
-                <text x="45" y="42" textAnchor="middle" fill="#fff" fontSize="18" fontWeight="900" fontFamily={F1.mono}>{Math.round(ct.speed)}</text>
+                <text x="45" y="42" textAnchor="middle" fill={F1.text} fontSize="18" fontWeight="900" fontFamily={F1.mono}>{Math.round(ct.speed)}</text>
                 <text x="45" y="52" textAnchor="middle" fill={F1.textMuted} fontSize="7" fontFamily={F1.mono}>KM/H</text>
               </svg>
               <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 1 }}>
@@ -93,7 +92,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
                   <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΦΡΝ</div>
                 </div>
                 <div style={{ width: 24, textAlign: "center" }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: "#fff", fontFamily: F1.mono, lineHeight: "16px" }}>{ct.n_gear ?? ct.gear ?? "—"}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: F1.text, fontFamily: F1.mono, lineHeight: "16px" }}>{ct.n_gear ?? ct.gear ?? "—"}</div>
                   <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΣΧ</div>
                 </div>
               </div>
@@ -111,7 +110,7 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
           <svg width="100%" height="40" viewBox="0 0 300 40" preserveAspectRatio="none" style={{ borderRadius: 3, background: F1.cardBg }}>
             <path d={elevationPath + "L300,40L0,40Z"} fill={`${F1.blue}15`} />
             <path d={elevationPath} fill="none" stroke={F1.blue} strokeWidth="1.5" opacity="0.6" />
-            <line x1={prog * 300} y1="0" x2={prog * 300} y2="40" stroke="#fff" strokeWidth="1" opacity="0.5" />
+            <line x1={prog * 300} y1="0" x2={prog * 300} y2="40" stroke={F1.text} strokeWidth="1" opacity="0.5" />
           </svg>
         </div>
       )}
@@ -176,11 +175,11 @@ const TelemetryPanel = memo(function TelemetryPanel({ mob, tp, prog, allDrivers,
 
       {/* Telemetry charts */}
       <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, fontWeight: 700 }}>ΤΑΧΥΤΗΤΑ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span></div>
-      <TelChart traces={allDrivers.map((d) => ({ data: d.s, color: d.co }))} maxVal={370} prog={prog} />
+      <TelChart traces={speedTraces} maxVal={370} prog={prog} />
       <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>ΓΚΑΖΙ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span></div>
-      <TelChart traces={allDrivers.map((d) => ({ data: d.t, color: d.co }))} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
+      <TelChart traces={throttleTraces} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
       <div style={{ fontSize: 10, color: F1.textMuted, fontFamily: F1.mono, letterSpacing: "0.1em", marginBottom: 3, marginTop: 8, fontWeight: 700 }}>ΦΡΕΝΟ</div>
-      <TelChart traces={allDrivers.map((d) => ({ data: d.b, color: d.co }))} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
+      <TelChart traces={brakeTraces} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
     </div>
   );
 });
