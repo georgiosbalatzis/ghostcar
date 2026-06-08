@@ -1,8 +1,12 @@
 export const uiRadii = {
   control: 4,
+  badge: 3,
+  compactCard: 5,
+  telemetryCard: 6,
   card: 8,
   panel: 8,
   toast: 10,
+  replayPanel: 18,
 };
 
 export const uiType = {

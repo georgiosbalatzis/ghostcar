@@ -1,6 +1,7 @@
 import { memo, useId, useMemo } from "react";
 import { norm } from "../helpers.js";
 import { useF1 } from "../theme.js";
+import { uiRadii } from "../ui/styles.js";
 
 const WIDTH = 720;
 const HEIGHT = 360;
@@ -107,7 +108,7 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
         display: "block",
         width: "100%",
         height: "auto",
-        borderRadius: 18,
+        borderRadius: uiRadii.replayPanel,
         background: `linear-gradient(180deg, ${F1.cardBg}, ${F1.overlay})`,
         border: `1px solid ${F1.borderLight}`,
       }}
@@ -119,24 +120,58 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
         </linearGradient>
       </defs>
       <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
-      <path d={geometry.trackPath} fill="none" stroke="rgba(225,6,0,0.2)" strokeWidth="26" strokeLinecap="round" strokeLinejoin="round" />
-      <path d={geometry.trackPath} fill="none" stroke={`url(#${gradientId})`} strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={geometry.trackPath}
+        fill="none"
+        stroke="rgba(225,6,0,0.2)"
+        strokeWidth="26"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d={geometry.trackPath}
+        fill="none"
+        stroke={`url(#${gradientId})`}
+        strokeWidth="10"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       <g transform={`translate(${geometry.startPoint.x},${geometry.startPoint.y}) rotate(45)`}>
         <rect x="-7" y="-7" width="14" height="14" fill="#ffffff" opacity="0.85" rx="2" />
       </g>
       {driverStates.map((driver) => (
         <g key={driver.label}>
-          <path d={driver.trailPath} fill="none" stroke={driver.color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity="0.22" />
+          <path
+            d={driver.trailPath}
+            fill="none"
+            stroke={driver.color}
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.22"
+          />
           <circle cx={driver.current.x} cy={driver.current.y} r="16" fill={driver.color} opacity="0.14" />
           <circle cx={driver.current.x} cy={driver.current.y} r="8.5" fill={driver.color} />
           <circle cx={driver.current.x} cy={driver.current.y} r="3.5" fill="#ffffff" opacity="0.9" />
           <g transform={`translate(${driver.current.x + 14},${driver.current.y - 18})`}>
             <rect x="0" y="0" width="56" height="22" rx="11" fill="rgba(10,10,16,0.82)" stroke={`${driver.color}66`} />
-            <text x="28" y="14.5" textAnchor="middle" fill={driver.color} fontSize="11" fontWeight="700" fontFamily={F1.mono}>{driver.label}</text>
+            <text
+              x="28"
+              y="14.5"
+              textAnchor="middle"
+              fill={driver.color}
+              fontSize="11"
+              fontWeight="700"
+              fontFamily={F1.mono}
+            >
+              {driver.label}
+            </text>
           </g>
         </g>
       ))}
-      <text x="28" y="34" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono} letterSpacing="0.18em">2D ΑΝΑΠΑΡΑΓΩΓΗ</text>
+      <text x="28" y="34" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono} letterSpacing="0.18em">
+        2D ΑΝΑΠΑΡΑΓΩΓΗ
+      </text>
       <text x={WIDTH - 28} y={34} textAnchor="end" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono}>
         {Math.round(Math.max(0, Math.min(1, prog)) * 100)}%
       </text>

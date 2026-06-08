@@ -1,4 +1,10 @@
-import { controlButtonStyle, overlayBackdropStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
+import {
+  controlButtonStyle,
+  fixedSurfaceStyle,
+  overlayBackdropStyle,
+  panelSurfaceStyle,
+  uiRadii,
+} from "../ui/styles.js";
 
 export default function MobileToolMenu({
   F1,
@@ -19,11 +25,7 @@ export default function MobileToolMenu({
   };
   const menuBorderColor = "rgba(59,130,246,0.2)";
   const menuSurfaceStyle = {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
+    ...fixedSurfaceStyle({ top: 0, left: 0, right: 0, zIndex: 50 }),
     ...panelSurfaceStyle(F1, {
       background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)",
       borderColor: menuBorderColor,

@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
 import { CAM_LABELS, CAM_MODES } from "../constants.js";
 import { fmt } from "../helpers.js";
-import { controlButtonStyle, panelSurfaceStyle, segmentedButtonStyle, uiType } from "../ui/styles.js";
+import { controlButtonStyle, panelSurfaceStyle, segmentedButtonStyle, uiRadii, uiType } from "../ui/styles.js";
 import MiniMap from "./MiniMap.jsx";
 import SectorDelta from "./SectorDelta.jsx";
 import TrackReplay2D from "./TrackReplay2D.jsx";
@@ -302,7 +302,7 @@ function IntervalDeltaOverlay({ mob, embed, F1, delta, color1, color2, driver1, 
           ...panelSurfaceStyle(F1, {
             background: F1.overlay,
             borderColor: `${F1.blue}33`,
-            borderRadius: 6,
+            borderRadius: uiRadii.telemetryCard,
             padding: embed && mob ? "4px 10px" : mob ? "5px 12px" : "6px 16px",
             backdropFilter: "blur(8px)",
           }),
@@ -540,7 +540,7 @@ function EmbedEmptyState({ F1, loading, loadingProgress, canCancelLoad, alertErr
                 height: 3,
                 width: 220,
                 background: F1.borderLight,
-                borderRadius: 2,
+                borderRadius: uiRadii.control / 2,
                 overflow: "hidden",
                 margin: "0 auto 10px",
               }}
@@ -550,7 +550,7 @@ function EmbedEmptyState({ F1, loading, loadingProgress, canCancelLoad, alertErr
                   height: "100%",
                   width: `${loadingProgress}%`,
                   background: F1.blue,
-                  borderRadius: 2,
+                  borderRadius: uiRadii.control / 2,
                   transition: "width .3s",
                 }}
               />
