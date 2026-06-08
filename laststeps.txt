@@ -558,4 +558,4 @@ Source branch push note:
 - Source branch fix/orientation-change-resize was pushed to origin on 2026-06-08. GitHub reported the PR URL: https://github.com/georgiosbalatzis/ghostcar/pull/new/fix/orientation-change-resize. Production still served index-CmbgH6nC.js during the post-deploy check.
 
 Suggested next prompt:
-Continue post-deploy cleanup. Push this final laststeps.txt handoff commit to origin/fix/orientation-change-resize, verify the branch is no longer ahead, confirm production still serves index-CmbgH6nC.js, and open or review the PR at https://github.com/georgiosbalatzis/ghostcar/pull/new/fix/orientation-change-resize if source review is needed.
+Continue post-deploy cleanup. Verify the local branch remains synchronized with origin/fix/orientation-change-resize, confirm production still serves index-CmbgH6nC.js, and open or review the PR at https://github.com/georgiosbalatzis/ghostcar/pull/new/fix/orientation-change-resize if source review is needed.
