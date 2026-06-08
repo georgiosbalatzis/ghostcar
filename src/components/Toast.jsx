@@ -1,4 +1,4 @@
-import { panelSurfaceStyle, uiRadii } from "../ui/styles.js";
+import { fixedSurfaceStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
 
 export default function Toast({ mob, F1, toast, hasPlaybackBar }) {
   if (!toast) return null;
@@ -10,11 +10,12 @@ export default function Toast({ mob, F1, toast, hasPlaybackBar }) {
       role="status"
       aria-live="polite"
       style={{
-        position: "fixed",
-        right: 16,
-        bottom: hasPlaybackBar ? 72 : 16,
-        zIndex: 250,
-        maxWidth: mob ? "calc(100vw - 32px)" : 320,
+        ...fixedSurfaceStyle({
+          right: 16,
+          bottom: hasPlaybackBar ? 72 : 16,
+          zIndex: 250,
+          maxWidth: mob ? "calc(100vw - 32px)" : 320,
+        }),
         ...panelSurfaceStyle(F1, {
           background: isSuccess ? `${F1.green}22` : `${F1.blue}18`,
           borderColor: isSuccess ? `${F1.green}55` : `${F1.blue}44`,

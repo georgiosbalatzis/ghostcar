@@ -1,5 +1,10 @@
-import { getModalCloseButtonStyle } from "../modals/modalStyles.js";
-import { controlButtonStyle, inputControlStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
+import {
+  getModalBodyStyle,
+  getModalCloseButtonStyle,
+  getModalHeaderStyle,
+  getModalSurfaceStyle,
+} from "../modals/modalStyles.js";
+import { controlButtonStyle, inputControlStyle, uiRadii } from "../ui/styles.js";
 
 export default function ShareDialog({ mob, F1, url, notice, onClose, onCopy }) {
   return (
@@ -7,35 +12,16 @@ export default function ShareDialog({ mob, F1, url, notice, onClose, onCopy }) {
       role="dialog"
       aria-modal="true"
       aria-label="Σύνδεσμος κοινοποίησης"
-      style={{
-        ...panelSurfaceStyle(F1, {
-          background: F1.carbon,
-          borderColor: `${F1.blue}33`,
-          borderRadius: 12,
-          padding: 0,
-          boxShadow: "0 22px 60px rgba(0,0,0,0.4)",
-        }),
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%,-50%)",
-        zIndex: 100,
-        width: mob ? "95%" : 560,
+      style={getModalSurfaceStyle(F1, {
+        mob,
+        width: 560,
         maxWidth: "calc(100vw - 24px)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
+        maxHeight: null,
+        boxShadow: "0 22px 60px rgba(0,0,0,0.4)",
+        animation: null,
+      })}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "16px 20px",
-          borderBottom: `1px solid ${F1.borderLight}`,
-        }}
-      >
+      <div style={getModalHeaderStyle(F1, { gap: 16 })}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>
             ΕΤΟΙΜΟΣ ΣΥΝΔΕΣΜΟΣ
@@ -48,7 +34,7 @@ export default function ShareDialog({ mob, F1, url, notice, onClose, onCopy }) {
           ✕
         </button>
       </div>
-      <div style={{ padding: "16px 20px 20px" }}>
+      <div style={getModalBodyStyle({ overflow: undefined, padding: "16px 20px 20px" })}>
         <input
           readOnly
           value={url}

@@ -141,3 +141,16 @@ export function overlayBackdropStyle({
     ...(blur ? { backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)` } : {}),
   };
 }
+
+export function fixedSurfaceStyle({ top, right, bottom, left, zIndex, width, maxWidth } = {}) {
+  return {
+    position: "fixed",
+    ...(top !== undefined ? { top } : {}),
+    ...(right !== undefined ? { right } : {}),
+    ...(bottom !== undefined ? { bottom } : {}),
+    ...(left !== undefined ? { left } : {}),
+    ...(zIndex !== undefined ? { zIndex } : {}),
+    ...(width !== undefined ? { width } : {}),
+    ...(maxWidth !== undefined ? { maxWidth } : {}),
+  };
+}

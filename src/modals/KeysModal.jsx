@@ -1,5 +1,11 @@
 import { useF1 } from "../theme.js";
-import { getModalCloseButtonStyle, getModalSurfaceStyle } from "./modalStyles.js";
+import {
+  getModalCloseButtonStyle,
+  getModalHeaderStyle,
+  getModalKeycapStyle,
+  getModalListRowStyle,
+  getModalSurfaceStyle,
+} from "./modalStyles.js";
 
 const SHORTCUTS = [
   ["Space", "Αναπαραγωγή / Παύση"],
@@ -30,7 +36,7 @@ export default function KeysModal({ mob, onClose }) {
         overflow: null,
       })}
     >
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+      <div style={getModalHeaderStyle(F1, { padding: 0, borderBottom: null, marginBottom: 16 })}>
         <span style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>
           ΣΥΝΤΟΜΕΥΣΕΙΣ ΠΛΗΚΤΡΟΛΟΓΙΟΥ
         </span>
@@ -39,29 +45,8 @@ export default function KeysModal({ mob, onClose }) {
         </button>
       </div>
       {SHORTCUTS.map(([k, d]) => (
-        <div
-          key={k}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "6px 0",
-            borderBottom: `1px solid ${F1.borderLight}`,
-          }}
-        >
-          <kbd
-            style={{
-              background: F1.cardBg,
-              padding: "2px 8px",
-              borderRadius: 3,
-              fontFamily: F1.mono,
-              fontSize: 11,
-              fontWeight: 700,
-              color: F1.blue,
-              border: `1px solid ${F1.blue}44`,
-            }}
-          >
-            {k}
-          </kbd>
+        <div key={k} style={getModalListRowStyle(F1)}>
+          <kbd style={getModalKeycapStyle(F1)}>{k}</kbd>
           <span style={{ fontSize: 12, color: F1.textDim }}>{d}</span>
         </div>
       ))}

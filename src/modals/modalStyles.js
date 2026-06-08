@@ -12,6 +12,7 @@ export function getModalSurfaceStyle(
     boxShadow,
     display = "flex",
     flexDirection = "column",
+    animation = "fadeIn .2s",
     overflow = "hidden",
   } = {}
 ) {
@@ -33,18 +34,41 @@ export function getModalSurfaceStyle(
     ...(maxHeight ? { maxHeight } : {}),
     ...(display !== null ? { display } : {}),
     ...(flexDirection !== null ? { flexDirection } : {}),
-    animation: "fadeIn .2s",
+    ...(animation !== null ? { animation } : {}),
     ...(overflow !== null ? { overflow } : {}),
   };
 }
 
-export function getModalHeaderStyle(F1, { gap } = {}) {
+export function getModalDrawerSurfaceStyle(
+  F1,
+  { mob = false, width = 380, mobileWidth = "100%", zIndex = 100, display = "flex", flexDirection = "column" } = {}
+) {
+  return {
+    position: "fixed",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: mob ? mobileWidth : width,
+    background: F1.carbon,
+    borderLeft: `1px solid ${F1.blue}22`,
+    zIndex,
+    display,
+    flexDirection,
+    animation: "fadeIn .2s",
+  };
+}
+
+export function getModalHeaderStyle(
+  F1,
+  { gap, padding = "16px 20px", borderBottom = `1px solid ${F1.borderLight}`, marginBottom } = {}
+) {
   return {
     display: "flex",
     alignItems: "center",
     ...(gap !== undefined ? { gap } : {}),
-    padding: "16px 20px",
-    borderBottom: `1px solid ${F1.borderLight}`,
+    padding,
+    ...(borderBottom !== null ? { borderBottom } : {}),
+    ...(marginBottom !== undefined ? { marginBottom } : {}),
   };
 }
 
@@ -77,5 +101,27 @@ export function getModalCloseButtonStyle(F1) {
     alignItems: "center",
     justifyContent: "center",
     border: `1px solid ${F1.borderLight}`,
+  };
+}
+
+export function getModalListRowStyle(F1, { padding = "6px 0", justifyContent = "space-between" } = {}) {
+  return {
+    display: "flex",
+    justifyContent,
+    padding,
+    borderBottom: `1px solid ${F1.borderLight}`,
+  };
+}
+
+export function getModalKeycapStyle(F1) {
+  return {
+    background: F1.cardBg,
+    padding: "2px 8px",
+    borderRadius: 3,
+    fontFamily: F1.mono,
+    fontSize: 11,
+    fontWeight: 700,
+    color: F1.blue,
+    border: `1px solid ${F1.blue}44`,
   };
 }

@@ -1,6 +1,11 @@
 import { useMemo } from "react";
 import { useF1 } from "../theme.js";
-import { getModalCloseButtonStyle } from "./modalStyles.js";
+import {
+  getModalBodyStyle,
+  getModalCloseButtonStyle,
+  getModalHeaderStyle,
+  getModalSurfaceStyle,
+} from "./modalStyles.js";
 
 export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progress, onClose, inline }) {
   const F1 = useF1();
@@ -35,25 +40,61 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
   }, [h2hData]);
   const wrapStyle = inline
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
-    : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", background: F1.carbon, border: `1px solid ${F1.blue}33`, borderRadius: 12, padding: 0, zIndex: 100, width: mob ? "95%" : 480, maxHeight: "80vh", display: "flex", flexDirection: "column", animation: "fadeIn .2s", overflow: "hidden" };
+    : getModalSurfaceStyle(F1, { mob, width: 480, maxHeight: "80vh" });
   return (
     <div style={wrapStyle}>
-      <div style={{ display: "flex", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${F1.borderLight}` }}>
+      <div style={getModalHeaderStyle(F1)}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>H2H {year}</div>
-          <div style={{ fontSize: 10, color: F1.textMuted }}>{di1?.name_acronym || "Ο1"} εναντίον {di2?.name_acronym || "Ο2"} — Κατατακτήριες</div>
+          <div style={{ fontSize: 10, color: F1.textMuted }}>
+            {di1?.name_acronym || "Ο1"} εναντίον {di2?.name_acronym || "Ο2"} — Κατατακτήριες
+          </div>
         </div>
-        <button aria-label="Κλείσιμο αναμέτρησης H2H" onClick={onClose} style={getModalCloseButtonStyle(F1)}>✕</button>
+        <button aria-label="Κλείσιμο αναμέτρησης H2H" onClick={onClose} style={getModalCloseButtonStyle(F1)}>
+          ✕
+        </button>
       </div>
-      <div style={{ overflowY: "auto", padding: "12px 20px 20px" }}>
+      <div style={getModalBodyStyle({ overflow: undefined, overflowY: "auto", padding: "12px 20px 20px" })}>
         {!!progress?.total && (
-          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, background: F1.cardBg, border: `1px solid ${F1.borderLight}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 6, fontSize: 10, color: F1.textDim, fontFamily: F1.mono }}>
-              <span>{progressActive ? `Έλεγχος ${progress.currentGp?.replace("Grand Prix", "GP") || "κατατακτήριων"}...` : "Η σάρωση ολοκληρώθηκε"}</span>
-              <span>{progress.checked}/{progress.total}</span>
+          <div
+            style={{
+              marginBottom: 12,
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: F1.cardBg,
+              border: `1px solid ${F1.borderLight}`,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 6,
+                fontSize: 10,
+                color: F1.textDim,
+                fontFamily: F1.mono,
+              }}
+            >
+              <span>
+                {progressActive
+                  ? `Έλεγχος ${progress.currentGp?.replace("Grand Prix", "GP") || "κατατακτήριων"}...`
+                  : "Η σάρωση ολοκληρώθηκε"}
+              </span>
+              <span>
+                {progress.checked}/{progress.total}
+              </span>
             </div>
             <div style={{ height: 4, background: F1.borderLight, borderRadius: 4, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progressPct}%`, background: F1.blue, borderRadius: 4, transition: "width .25s ease" }} />
+              <div
+                style={{
+                  height: "100%",
+                  width: `${progressPct}%`,
+                  background: F1.blue,
+                  borderRadius: 4,
+                  transition: "width .25s ease",
+                }}
+              />
             </div>
             <div style={{ marginTop: 6, fontSize: 10, color: F1.textMuted }}>
               Βρέθηκαν μέχρι τώρα {progress.found || 0} συγκρίσιμα σκέλη κατατακτήριων.
@@ -61,27 +102,81 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
           </div>
         )}
         {!h2hData ? (
-          <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>Ανάκτηση δεδομένων κατατακτήριων από όλα τα GP<span style={{ animation: "pulse 1s infinite" }}>...</span></div>
+          <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>
+            Ανάκτηση δεδομένων κατατακτήριων από όλα τα GP<span style={{ animation: "pulse 1s infinite" }}>...</span>
+          </div>
         ) : h2hData.length === 0 ? (
           <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>Δεν βρέθηκαν δεδομένα κατατακτήριων</div>
-        ) : (<>
-          <svg width="100%" height={h2hData.length * 32 + 20} viewBox={`0 0 300 ${h2hData.length * 32 + 20}`} style={{ display: "block" }}>
-            {chartData?.rows.map((row, index) => {
-              const tie = row.delta === 0;
-              return (<g key={index}>
-                <text x="2" y={row.y + 4} fill={F1.textDim} fontSize="9" fontFamily="sans-serif">{row.gp}</text>
-                <rect x={150} y={row.y - 5} width={row.delta < 0 ? row.barW : 0} height={10} fill={co1} opacity="0.7" rx="2" transform={row.delta < 0 ? `translate(${-row.barW},0)` : ""} />
-                <rect x={150} y={row.y - 5} width={row.delta > 0 ? row.barW : 0} height={10} fill={co2} opacity="0.7" rx="2" />
-                <text x={150} y={row.y + 4} textAnchor="middle" fill={tie ? F1.textMuted : F1.text} fontSize="8" fontWeight="700" fontFamily="sans-serif">{row.delta > 0 ? "+" : ""}{row.delta.toFixed(3)}</text>
-              </g>);
-            })}
-          </svg>
-          <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8, fontSize: 11, fontFamily: F1.mono }}>
-            <span style={{ color: co1, fontWeight: 700 }}>{di1?.name_acronym}: {chartData?.wins1 || 0}</span>
-            <span style={{ color: F1.textMuted }}>νίκες</span>
-            <span style={{ color: co2, fontWeight: 700 }}>{di2?.name_acronym}: {chartData?.wins2 || 0}</span>
-          </div>
-        </>)}
+        ) : (
+          <>
+            <svg
+              width="100%"
+              height={h2hData.length * 32 + 20}
+              viewBox={`0 0 300 ${h2hData.length * 32 + 20}`}
+              style={{ display: "block" }}
+            >
+              {chartData?.rows.map((row, index) => {
+                const tie = row.delta === 0;
+                return (
+                  <g key={index}>
+                    <text x="2" y={row.y + 4} fill={F1.textDim} fontSize="9" fontFamily="sans-serif">
+                      {row.gp}
+                    </text>
+                    <rect
+                      x={150}
+                      y={row.y - 5}
+                      width={row.delta < 0 ? row.barW : 0}
+                      height={10}
+                      fill={co1}
+                      opacity="0.7"
+                      rx="2"
+                      transform={row.delta < 0 ? `translate(${-row.barW},0)` : ""}
+                    />
+                    <rect
+                      x={150}
+                      y={row.y - 5}
+                      width={row.delta > 0 ? row.barW : 0}
+                      height={10}
+                      fill={co2}
+                      opacity="0.7"
+                      rx="2"
+                    />
+                    <text
+                      x={150}
+                      y={row.y + 4}
+                      textAnchor="middle"
+                      fill={tie ? F1.textMuted : F1.text}
+                      fontSize="8"
+                      fontWeight="700"
+                      fontFamily="sans-serif"
+                    >
+                      {row.delta > 0 ? "+" : ""}
+                      {row.delta.toFixed(3)}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 16,
+                marginTop: 8,
+                fontSize: 11,
+                fontFamily: F1.mono,
+              }}
+            >
+              <span style={{ color: co1, fontWeight: 700 }}>
+                {di1?.name_acronym}: {chartData?.wins1 || 0}
+              </span>
+              <span style={{ color: F1.textMuted }}>νίκες</span>
+              <span style={{ color: co2, fontWeight: 700 }}>
+                {di2?.name_acronym}: {chartData?.wins2 || 0}
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
