@@ -1,5 +1,5 @@
 import { fmt } from "../helpers.js";
-import { controlButtonStyle, uiType } from "../ui/styles.js";
+import { controlButtonStyle, uiRadii, uiType } from "../ui/styles.js";
 
 function formatSpeedLabel(speed) {
   return `${speed < 1 ? String(speed).replace("0", "") : speed}x`;
@@ -162,7 +162,7 @@ export default function PlaybackBar({
             textDecoration: "none",
             fontWeight: 700,
             border: `1px solid ${F1.blue}44`,
-            borderRadius: 4,
+            borderRadius: uiRadii.control,
             letterSpacing: "0.04em",
             whiteSpace: "nowrap",
           }}

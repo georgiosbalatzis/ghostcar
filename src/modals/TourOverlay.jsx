@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useF1 } from "../theme.js";
-import { controlButtonStyle, overlayBackdropStyle, panelSurfaceStyle } from "../ui/styles.js";
+import { controlButtonStyle, overlayBackdropStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
 
 const TOUR = [
   { text: "Καλωσήρθες στο F1 Stories Ghost Car. Σύγκρινε γύρους Formula 1 σε 3D με πραγματική τηλεμετρία." },
@@ -36,7 +36,7 @@ export default function TourOverlay({ onClose }) {
           ...panelSurfaceStyle(F1, {
             background: F1.carbon,
             borderColor: `${F1.blue}44`,
-            borderRadius: 12,
+            borderRadius: uiRadii.modalSurface,
             padding: 28,
           }),
           maxWidth: 420,

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { calculateTrackArea, getCircuitInfo, getCircuitReplayConfig } from "../src/domain/circuit.js";
 import { formatDriverOption, getDriverFullName, uniqueDrivers } from "../src/domain/drivers.js";
 import { bestLap, getCompoundForLap, getLapTimeRange } from "../src/domain/laps.js";
-import { buildReplayGeometry, hasMinimumReplayData } from "../src/domain/replay.js";
+import { buildReplayGeometry, getReplayDataIssue, hasMinimumReplayData } from "../src/domain/replay.js";
 import { buildReplayStreamRequests } from "../src/services/openf1.js";
 
 test("bestLap chooses the fastest valid lap with a timestamp", () => {
@@ -97,6 +97,44 @@ test("replay helpers validate primary slots and build geometry", () => {
     true
   );
   assert.equal(hasMinimumReplayData([{ slot: 1, location }]), false);
+  assert.equal(
+    getReplayDataIssue([
+      { slot: 1, location, telemetry: [{ speed: 280 }] },
+      { slot: 2, location, telemetry: [{ speed: 275 }] },
+    ]),
+    null
+  );
+  assert.deepEqual(getReplayDataIssue([{ slot: 1, location }], { requireTelemetry: false }), {
+    type: "missing-location",
+    slot: 2,
+    points: 0,
+    minimumPoints: 5,
+  });
+  assert.deepEqual(
+    getReplayDataIssue(
+      [
+        { slot: 1, location, telemetry: [{ speed: 280 }] },
+        { slot: 2, location: location.slice(0, 2), telemetry: [{ speed: 275 }] },
+      ],
+      { requireTelemetry: false }
+    ),
+    {
+      type: "insufficient-location",
+      slot: 2,
+      points: 2,
+      minimumPoints: 5,
+    }
+  );
+  assert.deepEqual(
+    getReplayDataIssue([
+      { slot: 1, location, telemetry: [] },
+      { slot: 2, location, telemetry: [{ speed: 275 }] },
+    ]),
+    {
+      type: "missing-telemetry",
+      slot: 1,
+    }
+  );
 
   const geometry = buildReplayGeometry({ circuit_short_name: "Suzuka" }, location);
   assert.equal(geometry.circuitTurns, 18);

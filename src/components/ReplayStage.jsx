@@ -29,7 +29,7 @@ function DriverTelemetryCard({ F1, driver, progress, fallback = false }) {
         ...panelSurfaceStyle(F1, {
           background: F1.cardBg,
           borderColor: `${driver.color}33`,
-          borderRadius: fallback ? 10 : 12,
+          borderRadius: fallback ? uiRadii.driverTelemetryFallbackCard : uiRadii.driverTelemetryCard,
           padding: "10px 12px",
         }),
         textAlign: "left",
@@ -64,7 +64,7 @@ function TwoDLapDelta({ F1, delta, driver1, driver2, color1, color2, lap1, lap2 
         ...panelSurfaceStyle(F1, {
           background: F1.cardBg,
           borderColor: `${F1.blue}33`,
-          borderRadius: 12,
+          borderRadius: uiRadii.lapDeltaCard,
           padding: "12px 14px",
         }),
       }}
@@ -382,7 +382,7 @@ function SceneErrorFallback({
         style={{
           width: "min(900px, 100%)",
           padding: mob ? "18px 16px" : "22px 24px",
-          borderRadius: 16,
+          borderRadius: uiRadii.sceneErrorPanel,
           border: `1px solid ${F1.red}33`,
           background: `${F1.overlay}`,
           backdropFilter: "blur(14px)",
@@ -506,7 +506,7 @@ function AppEmptyState({ mob, F1, logoSrc, appName, appSubtitle, onOpenPresets }
             textDecoration: "none",
             padding: "8px 14px",
             border: `1px solid ${F1.border}`,
-            borderRadius: 4,
+            borderRadius: uiRadii.control,
             fontWeight: 600,
           }}
         >

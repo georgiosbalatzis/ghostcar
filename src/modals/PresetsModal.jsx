@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useF1 } from "../theme.js";
 import { CIRCUIT_DATA, DRIVER_NAME_BY_NUMBER, PRESETS, formatSessionLabel } from "../constants.js";
 import { normalizeText } from "../helpers.js";
+import { uiRadii } from "../ui/styles.js";
 import {
   getModalBodyStyle,
   getModalCloseButtonStyle,
@@ -126,7 +127,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
               background: F1.inputBg,
               color: F1.text,
               border: `1px solid ${F1.border}`,
-              borderRadius: 8,
+              borderRadius: uiRadii.card,
               padding: "10px 12px",
               fontSize: 12,
               outline: "none",
@@ -135,7 +136,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
           <select
             value={yearFilter}
             onChange={(e) => setYearFilter(e.target.value)}
-            style={{ width: "100%", borderRadius: 8, padding: "10px 12px", fontSize: 12 }}
+            style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
           >
             <option value="all">Ολες οι σεζόν</option>
             {years.map((yr) => (
@@ -150,7 +151,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
           <select
             value={driverFilter}
             onChange={(e) => setDriverFilter(e.target.value)}
-            style={{ width: "100%", borderRadius: 8, padding: "10px 12px", fontSize: 12 }}
+            style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
           >
             <option value="all">Ολοι οι οδηγοί</option>
             {driverOptions.map((driver) => (
@@ -162,7 +163,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
           <select
             value={circuitFilter}
             onChange={(e) => setCircuitFilter(e.target.value)}
-            style={{ width: "100%", borderRadius: 8, padding: "10px 12px", fontSize: 12 }}
+            style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
           >
             <option value="all">Ολες οι πίστες</option>
             {circuitOptions.map((circuit) => (
@@ -177,7 +178,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
             style={{
               marginBottom: 12,
               padding: "10px 12px",
-              borderRadius: 10,
+              borderRadius: uiRadii.toast,
               background: F1.cardBg,
               border: `1px solid ${F1.borderLight}`,
             }}

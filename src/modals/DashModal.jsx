@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
+import { uiRadii } from "../ui/styles.js";
 import {
   getModalBodyStyle,
   getModalCloseButtonStyle,
@@ -88,7 +89,7 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
                   {summary?.w2 || 0} {di2?.name_acronym}
                 </span>
               </div>
-              <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ display: "flex", height: 8, borderRadius: uiRadii.control, overflow: "hidden" }}>
                 <div style={{ width: `${summary?.pct1 || 0}%`, background: co1, transition: "width 0.5s" }} />
                 <div style={{ flex: 1, background: co2 }} />
               </div>
@@ -168,7 +169,7 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
                 height="60"
                 viewBox="0 0 400 60"
                 preserveAspectRatio="none"
-                style={{ borderRadius: 4, background: F1.cardBg }}
+                style={{ borderRadius: uiRadii.control, background: F1.cardBg }}
               >
                 <line x1="0" y1="30" x2="400" y2="30" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
                 {summary?.momentum.map((point, index) => {

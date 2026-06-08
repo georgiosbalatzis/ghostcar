@@ -30,6 +30,8 @@ function createEmptySlot() {
     driverNumber: null,
     lapNumber: null,
     laps: [],
+    lapLoading: false,
+    lapsLoaded: false,
     stints: [],
   };
 }
@@ -74,6 +76,8 @@ function selectorSlotsReducer(slots, action) {
         driverNumber: action.driverNumber,
         lapNumber: null,
         laps: [],
+        lapLoading: false,
+        lapsLoaded: false,
         stints: [],
       }));
     case "setLap":
@@ -85,6 +89,14 @@ function selectorSlotsReducer(slots, action) {
       return updateSlot(slots, action.slot, (slot) => ({
         ...slot,
         laps: resolveNextValue(action.value, slot.laps),
+        ...(action.loading !== undefined ? { lapLoading: action.loading } : {}),
+        ...(action.loaded !== undefined ? { lapsLoaded: action.loaded } : {}),
+      }));
+    case "setLapFetchState":
+      return updateSlot(slots, action.slot, (slot) => ({
+        ...slot,
+        ...(action.loading !== undefined ? { lapLoading: action.loading } : {}),
+        ...(action.loaded !== undefined ? { lapsLoaded: action.loaded } : {}),
       }));
     case "setStints":
       return updateSlot(slots, action.slot, (slot) => ({
@@ -97,12 +109,16 @@ function selectorSlotsReducer(slots, action) {
           driverNumber: action.driver1Number,
           lapNumber: action.lap1Number,
           laps: action.laps1,
+          lapLoading: false,
+          lapsLoaded: true,
           stints: action.stints1,
         },
         {
           driverNumber: action.driver2Number,
           lapNumber: action.lap2Number,
           laps: action.laps2,
+          lapLoading: false,
+          lapsLoaded: true,
           stints: action.stints2,
         },
         createEmptySlot(),
@@ -189,12 +205,16 @@ export default function useComparisonSelectors({
     dispatchSlots({ type: "setLap", slot, value });
   }, []);
 
-  const setSlotLaps = useCallback((slot, value) => {
-    dispatchSlots({ type: "setLaps", slot, value });
+  const setSlotLaps = useCallback((slot, value, options = {}) => {
+    dispatchSlots({ type: "setLaps", slot, value, ...options });
   }, []);
 
   const setSlotStints = useCallback((slot, value) => {
     dispatchSlots({ type: "setStints", slot, value });
+  }, []);
+
+  const setSlotLapFetchState = useCallback((slot, options = {}) => {
+    dispatchSlots({ type: "setLapFetchState", slot, ...options });
   }, []);
 
   const setD1 = useCallback((value) => setSlotDriver(1, value), [setSlotDriver]);
@@ -205,10 +225,14 @@ export default function useComparisonSelectors({
   const setSl2 = useCallback((value) => setSlotLap(2, value), [setSlotLap]);
   const setSl3 = useCallback((value) => setSlotLap(3, value), [setSlotLap]);
   const setSl4 = useCallback((value) => setSlotLap(4, value), [setSlotLap]);
-  const setLaps1 = useCallback((value) => setSlotLaps(1, value), [setSlotLaps]);
-  const setLaps2 = useCallback((value) => setSlotLaps(2, value), [setSlotLaps]);
-  const setLaps3 = useCallback((value) => setSlotLaps(3, value), [setSlotLaps]);
-  const setLaps4 = useCallback((value) => setSlotLaps(4, value), [setSlotLaps]);
+  const setLaps1 = useCallback((value, options) => setSlotLaps(1, value, options), [setSlotLaps]);
+  const setLaps2 = useCallback((value, options) => setSlotLaps(2, value, options), [setSlotLaps]);
+  const setLaps3 = useCallback((value, options) => setSlotLaps(3, value, options), [setSlotLaps]);
+  const setLaps4 = useCallback((value, options) => setSlotLaps(4, value, options), [setSlotLaps]);
+  const setLapFetchState1 = useCallback((options) => setSlotLapFetchState(1, options), [setSlotLapFetchState]);
+  const setLapFetchState2 = useCallback((options) => setSlotLapFetchState(2, options), [setSlotLapFetchState]);
+  const setLapFetchState3 = useCallback((options) => setSlotLapFetchState(3, options), [setSlotLapFetchState]);
+  const setLapFetchState4 = useCallback((options) => setSlotLapFetchState(4, options), [setSlotLapFetchState]);
   const setSt1 = useCallback((value) => setSlotStints(1, value), [setSlotStints]);
   const setSt2 = useCallback((value) => setSlotStints(2, value), [setSlotStints]);
   const setSt3 = useCallback((value) => setSlotStints(3, value), [setSlotStints]);
@@ -451,22 +475,23 @@ export default function useComparisonSelectors({
   useEffect(() => {
     if (presetActiveRef?.current) return;
     if (!sessionKey || !d1) {
-      setLaps1([]);
+      setLaps1([], { loading: false, loaded: false });
       setSl1(null);
       setSt1([]);
       return;
     }
     const controller = new AbortController();
     const requestId = nextLapRequestId("laps1");
+    setLapFetchState1({ loading: true, loaded: false });
     fetchLaps(sessionKey, d1, { signal: controller.signal })
       .then((laps) => {
         if (controller.signal.aborted || !isCurrentLapRequest("laps1", requestId)) return;
-        setLaps1(laps);
+        setLaps1(laps, { loading: false, loaded: true });
         setSl1(null);
       })
       .catch((error) => {
         if (isAbortError(error) || !isCurrentLapRequest("laps1", requestId)) return;
-        setLaps1([]);
+        setLaps1([], { loading: false, loaded: true });
       });
     fetchStints(sessionKey, d1, { signal: controller.signal })
       .then((stints) => {
@@ -478,27 +503,38 @@ export default function useComparisonSelectors({
         setSt1([]);
       });
     return () => controller.abort();
-  }, [d1, isCurrentLapRequest, nextLapRequestId, presetActiveRef, sessionKey, setLaps1, setSl1, setSt1]);
+  }, [
+    d1,
+    isCurrentLapRequest,
+    nextLapRequestId,
+    presetActiveRef,
+    sessionKey,
+    setLapFetchState1,
+    setLaps1,
+    setSl1,
+    setSt1,
+  ]);
 
   useEffect(() => {
     if (presetActiveRef?.current) return;
     if (!sessionKey || !d2) {
-      setLaps2([]);
+      setLaps2([], { loading: false, loaded: false });
       setSl2(null);
       setSt2([]);
       return;
     }
     const controller = new AbortController();
     const requestId = nextLapRequestId("laps2");
+    setLapFetchState2({ loading: true, loaded: false });
     fetchLaps(sessionKey, d2, { signal: controller.signal })
       .then((laps) => {
         if (controller.signal.aborted || !isCurrentLapRequest("laps2", requestId)) return;
-        setLaps2(laps);
+        setLaps2(laps, { loading: false, loaded: true });
         setSl2(null);
       })
       .catch((error) => {
         if (isAbortError(error) || !isCurrentLapRequest("laps2", requestId)) return;
-        setLaps2([]);
+        setLaps2([], { loading: false, loaded: true });
       });
     fetchStints(sessionKey, d2, { signal: controller.signal })
       .then((stints) => {
@@ -510,12 +546,22 @@ export default function useComparisonSelectors({
         setSt2([]);
       });
     return () => controller.abort();
-  }, [d2, isCurrentLapRequest, nextLapRequestId, presetActiveRef, sessionKey, setLaps2, setSl2, setSt2]);
+  }, [
+    d2,
+    isCurrentLapRequest,
+    nextLapRequestId,
+    presetActiveRef,
+    sessionKey,
+    setLapFetchState2,
+    setLaps2,
+    setSl2,
+    setSt2,
+  ]);
 
   useEffect(() => {
     if (presetActiveRef?.current) return;
     if (!sessionKey || !d3) {
-      setLaps3([]);
+      setLaps3([], { loading: false, loaded: false });
       setSl3(null);
       setSt3([]);
       clearReplaySlot?.(3);
@@ -523,15 +569,16 @@ export default function useComparisonSelectors({
     }
     const controller = new AbortController();
     const requestId = nextLapRequestId("laps3");
+    setLapFetchState3({ loading: true, loaded: false });
     fetchLaps(sessionKey, d3, { signal: controller.signal })
       .then((laps) => {
         if (controller.signal.aborted || !isCurrentLapRequest("laps3", requestId)) return;
-        setLaps3(laps);
+        setLaps3(laps, { loading: false, loaded: true });
         setSl3(null);
       })
       .catch((error) => {
         if (isAbortError(error) || !isCurrentLapRequest("laps3", requestId)) return;
-        setLaps3([]);
+        setLaps3([], { loading: false, loaded: true });
       });
     fetchStints(sessionKey, d3, { signal: controller.signal })
       .then((stints) => {
@@ -550,6 +597,7 @@ export default function useComparisonSelectors({
     nextLapRequestId,
     presetActiveRef,
     sessionKey,
+    setLapFetchState3,
     setLaps3,
     setSl3,
     setSt3,
@@ -558,7 +606,7 @@ export default function useComparisonSelectors({
   useEffect(() => {
     if (presetActiveRef?.current) return;
     if (!sessionKey || !d4) {
-      setLaps4([]);
+      setLaps4([], { loading: false, loaded: false });
       setSl4(null);
       setSt4([]);
       clearReplaySlot?.(4);
@@ -566,15 +614,16 @@ export default function useComparisonSelectors({
     }
     const controller = new AbortController();
     const requestId = nextLapRequestId("laps4");
+    setLapFetchState4({ loading: true, loaded: false });
     fetchLaps(sessionKey, d4, { signal: controller.signal })
       .then((laps) => {
         if (controller.signal.aborted || !isCurrentLapRequest("laps4", requestId)) return;
-        setLaps4(laps);
+        setLaps4(laps, { loading: false, loaded: true });
         setSl4(null);
       })
       .catch((error) => {
         if (isAbortError(error) || !isCurrentLapRequest("laps4", requestId)) return;
-        setLaps4([]);
+        setLaps4([], { loading: false, loaded: true });
       });
     fetchStints(sessionKey, d4, { signal: controller.signal })
       .then((stints) => {
@@ -593,6 +642,7 @@ export default function useComparisonSelectors({
     nextLapRequestId,
     presetActiveRef,
     sessionKey,
+    setLapFetchState4,
     setLaps4,
     setSl4,
     setSt4,
@@ -683,6 +733,7 @@ export default function useComparisonSelectors({
     setSelSe,
     drvs,
     setDrvs,
+    selectorSlots: slots,
     setRestoreTick,
     resetForUrlRestore,
     applyPresetSelectorData,

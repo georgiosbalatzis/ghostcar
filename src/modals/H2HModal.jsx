@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useF1 } from "../theme.js";
+import { uiRadii } from "../ui/styles.js";
 import {
   getModalBodyStyle,
   getModalCloseButtonStyle,
@@ -60,7 +61,7 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
             style={{
               marginBottom: 12,
               padding: "10px 12px",
-              borderRadius: 8,
+              borderRadius: uiRadii.card,
               background: F1.cardBg,
               border: `1px solid ${F1.borderLight}`,
             }}
@@ -85,13 +86,13 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
                 {progress.checked}/{progress.total}
               </span>
             </div>
-            <div style={{ height: 4, background: F1.borderLight, borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ height: 4, background: F1.borderLight, borderRadius: uiRadii.control, overflow: "hidden" }}>
               <div
                 style={{
                   height: "100%",
                   width: `${progressPct}%`,
                   background: F1.blue,
-                  borderRadius: 4,
+                  borderRadius: uiRadii.control,
                   transition: "width .25s ease",
                 }}
               />

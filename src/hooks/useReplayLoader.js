@@ -1,9 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildReplayGeometry, hasMinimumReplayData } from "../domain/replay.js";
+import { buildReplayGeometry, getReplayDataIssue } from "../domain/replay.js";
 import { loadReplayStreams } from "../services/openf1.js";
 
 function isAbortError(error) {
   return error?.name === "AbortError";
+}
+
+function formatReplayDataIssue(issue, fallbackMessage) {
+  if (issue?.type === "missing-location") {
+    return `Δεν υπάρχουν δεδομένα θέσης για τον Οδηγό ${issue.slot}. Δοκίμασε άλλο γύρο ή σκέλος.`;
+  }
+  if (issue?.type === "insufficient-location") {
+    return `Δεν υπάρχουν αρκετά δεδομένα θέσης για τον Οδηγό ${issue.slot}. Δοκίμασε άλλο γύρο ή σκέλος.`;
+  }
+  if (issue?.type === "missing-telemetry") {
+    return `Δεν υπάρχουν δεδομένα τηλεμετρίας για τον Οδηγό ${issue.slot}. Δοκίμασε άλλο γύρο ή σκέλος.`;
+  }
+  return fallbackMessage;
 }
 
 export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {}) {
@@ -143,7 +156,8 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
         { signal: controller.signal }
       );
       if (!isActiveLoad(controller)) return streams;
-      if (!hasMinimumReplayData(streams)) throw new Error(insufficientDataMessage);
+      const replayDataIssue = getReplayDataIssue(streams);
+      if (replayDataIssue) throw new Error(formatReplayDataIssue(replayDataIssue, insufficientDataMessage));
       applyReplayStreams(streams, meeting);
       setLdPct(100);
       return streams;

@@ -51,6 +51,10 @@ function DriverLapSelector({ mob, F1, drivers, slot, onSelectDriver, onSelectLap
   );
 }
 
+function SelectorEmptyMessage({ F1, children }) {
+  return <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>{children}</div>;
+}
+
 export default function ComparisonSelectors({
   containerRef,
   yearSelectRef,
@@ -85,6 +89,15 @@ export default function ComparisonSelectors({
     gap: mob ? 4 : 6,
     alignItems: "center",
   };
+  const isLoading = Boolean(loading);
+  const activeSlots = slots.slice(0, numDrivers);
+  const missingLapSlots = activeSlots.filter(
+    (slot) => slot.driverNumber && slot.lapsLoaded && !slot.lapLoading && slot.lapSelect.options.length === 0
+  );
+  const missingLapLabels = missingLapSlots.map((slot) => getDriverFullName(slot.driver) || slot.label).join(", ");
+  const showNoSessions = !isLoading && selectedMeeting && !noMeetings && sessions.length === 0;
+  const showNoDrivers = !isLoading && selectedSession && drivers.length === 0;
+  const showNoValidLaps = !isLoading && drivers.length > 0 && missingLapSlots.length > 0;
 
   return (
     <div
@@ -214,9 +227,24 @@ export default function ComparisonSelectors({
         </button>
       </div>
       {noMeetings && (
-        <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>
+        <SelectorEmptyMessage F1={F1}>
           Δεν υπάρχουν ακόμη δεδομένα Γκραν Πρι για το {year}. Δοκίμασε το 2025 για την πιο πλήρη σεζόν τηλεμετρίας.
-        </div>
+        </SelectorEmptyMessage>
+      )}
+      {showNoSessions && (
+        <SelectorEmptyMessage F1={F1}>
+          Δεν υπάρχουν υποστηριζόμενα σκέλη για αυτό το Γκραν Πρι. Δοκίμασε άλλο Γκραν Πρι ή χρονιά.
+        </SelectorEmptyMessage>
+      )}
+      {showNoDrivers && (
+        <SelectorEmptyMessage F1={F1}>
+          Δεν βρέθηκαν οδηγοί για αυτό το σκέλος. Δοκίμασε άλλο σκέλος ή Γκραν Πρι.
+        </SelectorEmptyMessage>
+      )}
+      {showNoValidLaps && (
+        <SelectorEmptyMessage F1={F1}>
+          Δεν βρέθηκαν έγκυροι γύροι για {missingLapLabels}. Δοκίμασε άλλο οδηγό ή σκέλος.
+        </SelectorEmptyMessage>
       )}
     </div>
   );

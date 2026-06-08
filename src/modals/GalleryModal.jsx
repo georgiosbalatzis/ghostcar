@@ -1,5 +1,5 @@
 import { useF1 } from "../theme.js";
-import { controlButtonStyle } from "../ui/styles.js";
+import { controlButtonStyle, uiRadii } from "../ui/styles.js";
 import {
   getModalBodyStyle,
   getModalCloseButtonStyle,
@@ -33,7 +33,7 @@ export default function GalleryModal({ mob, gallery, onClose, onClear, onSelect 
                 padding: "10px 12px",
                 marginBottom: 4,
                 background: F1.cardBg,
-                borderRadius: 6,
+                borderRadius: uiRadii.listRow,
                 cursor: "pointer",
                 borderLeft: `3px solid ${g.c1}`,
               }}

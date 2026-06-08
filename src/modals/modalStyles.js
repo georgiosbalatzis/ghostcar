@@ -20,7 +20,7 @@ export function getModalSurfaceStyle(
     ...panelSurfaceStyle(F1, {
       background: F1.carbon,
       borderColor: `${F1.blue}33`,
-      borderRadius: 12,
+      borderRadius: uiRadii.modalSurface,
       padding,
       boxShadow,
     }),
@@ -117,7 +117,7 @@ export function getModalKeycapStyle(F1) {
   return {
     background: F1.cardBg,
     padding: "2px 8px",
-    borderRadius: 3,
+    borderRadius: uiRadii.badge,
     fontFamily: F1.mono,
     fontSize: 11,
     fontWeight: 700,

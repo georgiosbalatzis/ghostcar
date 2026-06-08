@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useF1 } from "../theme.js";
 import { encodeURL } from "../helpers.js";
-import { controlButtonStyle, inputControlStyle } from "../ui/styles.js";
+import { controlButtonStyle, inputControlStyle, uiRadii } from "../ui/styles.js";
 import {
   getModalBodyStyle,
   getModalCloseButtonStyle,
@@ -14,7 +14,7 @@ export default function EmbedModal({ mob, shareState, onClose }) {
   const [copyState, setCopyState] = useState("");
   const textareaRef = useRef(null);
   const embedUrl = encodeURL({ ...shareState, embed: 1 });
-  const embedCode = `<iframe src="${embedUrl}" width="100%" height="650" frameborder="0" style="border-radius:12px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>`;
+  const embedCode = `<iframe src="${embedUrl}" width="100%" height="650" frameborder="0" style="border-radius:${uiRadii.embedFrame}px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>`;
   const handleCopy = useCallback(async () => {
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
@@ -58,7 +58,7 @@ export default function EmbedModal({ mob, shareState, onClose }) {
             readOnly
             value={embedCode}
             style={{
-              ...inputControlStyle(F1, { width: "100%", borderRadius: 6, padding: 8, fontSize: 10 }),
+              ...inputControlStyle(F1, { width: "100%", borderRadius: uiRadii.textArea, padding: 8, fontSize: 10 }),
               height: 70,
               fontFamily: F1.mono,
               resize: "none",

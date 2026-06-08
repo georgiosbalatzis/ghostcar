@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { useF1 } from "../theme.js";
 import { fmt } from "../helpers.js";
+import { uiRadii } from "../ui/styles.js";
 import {
   getModalBodyStyle,
   getModalCloseButtonStyle,
@@ -92,7 +93,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
                     gap: 8,
                     alignItems: "center",
                     padding: "5px 8px",
-                    borderRadius: 4,
+                    borderRadius: uiRadii.control,
                     cursor: "pointer",
                     background: l.lap_number === drv.sel ? `${drv.col}18` : "transparent",
                     borderLeft: l.lap_number === drv.sel ? `2px solid ${drv.col}` : "2px solid transparent",
@@ -118,7 +119,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
                         fontWeight: 700,
                         background: `${F1.green}15`,
                         padding: "1px 5px",
-                        borderRadius: 3,
+                        borderRadius: uiRadii.badge,
                       }}
                     >
                       ΚΑΛ.
@@ -133,7 +134,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
                       width: 36,
                       height: 3,
                       background: F1.borderLight,
-                      borderRadius: 2,
+                      borderRadius: uiRadii.control / 2,
                       overflow: "hidden",
                     }}
                   >
@@ -142,7 +143,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
                         height: "100%",
                         width: `${(1 - pct) * 100}%`,
                         background: pct < 0.1 ? F1.green : pct > 0.7 ? F1.red : F1.yellow,
-                        borderRadius: 2,
+                        borderRadius: uiRadii.control / 2,
                       }}
                     />
                   </div>

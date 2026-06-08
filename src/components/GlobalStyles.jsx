@@ -1,4 +1,8 @@
+import { uiRadii } from "../ui/styles.js";
+
 export default function GlobalStyles({ F1 }) {
+  const accentRadius = uiRadii.control / 2;
+
   return (
     <style>{`
       @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -10,11 +14,11 @@ export default function GlobalStyles({ F1 }) {
         .app-shell-mobile{height:100dvh}
         .app-shell-embed{height:100dvh}
       }
-      ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${F1.blue}44;border-radius:2px}
+      ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${F1.blue}44;border-radius:${accentRadius}px}
       select,button{font-family:${F1.sans}}
-      select{background:${F1.inputBg};color:${F1.text};border:1px solid ${F1.border};border-radius:4px;padding:5px 8px;font-size:12px;cursor:pointer;outline:none;transition:border-color .15s;font-weight:600;letter-spacing:0.02em}
+      select{background:${F1.inputBg};color:${F1.text};border:1px solid ${F1.border};border-radius:${uiRadii.control}px;padding:5px 8px;font-size:12px;cursor:pointer;outline:none;transition:border-color .15s;font-weight:600;letter-spacing:0.02em}
       select:hover,select:focus{border-color:${F1.blue}88}
-      button{background:${F1.cardBg};color:${F1.text};border:1px solid ${F1.border};border-radius:4px;padding:5px 12px;font-size:12px;cursor:pointer;outline:none;transition:all .12s;font-weight:600}
+      button{background:${F1.cardBg};color:${F1.text};border:1px solid ${F1.border};border-radius:${uiRadii.control}px;padding:5px 12px;font-size:12px;cursor:pointer;outline:none;transition:all .12s;font-weight:600}
       button:hover{border-color:${F1.blue}88;background:${F1.carbonMid}}
       .f1-btn{background:linear-gradient(135deg,${F1.blue},${F1.blueDark});border-color:${F1.blue};color:#fff;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;font-size:11px}
       .f1-btn:hover{background:linear-gradient(135deg,${F1.blueDark},#1e40af);box-shadow:0 4px 14px ${F1.blueGlow}}
@@ -22,7 +26,7 @@ export default function GlobalStyles({ F1 }) {
       input[type="range"]{cursor:pointer}
       input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:${F1.blue};border-radius:50%;cursor:pointer;border:2px solid #fff}
       .hdr-nav-link{position:relative;font-size:11px;color:${F1.textDim};text-decoration:none;padding:4px 2px;font-weight:600;letter-spacing:0.06em;transition:color .2s ease}
-      .hdr-nav-link::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:2px;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:2px;transition:width .25s ease}
+      .hdr-nav-link::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:2px;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:${accentRadius}px;transition:width .25s ease}
       .hdr-nav-link:hover{color:#e4e4ec}.hdr-nav-link:hover::after{width:80%}
       .hdr-logo-link{display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0;transition:filter .2s ease}
       .hdr-logo-link:hover{filter:drop-shadow(0 0 6px rgba(59,130,246,0.45))}

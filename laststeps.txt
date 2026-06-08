@@ -518,6 +518,8 @@ Steps:
 - Audit mobile widths for selectors, toolbar buttons, playback controls, and modal headers. The current inline layout is dense and can overflow in Greek labels.
 - Standardize modal structure. Most modals repeat fixed positioning, header, close button, scroll body, border, and z-index.
 - Review card radii and nested card usage. Current UI uses 10 to 18 px radii in multiple places.
+Radius audit note:
+- Phase 6 radius review is complete. Shared uiRadii tokens now cover component/card/global CSS radii reviewed in this pass; remaining borderRadius/border-radius literals are intentional zero-radius square edges or 50% circular markers/spinners.
 
 Phase 7: Product hardening
 Goal: make the app reliable for embeds, articles, and public sharing.
@@ -527,6 +529,9 @@ Steps:
 - Add defensive URL restore behavior for invalid driver/lap combinations. Current restore waits for data but does not clearly surface all invalid cases.
 - Add OpenF1 availability messaging by year/session when data is partial.
 - Add a deployment checklist: npm test, npm run build, manual desktop smoke, manual mobile smoke, embed smoke, share URL restore smoke.
+Empty-state note:
+- Selector-level empty states now cover missing meetings, missing supported sessions, missing drivers, and missing valid laps after each prerequisite has loaded.
+- Replay loading now reports specific empty states for missing/insufficient primary location data and missing primary telemetry instead of the generic insufficient-data message.
 
 Suggested next prompt:
-Continue Phase 6 card-radius cleanup. Apply the shared uiRadii helper layer to GalleryModal as the next narrow slice: preserve gallery empty state, saved comparison row layout, selection/close behavior, clear button styling, Greek labels, and current 6px saved-row radius while replacing safe hardcoded row radii with shared tokens. GalleryModal is already in the scoped format and format:check scripts, so only adjust package.json if that is no longer true, keep the patch narrow, update this Suggested next prompt again, and verify with npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate.
+Continue Phase 7 product hardening. Add development-only request telemetry in the API layer as the next narrow slice: record endpoint, HTTP status, retry count, duration, cache hit/miss, and whether the request was aborted while preserving current fetchJSON cache semantics, retry/backoff behavior, AbortError behavior, OpenF1 URL construction, and production silence. api.js is already covered by the scoped format and format:check scripts, so only adjust package.json if that is no longer true, keep the patch narrow, update this Suggested next prompt again, and verify with npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate.
