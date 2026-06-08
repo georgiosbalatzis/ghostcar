@@ -48,13 +48,13 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
     []
   );
 
-  const beginCancelableLoad = useCallback((message = "") => {
+  const beginCancelableLoad = useCallback((message = "", { preserveError = false } = {}) => {
     loadAbortRef.current?.abort();
     const controller = new AbortController();
     loadAbortRef.current = controller;
     setCanCancelLoad(true);
     setLoading(message);
-    setErr("");
+    if (!preserveError) setErr("");
     setSceneErr("");
     setLdPct(0);
     return controller;
@@ -166,8 +166,8 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
   );
 
   const loadReplayComparison = useCallback(
-    async ({ sessionKey, meeting, drivers }) => {
-      const controller = beginCancelableLoad("Ανάκτηση τηλεμετρίας...");
+    async ({ sessionKey, meeting, drivers, preserveError = false }) => {
+      const controller = beginCancelableLoad("Ανάκτηση τηλεμετρίας...", { preserveError });
       try {
         setLdPct(15);
         await loadReplayForActiveLoad({

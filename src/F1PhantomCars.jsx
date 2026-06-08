@@ -501,7 +501,7 @@ export default function App({ embed }) {
   }, [cancelAuxLoading, embed, mob, pushToast, setMobTab, setShowLaps, setShowStats, setShowTel, setShowTelOverlay]);
 
   // ─── Actions ───
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async ({ preserveError = false } = {}) => {
     if (!selSe || !d1 || !d2 || !sl1 || !sl2) return;
     cancelCountdown();
     if (showreelRef.current) {
@@ -521,6 +521,7 @@ export default function App({ embed }) {
           ? [{ slot: 4, driverNumber: d4, lap: findLapByNumber(laps4, sl4) }]
           : []),
       ],
+      preserveError,
     });
   }, [cancelCountdown, selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, numDrivers, stopShowreelRuntime, loadReplayComparison]);
 
@@ -530,7 +531,7 @@ export default function App({ embed }) {
     if (!selSe || !d1 || !d2 || !sl1 || !sl2) return;
     autoLoadRef.current = true;
     const timer = window.setTimeout(() => {
-      loadData();
+      loadData({ preserveError: true });
     }, 300);
     return () => window.clearTimeout(timer);
   }, [selSe, d1, d2, sl1, sl2, loadData]);

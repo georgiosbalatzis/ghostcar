@@ -9,6 +9,7 @@ const LAP_1 = 7;
 const LAP_2 = 8;
 
 const sceneUrl = `${APP_PATH}?y=2025&mk=${MEETING_KEY}&sk=${SESSION_KEY}&d1=${DRIVER_1}&d2=${DRIVER_2}&l1=${LAP_1}&l2=${LAP_2}&v=2`;
+const invalidLapUrl = `${APP_PATH}?y=2025&mk=${MEETING_KEY}&sk=${SESSION_KEY}&d1=${DRIVER_1}&d2=${DRIVER_2}&l1=99&l2=42&tv=2d&v=2`;
 
 const meeting = {
   meeting_key: MEETING_KEY,
@@ -204,6 +205,22 @@ test("3D replay canvas renders and survives a 2D view round trip", async ({ page
 
   await page.getByRole("button", { name: "3D" }).first().click();
   await expectSceneCanvasReady(page);
+
+  expect(errors).toEqual([]);
+});
+
+test("invalid shared lap warning remains visible after fallback auto-load", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem("f1s-toured", "1");
+    window.localStorage.setItem("f1s-track-view", "2d");
+  });
+  await routeOpenF1Fixtures(page);
+
+  await page.goto(invalidLapUrl);
+
+  await expect(page.getByText(/Δεν βρέθηκε διαθέσιμος γύρος L99 για τον Οδηγό 1/)).toBeVisible();
+  await expect(page.getByText("2D ΑΝΑΠΑΡΑΓΩΓΗ")).toBeVisible();
 
   expect(errors).toEqual([]);
 });

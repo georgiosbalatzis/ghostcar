@@ -4,9 +4,9 @@ Date: 2026-06-08
 
 ## Decision
 
-The release candidate is commit-ready for source control. The automated verification gate passed on 2026-06-08 in this workspace.
+The release candidate is commit-ready for source control after the restore-warning auto-load fix and final automated verification pass.
 
-Deployment should remain gated until the manual smoke checks in `docs/deployment-checklist.md` are either completed by a human/operator or explicitly waived for an automated-only release.
+Deployment is eligible after the final automated gate and production-preview smoke evidence recorded on 2026-06-08.
 
 ## Commit Recommendation
 
@@ -20,7 +20,7 @@ Harden Ghost Car sharing and release readiness
 
 ## Automated Gate
 
-Status: passed on 2026-06-08.
+Status: passed on 2026-06-08 after the restore-warning fix.
 
 Required commands:
 
@@ -39,21 +39,31 @@ Expected non-blocking warnings:
 - `npm run build` may print `Kept existing f1car.glb: 117.2 kB <= 118.3 kB`.
 - `npm run test:e2e` may print Node `DEP0205` and `NO_COLOR` / `FORCE_COLOR` warnings.
 
-## Manual Smoke Status
+## Production-Preview Smoke Status
 
-Manual smoke evidence is not recorded in this pass.
+Status: passed on 2026-06-08 against `npm run preview -- --host 127.0.0.1 --port 4173` with deterministic OpenF1 fixtures.
 
-Before deploy, record or explicitly waive:
+Evidence recorded:
 
-- Desktop smoke: production preview shell, selector flow, replay load, theme readability, modal close behavior.
-- Mobile smoke: narrow viewport, no horizontal overflow, tab navigation, 2D touch scrub behavior.
-- Embed smoke: `?embed=1` shell, valid shared URL with `embed=1`, iframe sizing.
-- Share URL restore smoke: valid shared URL restores encoded state; invalid/stale encoded values show clear Greek messages.
+- Desktop smoke: shell rendered, selector flow completed, 3D replay canvas rendered, theme toggle changed readable header text, Stats/Laps/H2H/Season/Gallery/Embed/Keyboard modals opened and closed with Escape, no console/page errors.
+- Mobile smoke: 390 px viewport had no horizontal overflow, 2D replay rendered, playback scrub changed via range input, Stats/Laps/H2H tabs rendered, no console/page errors.
+- Embed smoke: `?embed=1` empty shell rendered without header/footer chrome, valid shared URL with `embed=1&tab=stats` restored the active stats tab without clipping/overflow, no console/page errors.
+- Share URL restore smoke: valid shared URL restored year, meeting, session, drivers, laps, 2D view, light theme, speed `2`, and loop; invalid driver and invalid lap URLs surfaced clear Greek warnings.
+
+## Release-Gate Fix
+
+Production-preview smoke exposed that invalid shared-link lap warnings were cleared by URL auto-load before remaining visible to the user.
+
+Fix:
+
+- `src/hooks/useReplayLoader.js` supports preserving the current error banner while a URL-triggered replay auto-load starts.
+- `src/F1PhantomCars.jsx` uses that preservation only for shared-link/embed auto-loads; manual loads still clear stale errors.
+- `e2e/scene.smoke.spec.js` covers the invalid shared lap warning after fallback auto-load.
 
 ## Deploy Gate
 
 Do not run `npm run deploy` until:
 
-1. The automated gate has passed on the release candidate.
-2. Manual smoke evidence is recorded or consciously waived.
+1. The final automated gate has passed after the restore-warning fix.
+2. The production-preview smoke evidence above remains valid.
 3. No release-blocking console errors, unreadable UI states, broken navigation, or silent shared-link restore failures are present.

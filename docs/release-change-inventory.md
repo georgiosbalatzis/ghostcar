@@ -32,7 +32,10 @@ Summary:
 
 Files:
 
+- `src/F1PhantomCars.jsx`
 - `src/hooks/useComparisonSelectors.js`
+- `src/hooks/useReplayLoader.js`
+- `e2e/scene.smoke.spec.js`
 - `test/selectors.test.js`
 
 Summary:
@@ -41,7 +44,9 @@ Summary:
 - Shows clear Greek warnings for stale or invalid shared-link values.
 - Clears invalid driver slots instead of keeping phantom selections.
 - Leaves fastest-lap fallback in place when an encoded lap is unavailable.
+- Preserves restore warnings during shared-link/embed auto-loads so invalid lap fallback warnings remain visible after replay data loads.
 - Consumes downstream restore flags after upstream restore failures to prevent stale URL values from being applied after manual selector changes.
+- Adds e2e coverage for invalid shared-lap warnings after fallback auto-load.
 
 ### OpenF1 Availability Messaging
 
@@ -89,7 +94,7 @@ Summary:
 
 ## Verification Status
 
-Automated gate passed on 2026-06-08 in this workspace:
+Automated gate passed on 2026-06-08 after the restore-warning fix:
 
 ```bash
 npm run format
@@ -106,25 +111,16 @@ Observed expected warnings:
 - `npm run build` may print `Kept existing f1car.glb: 117.2 kB <= 118.3 kB`.
 - `npm run test:e2e` may print Node `DEP0205` and `NO_COLOR` / `FORCE_COLOR` warnings.
 
-Release remains deploy-gated until manual smoke evidence in `docs/deployment-checklist.md` is recorded or explicitly waived. Deploy remains blocked if manual smoke exposes broken navigation, unreadable UI, or silent shared-link restore failures.
+Production-preview smoke and the final automated gate passed on 2026-06-08 after the restore-warning fix.
 
-## Current Dirty Worktree Reviewed
+## Current Release-Gate Fix Reviewed
 
 Tracked changes:
 
-- `README.MD`
 - `dist/index.html`
-- `laststeps.txt`
-- `src/api.js`
-- `src/components/ComparisonSelectors.jsx`
-- `src/hooks/useComparisonSelectors.js`
-
-New files:
-
-- `docs/deployment-checklist.md`
 - `docs/release-finalization.md`
 - `docs/release-change-inventory.md`
-- `src/domain/availability.js`
-- `test/api.test.js`
-- `test/availability.test.js`
-- `test/selectors.test.js`
+- `laststeps.txt`
+- `e2e/scene.smoke.spec.js`
+- `src/F1PhantomCars.jsx`
+- `src/hooks/useReplayLoader.js`
