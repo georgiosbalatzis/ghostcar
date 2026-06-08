@@ -553,7 +553,7 @@ Release-gate smoke/fix note:
 Final restore-warning gate note:
 - After the fix, the full gate passed on 2026-06-08: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate. npm test passed 26 tests; npm run test:e2e passed 7 tests including the new invalid shared-lap warning regression. Production-preview smoke passed for desktop, mobile, embed, and shared-link restore.
 Deploy result note:
-- npm run deploy completed with "Published" on 2026-06-08. origin/gh-pages commit 82cb7c7 contains index-CmbgH6nC.js, and a no-cache request to https://georgiosbalatzis.github.io/ghostcar/ served index-CmbgH6nC.js. A normal cached request initially served the previous index-p48R4Z0A.js HTML, so GitHub Pages edge caches may need their normal short TTL before every uncached request sees the new bundle.
+- npm run deploy completed with "Published" on 2026-06-08. origin/gh-pages commit 82cb7c7 contains index-CmbgH6nC.js. A no-cache request and a later normal request to https://georgiosbalatzis.github.io/ghostcar/ both served index-CmbgH6nC.js.
 
 Suggested next prompt:
-Continue post-deploy verification. Check the production page after GitHub Pages cache expiry, confirm it serves index-CmbgH6nC.js without no-cache headers, and push the source branch fix/orientation-change-resize if the local commits should be shared to origin.
+Continue post-deploy cleanup. Push the source branch fix/orientation-change-resize if the local release commits should be shared to origin, then verify the branch is no longer ahead and keep the production page serving index-CmbgH6nC.js.

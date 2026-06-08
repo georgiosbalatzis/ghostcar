@@ -69,7 +69,8 @@ Evidence:
 - `npm run deploy` completed with `Published`.
 - `origin/gh-pages` commit `82cb7c7` contains the current `dist` output and `index-CmbgH6nC.js`.
 - `https://georgiosbalatzis.github.io/ghostcar/` returned HTTP 200.
-- A no-cache production request served the current `index-CmbgH6nC.js` bundle. A normal cached request initially returned the previous `index-p48R4Z0A.js` HTML, so edge caches may need their normal short TTL before all uncached clients see the new bundle.
+- A no-cache production request served the current `index-CmbgH6nC.js` bundle.
+- A normal production request subsequently served `index-CmbgH6nC.js` after the initial GitHub Pages edge cache refreshed.
 
 ## Deploy Gate
 
