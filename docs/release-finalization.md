@@ -60,9 +60,20 @@ Fix:
 - `src/F1PhantomCars.jsx` uses that preservation only for shared-link/embed auto-loads; manual loads still clear stale errors.
 - `e2e/scene.smoke.spec.js` covers the invalid shared lap warning after fallback auto-load.
 
+## Deploy Status
+
+Status: deployed on 2026-06-08.
+
+Evidence:
+
+- `npm run deploy` completed with `Published`.
+- `origin/gh-pages` commit `82cb7c7` contains the current `dist` output and `index-CmbgH6nC.js`.
+- `https://georgiosbalatzis.github.io/ghostcar/` returned HTTP 200.
+- A no-cache production request served the current `index-CmbgH6nC.js` bundle. A normal cached request initially returned the previous `index-p48R4Z0A.js` HTML, so edge caches may need their normal short TTL before all uncached clients see the new bundle.
+
 ## Deploy Gate
 
-Do not run `npm run deploy` until:
+`npm run deploy` has been run after:
 
 1. The final automated gate has passed after the restore-warning fix.
 2. The production-preview smoke evidence above remains valid.
