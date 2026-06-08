@@ -532,6 +532,22 @@ Steps:
 Empty-state note:
 - Selector-level empty states now cover missing meetings, missing supported sessions, missing drivers, and missing valid laps after each prerequisite has loaded.
 - Replay loading now reports specific empty states for missing/insufficient primary location data and missing primary telemetry instead of the generic insufficient-data message.
+Request telemetry note:
+- Development-only API telemetry records endpoint, URL, HTTP status, retry count, duration, cache state, and aborted state in globalThis.__f1OpenF1RequestTelemetry and emits console.debug only in development.
+URL restore note:
+- Shared-link restoration now validates encoded meeting, session, driver, and lap values after the relevant OpenF1 data has loaded. Missing meeting/session/driver/lap values surface clear Greek warnings, invalid driver slots are cleared instead of becoming phantom selections, invalid laps keep the fastest-lap fallback, and upstream restore failures consume downstream restore flags to avoid stale URL values being applied after manual selector changes.
+OpenF1 availability note:
+- Selector availability messaging now centralizes partial OpenF1 coverage copy in src/domain/availability.js. The year picker label for 2026 stays explicit, selected 2026 shows an early/partial coverage note, and selected Practice/Sprint sessions show session-level guidance without changing existing empty states, URL restore, preset loading, replay loading, or embed behavior.
+Deployment checklist note:
+- Release checks are documented in docs/deployment-checklist.md and linked from README.MD. The checklist covers npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, npm audit --audit-level=moderate, expected build/Playwright warnings, manual desktop smoke, manual mobile smoke, embed smoke, share URL restore smoke, and release gate criteria.
+Release-readiness documentation audit note:
+- README.MD now reflects the Phase 3-7 refactor state: F1PhantomCars.jsx is described as a composition container, extracted hooks/domain/services/ui layers are linked, current validation scripts are listed, deployment uses npm run deploy, and deep-link parameters/invalid restore behavior are documented.
+Release-candidate cleanup note:
+- The dirty worktree has been reviewed and grouped in docs/release-change-inventory.md. The inventory separates development request telemetry, defensive URL restore, OpenF1 availability messaging, release documentation, generated dist output, verification expectations, and current tracked/new files for commit preparation.
+Release finalization note:
+- docs/release-finalization.md records the final commit/deploy decision: the release candidate is commit-ready after automated verification, but npm run deploy should remain gated until desktop, mobile, embed, and share URL restore manual smoke evidence is recorded or explicitly waived.
+Automated release gate note:
+- The full automated gate passed on 2026-06-08 in this workspace: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate. docs/release-finalization.md and docs/release-change-inventory.md now record that status. npm run build refreshed dist/index.html. Only the manual smoke evidence/waiver remains before deploy.
 
 Suggested next prompt:
-Continue Phase 7 product hardening. Add development-only request telemetry in the API layer as the next narrow slice: record endpoint, HTTP status, retry count, duration, cache hit/miss, and whether the request was aborted while preserving current fetchJSON cache semantics, retry/backoff behavior, AbortError behavior, OpenF1 URL construction, and production silence. api.js is already covered by the scoped format and format:check scripts, so only adjust package.json if that is no longer true, keep the patch narrow, update this Suggested next prompt again, and verify with npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate.
+Continue release completion. Run and record desktop, mobile, embed, and share URL restore manual smoke evidence in docs/release-finalization.md, or explicitly mark the manual smoke gate as waived; then commit the full Phase 7 hardening set with message "Harden Ghost Car sharing and release readiness" and only run npm run deploy if the manual gate is satisfied. Keep runtime behavior unchanged unless a release-blocking issue is found, update this Suggested next prompt again with the commit/deploy result, and rerun npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate if any files change.

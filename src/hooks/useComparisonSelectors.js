@@ -25,6 +25,125 @@ function toNullableNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function hasEncodedValue(value) {
+  return value !== "" && value != null;
+}
+
+function hasResolvedValue(value) {
+  return value != null;
+}
+
+function formatRestoreCode(value) {
+  return hasEncodedValue(value) ? ` με κωδικό ${value}` : "";
+}
+
+function setRestoreWarning(setErr, message) {
+  if (!message || !setErr) return;
+  setErr((current) => current || message);
+}
+
+function markRestoreFlags(restoreFlags, flags) {
+  flags.forEach((flag) => {
+    restoreFlags[flag] = true;
+  });
+}
+
+function markDownstreamRestoreFlags(restoreFlags, startAt) {
+  const flagsByStep = {
+    meeting: ["session", "drivers", "lap1", "lap2", "lap3", "lap4"],
+    session: ["drivers", "lap1", "lap2", "lap3", "lap4"],
+    drivers: ["lap1", "lap2", "lap3", "lap4"],
+  };
+  markRestoreFlags(restoreFlags, flagsByStep[startAt] || []);
+}
+
+export function buildRestoreMeetingError(meetingKey) {
+  return `Δεν βρέθηκε το Γκραν Πρι${formatRestoreCode(meetingKey)} από τον κοινόχρηστο σύνδεσμο. Διάλεξε διαθέσιμο Γκραν Πρι.`;
+}
+
+export function buildRestoreSessionError(sessionKey) {
+  return `Δεν βρέθηκε το σκέλος${formatRestoreCode(sessionKey)} από τον κοινόχρηστο σύνδεσμο. Διάλεξε διαθέσιμο σκέλος.`;
+}
+
+export function buildRestoreDriversError(missingDrivers = []) {
+  const labels = missingDrivers.map(({ slot, driverNumber }) => `Οδηγός ${slot} (#${driverNumber})`).join(", ");
+  return `Δεν βρέθηκε οδηγός από τον κοινόχρηστο σύνδεσμο: ${labels}. Διάλεξε οδηγό χειροκίνητα.`;
+}
+
+export function buildRestoreLapError(slot, lapNumber) {
+  return `Δεν βρέθηκε διαθέσιμος γύρος L${lapNumber} για τον Οδηγό ${slot} από τον κοινόχρηστο σύνδεσμο. Κρατήθηκε ο ταχύτερος διαθέσιμος γύρος.`;
+}
+
+export function resolveRestoredDrivers(restoreState = {}, drivers = []) {
+  const availableDriverNumbers = new Set(
+    drivers.map((driver) => Number(driver.driver_number)).filter((driverNumber) => Number.isFinite(driverNumber))
+  );
+  const requestedDrivers = [1, 2, 3, 4]
+    .map((slot) => {
+      const encodedValue = restoreState?.[`d${slot}`];
+      if (!hasEncodedValue(encodedValue)) return null;
+      const driverNumber = Number(encodedValue);
+      return {
+        slot,
+        driverNumber,
+        labelValue: Number.isFinite(driverNumber) ? driverNumber : encodedValue,
+      };
+    })
+    .filter(Boolean);
+  const driverNumbers = [1, 2, 3, 4].map((slot) => {
+    const requestedDriver = requestedDrivers.find((driver) => driver.slot === slot);
+    if (!requestedDriver || !Number.isFinite(requestedDriver.driverNumber)) return null;
+    return availableDriverNumbers.has(requestedDriver.driverNumber) ? requestedDriver.driverNumber : null;
+  });
+  const missingDrivers = requestedDrivers
+    .filter((driver) => !Number.isFinite(driver.driverNumber) || !availableDriverNumbers.has(driver.driverNumber))
+    .map((driver) => ({
+      slot: driver.slot,
+      driverNumber: driver.labelValue,
+    }));
+  const encodedCount = Number(restoreState?.numDrivers);
+  const nextCount =
+    encodedCount >= 2 && encodedCount <= 4
+      ? encodedCount
+      : hasResolvedValue(driverNumbers[3])
+        ? 4
+        : hasResolvedValue(driverNumbers[2])
+          ? 3
+          : 2;
+
+  return {
+    driverNumbers,
+    missingDrivers,
+    hasRequestedDrivers: requestedDrivers.length > 0,
+    nextCount,
+  };
+}
+
+export function resolveRestoredLap(encodedLapNumber, lapSelect = {}) {
+  if (!hasEncodedValue(encodedLapNumber)) {
+    return {
+      hasRequestedLap: false,
+      requestedLapNumber: null,
+      lapNumber: null,
+      missingLap: false,
+    };
+  }
+
+  const parsedLapNumber = Number(encodedLapNumber);
+  const requestedLapNumber = Number.isFinite(parsedLapNumber) ? parsedLapNumber : encodedLapNumber;
+  const options = Array.isArray(lapSelect.options) ? lapSelect.options : [];
+  const lap = Number.isFinite(parsedLapNumber)
+    ? options.find((option) => Number(option.lap_number) === parsedLapNumber)
+    : null;
+
+  return {
+    hasRequestedLap: true,
+    requestedLapNumber,
+    lapNumber: lap?.lap_number ?? null,
+    missingLap: !lap,
+  };
+}
+
 function createEmptySlot() {
   return {
     driverNumber: null,
@@ -153,6 +272,9 @@ export default function useComparisonSelectors({
   const [sess, setSess] = useState([]);
   const [selSe, setSelSe] = useState(null);
   const [drvs, setDrvs] = useState([]);
+  const [meetingsLoaded, setMeetingsLoaded] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [driversLoaded, setDriversLoaded] = useState(false);
   const [slots, dispatchSlots] = useReducer(selectorSlotsReducer, undefined, createInitialSlots);
   const [numDrivers, setNumDrivers] = useState(() => getInitialDriverCount(initialURL));
   const [restoreTick, setRestoreTick] = useState(0);
@@ -256,6 +378,9 @@ export default function useComparisonSelectors({
       setSess([]);
       setSelSe(null);
       setDrvs([]);
+      setMeetingsLoaded(false);
+      setSessionsLoaded(false);
+      setDriversLoaded(false);
       setYear(Number(nextState.year) || defaultYear);
       setRestoreTick((tick) => tick + 1);
     },
@@ -285,6 +410,9 @@ export default function useComparisonSelectors({
       setSess(sessions);
       setSelSe(session);
       setDrvs(drivers);
+      setMeetingsLoaded(true);
+      setSessionsLoaded(true);
+      setDriversLoaded(true);
       setNumDrivers(2);
       dispatchSlots({
         type: "applyPreset",
@@ -354,11 +482,15 @@ export default function useComparisonSelectors({
     setSelSe(null);
     setSess([]);
     setDrvs([]);
+    setMeetingsLoaded(false);
+    setSessionsLoaded(false);
+    setDriversLoaded(false);
     resetDriverSelections();
     fetchMeetings(year, { signal: controller.signal })
       .then((meetings) => {
         if (controller.signal.aborted || !isCurrentSelectorRequest("meetings", requestId)) return;
         setMts(meetings.filter((meeting) => meeting.meeting_name));
+        setMeetingsLoaded(true);
         setLoading?.("");
       })
       .catch((error) => {
@@ -385,6 +517,8 @@ export default function useComparisonSelectors({
       setSelSe(null);
       setSess([]);
       setDrvs([]);
+      setSessionsLoaded(false);
+      setDriversLoaded(false);
       resetDriverSelections();
       return;
     }
@@ -394,11 +528,14 @@ export default function useComparisonSelectors({
     setErr?.("");
     setDrvs([]);
     setSelSe(null);
+    setSessionsLoaded(false);
+    setDriversLoaded(false);
     resetDriverSelections();
     fetchSessions(selMt.meeting_key, { signal: controller.signal })
       .then((sessions) => {
         if (controller.signal.aborted || !isCurrentSelectorRequest("sessions", requestId)) return;
         setSess(sessions.filter((session) => supportedSessionNameSet.has(session.session_name)));
+        setSessionsLoaded(true);
         setLoading?.("");
       })
       .catch((error) => {
@@ -422,6 +559,7 @@ export default function useComparisonSelectors({
     if (presetActiveRef?.current) return;
     if (!selSe) {
       setDrvs([]);
+      setDriversLoaded(false);
       resetDriverSelections();
       return;
     }
@@ -429,11 +567,13 @@ export default function useComparisonSelectors({
     const requestId = nextSelectorRequestId("drivers");
     setLoading?.("Φόρτωση οδηγών...");
     setErr?.("");
+    setDriversLoaded(false);
     resetDriverSelections();
     fetchDrivers(selSe.session_key, { signal: controller.signal })
       .then((drivers) => {
         if (controller.signal.aborted || !isCurrentSelectorRequest("drivers", requestId)) return;
         setDrvs(uniqueDrivers(drivers));
+        setDriversLoaded(true);
         setLoading?.("");
       })
       .catch((error) => {
@@ -453,24 +593,34 @@ export default function useComparisonSelectors({
   ]);
 
   useEffect(() => {
+    if (presetActiveRef?.current) return;
     const restoreState = restoreStateRef?.current;
     const restoreFlags = restoreFlagsRef?.current;
-    if (!restoreState?.mk || !mts.length || !restoreFlags || restoreFlags.meeting) return;
+    if (!restoreState?.mk || !meetingsLoaded || !restoreFlags || restoreFlags.meeting) return;
     const meeting = mts.find((item) => String(item.meeting_key) === restoreState.mk);
-    if (!meeting) return;
     restoreFlags.meeting = true;
+    if (!meeting) {
+      markDownstreamRestoreFlags(restoreFlags, "meeting");
+      setRestoreWarning(setErr, buildRestoreMeetingError(restoreState.mk));
+      return;
+    }
     setSelMt(meeting);
-  }, [mts, restoreFlagsRef, restoreStateRef, restoreTick]);
+  }, [meetingsLoaded, mts, presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, setErr]);
 
   useEffect(() => {
+    if (presetActiveRef?.current) return;
     const restoreState = restoreStateRef?.current;
     const restoreFlags = restoreFlagsRef?.current;
-    if (!restoreState?.sk || !sess.length || !restoreFlags || restoreFlags.session) return;
+    if (!restoreState?.sk || !sessionsLoaded || !restoreFlags || restoreFlags.session) return;
     const session = sess.find((item) => String(item.session_key) === restoreState.sk);
-    if (!session) return;
     restoreFlags.session = true;
+    if (!session) {
+      markDownstreamRestoreFlags(restoreFlags, "session");
+      setRestoreWarning(setErr, buildRestoreSessionError(restoreState.sk));
+      return;
+    }
     setSelSe(session);
-  }, [restoreFlagsRef, restoreStateRef, restoreTick, sess]);
+  }, [presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, sess, sessionsLoaded, setErr]);
 
   useEffect(() => {
     if (presetActiveRef?.current) return;
@@ -667,58 +817,112 @@ export default function useComparisonSelectors({
   }, [lapSelect4.fastestLapNumber, setSl4, sl4]);
 
   useEffect(() => {
+    if (presetActiveRef?.current) return;
     const restoreState = restoreStateRef?.current;
     const restoreFlags = restoreFlagsRef?.current;
-    if (!drvs.length || !restoreFlags || restoreFlags.drivers) return;
-    const nextDrivers = {
-      d1: restoreState?.d1 ? Number(restoreState.d1) : null,
-      d2: restoreState?.d2 ? Number(restoreState.d2) : null,
-      d3: restoreState?.d3 ? Number(restoreState.d3) : null,
-      d4: restoreState?.d4 ? Number(restoreState.d4) : null,
-    };
-    if (!nextDrivers.d1 && !nextDrivers.d2 && !nextDrivers.d3 && !nextDrivers.d4) return;
+    if (!driversLoaded || !restoreFlags || restoreFlags.drivers) return;
+    const { driverNumbers, missingDrivers, hasRequestedDrivers, nextCount } = resolveRestoredDrivers(
+      restoreState,
+      drvs
+    );
     restoreFlags.drivers = true;
+    if (!hasRequestedDrivers) {
+      markDownstreamRestoreFlags(restoreFlags, "drivers");
+      return;
+    }
+    if (missingDrivers.length) {
+      markRestoreFlags(
+        restoreFlags,
+        missingDrivers.map((driver) => `lap${driver.slot}`)
+      );
+      setRestoreWarning(setErr, buildRestoreDriversError(missingDrivers));
+    }
     dispatchSlots({
       type: "restoreDrivers",
-      driverNumbers: [nextDrivers.d1, nextDrivers.d2, nextDrivers.d3, nextDrivers.d4],
+      driverNumbers,
     });
-    const encodedCount = Number(restoreState?.numDrivers);
-    const nextCount =
-      encodedCount >= 2 && encodedCount <= 4 ? encodedCount : nextDrivers.d4 ? 4 : nextDrivers.d3 ? 3 : 2;
     setNumDrivers(nextCount);
-  }, [drvs.length, restoreFlagsRef, restoreStateRef, restoreTick]);
+  }, [driversLoaded, drvs, presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, setErr]);
 
   useEffect(() => {
+    if (presetActiveRef?.current) return;
     const restoreState = restoreStateRef?.current;
     const restoreFlags = restoreFlagsRef?.current;
-    if (!restoreState?.l1 || !laps1.length || !restoreFlags || restoreFlags.lap1) return;
-    restoreFlags.lap1 = true;
-    setSl1(Number(restoreState.l1));
-  }, [laps1, restoreFlagsRef, restoreStateRef, restoreTick, setSl1]);
-
-  useEffect(() => {
-    const restoreState = restoreStateRef?.current;
-    const restoreFlags = restoreFlagsRef?.current;
-    if (!restoreState?.l2 || !laps2.length || !restoreFlags || restoreFlags.lap2) return;
-    restoreFlags.lap2 = true;
-    setSl2(Number(restoreState.l2));
-  }, [laps2, restoreFlagsRef, restoreStateRef, restoreTick, setSl2]);
-
-  useEffect(() => {
-    const restoreState = restoreStateRef?.current;
-    const restoreFlags = restoreFlagsRef?.current;
-    if (!restoreState?.l3 || !laps3.length || !restoreFlags || restoreFlags.lap3) return;
-    restoreFlags.lap3 = true;
-    setSl3(Number(restoreState.l3));
-  }, [laps3, restoreFlagsRef, restoreStateRef, restoreTick, setSl3]);
-
-  useEffect(() => {
-    const restoreState = restoreStateRef?.current;
-    const restoreFlags = restoreFlagsRef?.current;
-    if (!restoreState?.l4 || !laps4.length || !restoreFlags || restoreFlags.lap4) return;
-    restoreFlags.lap4 = true;
-    setSl4(Number(restoreState.l4));
-  }, [laps4, restoreFlagsRef, restoreStateRef, restoreTick, setSl4]);
+    if (!restoreFlags) return;
+    [
+      {
+        flag: "lap1",
+        slot: 1,
+        encodedLapNumber: restoreState?.l1,
+        driverNumber: d1,
+        lapsLoaded: slot1.lapsLoaded,
+        lapSelect: lapSelect1,
+        setLap: setSl1,
+      },
+      {
+        flag: "lap2",
+        slot: 2,
+        encodedLapNumber: restoreState?.l2,
+        driverNumber: d2,
+        lapsLoaded: slot2.lapsLoaded,
+        lapSelect: lapSelect2,
+        setLap: setSl2,
+      },
+      {
+        flag: "lap3",
+        slot: 3,
+        encodedLapNumber: restoreState?.l3,
+        driverNumber: d3,
+        lapsLoaded: slot3.lapsLoaded,
+        lapSelect: lapSelect3,
+        setLap: setSl3,
+      },
+      {
+        flag: "lap4",
+        slot: 4,
+        encodedLapNumber: restoreState?.l4,
+        driverNumber: d4,
+        lapsLoaded: slot4.lapsLoaded,
+        lapSelect: lapSelect4,
+        setLap: setSl4,
+      },
+    ].forEach(({ flag, slot, encodedLapNumber, driverNumber, lapsLoaded, lapSelect, setLap }) => {
+      if (restoreFlags[flag] || !driverNumber || !lapsLoaded) return;
+      const { hasRequestedLap, requestedLapNumber, lapNumber, missingLap } = resolveRestoredLap(
+        encodedLapNumber,
+        lapSelect
+      );
+      if (!hasRequestedLap) return;
+      restoreFlags[flag] = true;
+      if (missingLap) {
+        setRestoreWarning(setErr, buildRestoreLapError(slot, requestedLapNumber));
+        return;
+      }
+      setLap(lapNumber);
+    });
+  }, [
+    d1,
+    d2,
+    d3,
+    d4,
+    lapSelect1,
+    lapSelect2,
+    lapSelect3,
+    lapSelect4,
+    presetActiveRef,
+    restoreFlagsRef,
+    restoreStateRef,
+    restoreTick,
+    setErr,
+    setSl1,
+    setSl2,
+    setSl3,
+    setSl4,
+    slot1.lapsLoaded,
+    slot2.lapsLoaded,
+    slot3.lapsLoaded,
+    slot4.lapsLoaded,
+  ]);
 
   return {
     year,

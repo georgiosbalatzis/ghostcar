@@ -1,4 +1,5 @@
 import { formatSessionLabel } from "../constants.js";
+import { formatOpenF1YearOptionLabel, getOpenF1AvailabilityMessages } from "../domain/availability.js";
 import { getDriverFullName, formatDriverOption } from "../domain/drivers.js";
 import { fmt } from "../helpers.js";
 import { controlButtonStyle, inputControlStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
@@ -55,6 +56,22 @@ function SelectorEmptyMessage({ F1, children }) {
   return <div style={{ marginTop: 6, fontSize: 11, color: F1.textDim, letterSpacing: "0.02em" }}>{children}</div>;
 }
 
+function SelectorAvailabilityMessage({ F1, children }) {
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        fontSize: 11,
+        color: F1.textDim,
+        letterSpacing: "0.02em",
+        lineHeight: 1.45,
+      }}
+    >
+      <span style={{ color: F1.blue, fontWeight: 800 }}>OpenF1:</span> {children}
+    </div>
+  );
+}
+
 export default function ComparisonSelectors({
   containerRef,
   yearSelectRef,
@@ -98,6 +115,10 @@ export default function ComparisonSelectors({
   const showNoSessions = !isLoading && selectedMeeting && !noMeetings && sessions.length === 0;
   const showNoDrivers = !isLoading && selectedSession && drivers.length === 0;
   const showNoValidLaps = !isLoading && drivers.length > 0 && missingLapSlots.length > 0;
+  const availabilityMessages = getOpenF1AvailabilityMessages({
+    year,
+    sessionName: selectedSession?.session_name,
+  });
 
   return (
     <div
@@ -125,7 +146,7 @@ export default function ComparisonSelectors({
         >
           {availableYears.map((availableYear) => (
             <option key={availableYear} value={availableYear}>
-              {availableYear === 2026 ? "2026 (πρώιμα / μερικά)" : availableYear}
+              {formatOpenF1YearOptionLabel(availableYear)}
             </option>
           ))}
         </select>
@@ -231,6 +252,11 @@ export default function ComparisonSelectors({
           Δεν υπάρχουν ακόμη δεδομένα Γκραν Πρι για το {year}. Δοκίμασε το 2025 για την πιο πλήρη σεζόν τηλεμετρίας.
         </SelectorEmptyMessage>
       )}
+      {availabilityMessages.map((message) => (
+        <SelectorAvailabilityMessage key={message.id} F1={F1}>
+          {message.text}
+        </SelectorAvailabilityMessage>
+      ))}
       {showNoSessions && (
         <SelectorEmptyMessage F1={F1}>
           Δεν υπάρχουν υποστηριζόμενα σκέλη για αυτό το Γκραν Πρι. Δοκίμασε άλλο Γκραν Πρι ή χρονιά.

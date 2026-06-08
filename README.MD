@@ -157,21 +157,27 @@
 - [src/main.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/main.jsx)
 - [src/F1PhantomCars.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/F1PhantomCars.jsx)
 
-Το `F1PhantomCars.jsx` είναι το βασικό container του app και συγκεντρώνει:
+Το `F1PhantomCars.jsx` είναι πλέον κυρίως composition container. Συνδέει τα hooks, τα view models και τα presentational components χωρίς να κρατά όλη τη λεπτομέρεια του UI inline.
 
-- selectors
-- loading flow
-- playback state
-- modal orchestration
-- mobile / embed layout logic
-- lazy loading auxiliary views
+Κύριες ευθύνες που έχουν εξαχθεί:
+
+- selector state / URL restore / lap loading στο [src/hooks/useComparisonSelectors.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useComparisonSelectors.js)
+- replay loading, progress, cancellation και replay data στο [src/hooks/useReplayLoader.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useReplayLoader.js)
+- playback timeline, speed, loop, countdown και touch scrub στο [src/hooks/usePlaybackController.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/usePlaybackController.js)
+- auxiliary modal/tab state στο [src/hooks/useAuxiliaryViews.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useAuxiliaryViews.js)
+- H2H / season dashboard data loading στο [src/hooks/useAuxiliaryData.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useAuxiliaryData.js)
+- preset orchestration στο [src/hooks/usePresetLoader.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/usePresetLoader.js)
+- share, gallery και screenshot helpers στο [src/hooks/useShareAndGallery.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useShareAndGallery.js)
 
 ### Core modules
 
-- [src/api.js](/Users/giorgos/WebstormProjects/ghostcar/src/api.js): wrappers προς OpenF1, retries, cancellation-aware backoff, response cache
+- [src/api.js](/Users/giorgos/WebstormProjects/ghostcar/src/api.js): wrappers προς OpenF1, retries, cancellation-aware backoff, response cache, development request telemetry
 - [src/helpers.js](/Users/giorgos/WebstormProjects/ghostcar/src/helpers.js): normalization, interpolation, formatting και URL helpers
-- [src/constants.js](/Users/giorgos/WebstormProjects/ghostcar/src/constants.js): design system, ομάδες, presets, camera labels, circuit metadata
+- [src/constants.js](/Users/giorgos/WebstormProjects/ghostcar/src/constants.js): F1 palette, ομάδες, presets, camera labels και compatibility re-exports
 - [src/theme.js](/Users/giorgos/WebstormProjects/ghostcar/src/theme.js): light/dark palette μέσω React context
+- [src/domain/](/Users/giorgos/WebstormProjects/ghostcar/src/domain): pure helpers για laps, drivers, replay validation, circuit metadata και OpenF1 availability copy
+- [src/services/](/Users/giorgos/WebstormProjects/ghostcar/src/services): OpenF1 replay stream και preset data orchestration
+- [src/ui/styles.js](/Users/giorgos/WebstormProjects/ghostcar/src/ui/styles.js): shared UI tokens και style helpers
 
 ### 3D / rendering layer
 
@@ -279,9 +285,15 @@ npm run preview
 Από το [package.json](/Users/giorgos/WebstormProjects/ghostcar/package.json):
 
 - `npm run dev`: εκκίνηση Vite development server
+- `npm run lint`: ESLint έλεγχος
+- `npm run format`: scoped Prettier write για τα αρχεία που έχουν ενταχθεί στο formatting baseline
+- `npm run format:check`: scoped Prettier check
+- `npm test`: Node unit tests
+- `npm run test:e2e`: Playwright smoke tests
 - `npm run build`: production build στο `dist/`
 - `npm run preview`: preview του production build
 - `npm run deploy`: publish του `dist/` μέσω `gh-pages`
+- `npm audit --audit-level=moderate`: dependency audit gate για release
 
 ## Deployment
 
@@ -291,10 +303,12 @@ npm run preview
 
 ```bash
 npm run build
-npx gh-pages -d dist
+npm run deploy
 ```
 
 Το repository χρησιμοποιεί ήδη το package `gh-pages`, οπότε το deployment παραμένει απλό και χωρίς backend βήμα.
+
+Πριν από release ή publish, ακολούθησε το [deployment checklist](/Users/giorgos/WebstormProjects/ghostcar/docs/deployment-checklist.md).
 
 ## Embed χρήση
 
@@ -316,11 +330,14 @@ npx gh-pages -d dist
 
 Ενδεικτικά parameters:
 
-- `year`
+- `y` / `year`
 - `mk` για `meeting_key`
 - `sk` για `session_key`
-- `d1`, `d2`
-- `l1`, `l2`
+- `d1`, `d2`, `d3`, `d4`
+- `l1`, `l2`, `l3`, `l4`
+- `nd` για πλήθος οδηγών
+- `tv`, `cam`, `vz` για view / camera / visualization mode
+- `th`, `spd`, `lp`, `tab` για theme, speed, loop και ενεργό tab
 - `embed`
 
 Αυτό επιτρέπει:
@@ -328,6 +345,8 @@ npx gh-pages -d dist
 - share σε social ή messaging
 - editorial linking από άρθρα
 - reproducible comparisons
+
+Αν ένα παλιό ή χειροποίητο URL δείχνει σε meeting, session, οδηγό ή γύρο που δεν υπάρχει πια στα διαθέσιμα OpenF1 δεδομένα, το app εμφανίζει σαφές μήνυμα αντί να αποτυγχάνει σιωπηλά.
 
 ## Τοπική αποθήκευση στον browser
 
