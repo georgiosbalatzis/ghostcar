@@ -1,5 +1,7 @@
 const API = "https://api.openf1.org/v1";
 const RESPONSE_CACHE_MAX = 120;
+export const REQUEST_TELEMETRY_KEY = "__f1OpenF1RequestTelemetry";
+const REQUEST_TELEMETRY_MAX = 120;
 const responseCache = new Map();
 
 function createAbortError() {
@@ -26,6 +28,24 @@ function sleep(ms, signal) {
   });
 }
 
+function nowMs() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function isRequestTelemetryEnabled() {
+  return Boolean(import.meta.env?.DEV) || (typeof process !== "undefined" && process.env?.NODE_ENV === "development");
+}
+
+function recordRequestTelemetry(entry) {
+  if (!isRequestTelemetryEnabled()) return;
+
+  const telemetry = Array.isArray(globalThis[REQUEST_TELEMETRY_KEY]) ? globalThis[REQUEST_TELEMETRY_KEY] : [];
+  telemetry.push(entry);
+  if (telemetry.length > REQUEST_TELEMETRY_MAX) telemetry.splice(0, telemetry.length - REQUEST_TELEMETRY_MAX);
+  globalThis[REQUEST_TELEMETRY_KEY] = telemetry;
+  globalThis.console?.debug?.("[OpenF1 request]", entry);
+}
+
 function getCacheKey(ep, params) {
   const query = new URLSearchParams();
   Object.entries(params)
@@ -44,31 +64,60 @@ function storeCachedResponse(key, value) {
 }
 
 export async function fetchJSON(ep, params = {}, options = {}) {
+  const startMs = nowMs();
   const { retries = 2, signal, cache = true } = options;
-  if (signal?.aborted) throw createAbortError();
-  const url = new URL(`${API}${ep}`);
-  Object.entries(params).forEach(([k, v]) => {
-    if (v != null && v !== "") url.searchParams.append(k, v);
-  });
-  const cacheKey = cache ? getCacheKey(ep, params) : "";
-  if (cache && responseCache.has(cacheKey)) return responseCache.get(cacheKey);
-  for (let a = 0; a <= retries; a++) {
+  let url = "";
+  let status = null;
+  let retryCount = 0;
+  let cacheHit = false;
+  let aborted = false;
+
+  try {
     if (signal?.aborted) throw createAbortError();
-    try {
-      const r = await fetch(url.toString(), { signal });
-      if (r.status === 429) {
-        await sleep(1500 * (a + 1), signal);
-        continue;
-      }
-      if (!r.ok) throw new Error(`API ${r.status}`);
-      const data = await r.json();
-      if (cache) storeCachedResponse(cacheKey, data);
-      return data;
-    } catch (e) {
-      if (e?.name === "AbortError") throw e;
-      if (a === retries) throw e;
-      await sleep(800 * (a + 1), signal);
+    const requestUrl = new URL(`${API}${ep}`);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== "") requestUrl.searchParams.append(k, v);
+    });
+    url = requestUrl.toString();
+    const cacheKey = cache ? getCacheKey(ep, params) : "";
+    if (cache && responseCache.has(cacheKey)) {
+      cacheHit = true;
+      return responseCache.get(cacheKey);
     }
+    for (let a = 0; a <= retries; a++) {
+      retryCount = a;
+      if (signal?.aborted) throw createAbortError();
+      try {
+        const r = await fetch(url, { signal });
+        status = r.status;
+        if (r.status === 429) {
+          await sleep(1500 * (a + 1), signal);
+          continue;
+        }
+        if (!r.ok) throw new Error(`API ${r.status}`);
+        const data = await r.json();
+        if (cache) storeCachedResponse(cacheKey, data);
+        return data;
+      } catch (e) {
+        if (e?.name === "AbortError") throw e;
+        if (a === retries) throw e;
+        await sleep(800 * (a + 1), signal);
+      }
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") aborted = true;
+    throw error;
+  } finally {
+    recordRequestTelemetry({
+      endpoint: ep,
+      url,
+      status,
+      retryCount,
+      durationMs: Math.round((nowMs() - startMs) * 10) / 10,
+      cacheHit,
+      cacheEnabled: Boolean(cache),
+      aborted,
+    });
   }
 }
 

@@ -1,0 +1,561 @@
+Ghost Car refactor handoff
+Date: 2026-06-02
+
+Read first in the next prompt:
+- nextsteps.txt is a style and operating brief. It does not contain code tasks.
+- The current app is a client-only React 18 + Vite + Three.js project. There is no backend.
+- Main entry points are src/main.jsx and src/F1PhantomCars.jsx.
+- The worktree already had unrelated generated changes in dist and node_modules before this pass. Do not revert them unless the user explicitly asks.
+
+Phase 1 completed in the follow-up pass:
+- Added npm scripts for linting, scoped formatting, unit tests, and Playwright smoke tests.
+- Added eslint.config.js with React Hooks rules enabled. The lint baseline is currently clean.
+- Added Prettier config and a scoped format command/check for guardrail/config/test/domain/service files. This intentionally avoids a repo-wide formatting diff in the large existing app files.
+- Added src/domain/laps.js and moved prepareLapSelectModel out of F1PhantomCars.jsx so it can be tested directly.
+- Added helper/domain tests for full four-driver URL/embed state and lap-select preparation edge cases.
+- Added playwright.config.js and e2e/app.smoke.spec.js. The smoke suite covers desktop shell loading without browser errors, mobile horizontal overflow, embed loading shell, modal Escape handling, and theme toggle readability.
+- The Playwright suite stubs https://api.openf1.org/v1/** with empty JSON responses. This keeps shell tests deterministic and avoids OpenF1 rate limits. Data/API integration should be tested separately.
+- npm audit fix was run after adding tooling. npm audit now reports zero vulnerabilities.
+
+Phase 2 completed in this pass:
+- Expanded src/domain/laps.js with bestLap, findLapByNumber, getLapTimeRange, and getCompoundForLap. The helper now handles null lap lists, numeric string durations, invalid timestamps, and fallback lap duration.
+- Added src/domain/circuit.js for circuit turn/direction metadata, circuit lookup, track area calculation, and replay flip decisions. src/constants.js re-exports CIRCUIT_DATA and getCircuitInfo so existing modal imports keep working.
+- Added src/domain/drivers.js for uniqueDrivers, getDriverFullName, formatDriverOption, and getDriverColor. F1PhantomCars.jsx now uses these instead of local driver display/color helpers.
+- Added src/domain/replay.js for slot-aware minimum replay data validation and replay geometry assembly.
+- Added src/services/openf1.js with loadDriverLapsAndStints, buildReplayStreamRequests, and loadReplayStreams. Manual loadData and preset load now share the same timestamp, location, telemetry, and AbortController-aware service path.
+- Kept fetchLocation and fetchCarData uncached in src/api.js. They are now called only from src/services/openf1.js, preserving the decision not to cache high-volume replay data.
+- Added applyReplayStreams inside src/F1PhantomCars.jsx as the remaining state-application bridge. It centralizes loc/tel slot assignment, circuit flip/turn setup, track path setup, and playback reset for manual and preset loads.
+- src/helpers.js now re-exports bestLap from src/domain/laps.js for compatibility while removing its duplicate implementation.
+- package.json format and format:check scripts now include src/services/**/*.js.
+- Added test/domain.test.js with coverage for lap range selection, stint compounds, circuit metadata/flip decisions, driver formatting/deduping, replay geometry validation, and replay request construction.
+
+Phase 3 step 1 completed in this pass:
+- Added src/hooks/useReplayLoader.js.
+- useReplayLoader now owns replay data state: loc1-loc4, tel1-tel4, tp, circuitFlip, and circuitTurns.
+- useReplayLoader owns load UI state: loading, ldPct, err, sceneErr, and canCancelLoad. F1PhantomCars.jsx still uses the exposed setters for selector loading/error paths, so selector extraction remains a later Phase 3 task.
+- Moved loadAbortRef, beginCancelableLoad, finishCancelableLoad, cancelLoading, clearReplayData, clearReplaySlot, applyReplayStreams, loadReplayComparison, and loadReplayForActiveLoad into useReplayLoader.
+- Manual comparison loading in F1PhantomCars.jsx now only prepares selected driver/lap inputs and delegates the replay fetch/apply path to loadReplayComparison.
+- Preset loading still orchestrates meetings, sessions, drivers, laps, and stints in F1PhantomCars.jsx, but it now uses useReplayLoader for replay telemetry/location fetching, active-controller checks, shared stream application, and progress cleanup.
+- The hook guards against stale replay application by checking the active AbortController before applying streams or clearing load indicators.
+- package.json format and format:check scripts now include src/hooks/useReplayLoader.js without formatting the large existing useScene.js file.
+
+Phase 3 step 2 completed in the next pass:
+- Added src/hooks/useThemePreference.js.
+- useThemePreference now owns theme initialization from URL/localStorage, theme toggling, theme persistence for explicit toggles, theme value creation, and palette selection.
+- URL restore now calls setThemeMode(nextState.theme). This updates the current theme without rewriting the saved localStorage preference, matching previous restore behavior.
+- Added src/hooks/useTrackViewPreference.js.
+- useTrackViewPreference now owns 2D/3D view initialization from URL/localStorage, explicit persisted switches from buttons/keyboard, non-persisted URL restore switches, and is2DView derivation.
+- F1PhantomCars.jsx now clears scene errors when is2DView is active with a small bridge effect. Keep this bridge until scene error state moves out of useReplayLoader or track view becomes part of a broader view-state hook.
+- Added src/hooks/usePlaybackController.js.
+- usePlaybackController now owns prog, play, spd, loop, countdown, progRef, playRef, spdRef, replay RAF ticking, countdown interval cleanup, replay reset, loop/speed URL restore helpers, and mobile 2D touch scrub gesture state.
+- F1PhantomCars.jsx now delegates playback actions through startReplay/resetPlayback and passes progRef/playRef/spdRef from usePlaybackController into SceneStage3D.
+- package.json format and format:check scripts now include src/hooks/useThemePreference.js, src/hooks/useTrackViewPreference.js, and src/hooks/usePlaybackController.js.
+
+Phase 3 step 3 completed in this pass:
+- Added src/hooks/useAuxiliaryViews.js.
+- useAuxiliaryViews now owns auxiliary view state: showPresets, showStats, showLaps, showKeys, showH2H, showDash, showGallery, showEmbed, showTel, showTelOverlay, mobTab, and showMobMenu.
+- useAuxiliaryViews exposes normalizeInlineTab, close callbacks for the simple modal types, closeAuxiliaryModals, resetAuxiliaryViews, restoreAuxiliaryTab, and anyAuxiliaryModal.
+- F1PhantomCars.jsx now delegates URL-restore modal cleanup and change-matchup auxiliary cleanup through resetAuxiliaryViews/restoreAuxiliaryTab instead of manually clearing every flag in the container.
+- H2H and season dashboard data loading intentionally remain in F1PhantomCars.jsx for now because they still depend on year/driver selector state, request caches, and auxiliary cancellation.
+- package.json format and format:check scripts now include src/hooks/useAuxiliaryViews.js.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 4 completed in this pass:
+- Added src/hooks/useShareAndGallery.js.
+- useShareAndGallery now owns gallery localStorage state, shareMsg, shareDialogUrl, shareDialogNotice, the share message timeout, share dialog clearing, dialog copy retry behavior, native share/clipboard fallback behavior, saveToGallery, generateSocialCard, takeScreenshot, and clearGallery.
+- F1PhantomCars.jsx still owns shareURLState and shareUrl derivation because that model depends on selector state, track view, theme, playback speed, loop state, mobile tab state, and telemetry sidebar state.
+- F1PhantomCars.jsx now passes a compact shareComparison model into useShareAndGallery instead of owning share/gallery side effects directly.
+- The share dialog UI remains inline in F1PhantomCars.jsx for now, but its close/copy actions are delegated to useShareAndGallery.
+- package.json format and format:check scripts now include src/hooks/useShareAndGallery.js.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 5 completed in this pass:
+- Added src/hooks/useComparisonSelectors.js as the first small selector extraction.
+- useComparisonSelectors now owns driver slot state: d1-d4, sl1-sl4, laps1-laps4, st1-st4, numDrivers, setNumDrivers, and resetDriverSelections.
+- useComparisonSelectors preserves the previous initial driver-count restore behavior from URL state: explicit numDrivers wins, otherwise d4 implies 4 drivers, d3 implies 3, and the default is 2.
+- useComparisonSelectors owns the previous inactive-slot trimming behavior. When numDrivers drops below 4 or 3, it clears the matching slot state and calls clearReplaySlot for that slot.
+- F1PhantomCars.jsx still owns year, meetings, sessions, driver list, selector request ids, URL restore effects, and all selector/lap/stint network effects. The custom hook setters are returned to the container for now, so dependency arrays in F1PhantomCars.jsx explicitly include those setters to satisfy react-hooks/exhaustive-deps.
+- package.json format and format:check scripts now include src/hooks/useComparisonSelectors.js.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 6 completed in this pass:
+- Extended src/hooks/useComparisonSelectors.js to own the four lap/stint loading effects for driver slots 1-4.
+- useComparisonSelectors now imports fetchLaps and fetchStints, keeps its own lap request id ref, guards stale lap/stint responses, preserves AbortController cleanup, and keeps the previous presetActiveRef bypass behavior.
+- useComparisonSelectors now owns lapSelect1-lapSelect4 preparation and fastest-lap auto-selection via prepareLapSelectModel.
+- F1PhantomCars.jsx no longer owns the repeated lap/stint effects or lap select preparation. It still owns year/meeting/session/driver-list loading, selector request ids for those three request types, URL restore effects, preset loading, and H2H/season data loading.
+- The main selector request id ref in F1PhantomCars.jsx now tracks only meetings, sessions, and drivers. Lap request ids moved into useComparisonSelectors.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 7 completed in this pass:
+- Moved driver/lap URL restore for selector slots into src/hooks/useComparisonSelectors.js.
+- useComparisonSelectors now accepts canRestoreDrivers, restoreStateRef, restoreFlagsRef, and restoreTick. It restores d1-d4, numDrivers, and sl1-sl4 while preserving the existing restore flag object in F1PhantomCars.jsx.
+- F1PhantomCars.jsx still owns meeting/session restore, restoreStateRef reset, restoreFlagsRef reset, restoreTick increments, and year/meeting/session/driver-list loading effects.
+- The restore order remains behavior-compatible: meeting/session restore still happens in F1, driver restore waits until the driver list exists, lap restore waits until each lap list exists, and fastest-lap auto-selection still runs before URL lap restore.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 8 completed in this pass:
+- Extended src/hooks/useComparisonSelectors.js to own setup selector state: year, meetings, selected meeting, sessions, selected session, and driver list.
+- useComparisonSelectors now imports fetchMeetings, fetchSessions, fetchDrivers, and uniqueDrivers. It owns selector request ids for meetings/sessions/drivers, AbortController cleanup, stale response guards, loading/error bridge updates, supported-session filtering, and the existing presetActiveRef bypass behavior.
+- Moved meeting/session URL restore into useComparisonSelectors. The hook now owns restoreTick internally and exposes setRestoreTick so F1PhantomCars.jsx can still reset restoreStateRef/restoreFlagsRef when restoring from gallery/share URLs.
+- Restore ordering remains intentional: meeting restore waits for meetings, session restore waits for sessions, driver restore waits for drivers, lap restore waits for each slot's laps. The meetings loader also depends on restoreTick now, which fixes same-year gallery/share restores after selector collections are cleared.
+- F1PhantomCars.jsx no longer owns selector request ids, setup selector network effects, meeting/session restore effects, or raw year/meeting/session/driver state. It still owns preset loading, H2H/season dashboard loading, restoreStateRef/reset orchestration, share URL derivation, and most JSX.
+- Preset loading still writes selector state through returned setters. This is deliberate for now because preset loading batches selector data, lap/stint state, replay stream loading, and load progress in one user action.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 9 completed in this pass:
+- Added a compact selector action API to src/hooks/useComparisonSelectors.js: resetForUrlRestore, applyPresetSelectorData, selectMeeting, selectSession, selectDriverSlot, selectLapSlot, and clearInactiveSlots.
+- F1PhantomCars.jsx now uses resetForUrlRestore for gallery/share URL restores instead of manually sequencing resetDriverSelections, setMts, setSelMt, setSess, setSelSe, setDrvs, setYear, and setRestoreTick.
+- F1PhantomCars.jsx now uses applyPresetSelectorData after preset lookup/fetch work. Preset fetch orchestration remains in F1PhantomCars.jsx, but applying year/meeting/session/driver/lap/stint selector state is now centralized in the hook.
+- Driver and lap select controls now use selectDriverSlot/selectLapSlot. Selecting a driver clears that slot's selected lap, lap list, and stint list consistently instead of leaving old stint state around while the new lap request loads.
+- Meeting/session select controls now use selectMeeting/selectSession, keeping key lookup inside the hook beside the state it mutates.
+- F1PhantomCars.jsx no longer destructures or depends on the raw selector setters for meetings/sessions/drivers/driver slots/lap lists/stints. It still uses setYear, setNumDrivers, and resetDriverSelections because those remain simple top-level UI actions.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 10 completed in this pass:
+- Converted the repeated driver-slot useState group inside src/hooks/useComparisonSelectors.js to a reducer-backed four-slot model.
+- The reducer stores driverNumber, lapNumber, laps, and stints per slot, and supports reset, clearInactive, setDriver, selectDriver, setLap, setLaps, setStints, applyPreset, and restoreDrivers actions.
+- useComparisonSelectors still returns the current public shape: d1-d4, sl1-sl4, laps1-laps4, st1-st4, the compatibility setter callbacks, and the higher-level selector actions. This keeps F1PhantomCars.jsx unchanged for JSX/derived-state consumers while removing the internal 16 independent slot states.
+- URL restore now dispatches one restoreDrivers action for d1-d4 instead of four independent driver state updates. Preset application now dispatches one applyPreset slot action for primary drivers/laps/stints and clears inactive slots through the reducer.
+- resetDriverSelections now dispatches a single reducer reset for all slot data, then clears replay data and optionally resets numDrivers.
+- clearInactiveSlots now dispatches one clearInactive reducer action and still calls clearReplaySlot for inactive replay slots.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 11 completed in this pass:
+- Added src/hooks/useAuxiliaryData.js.
+- useAuxiliaryData now owns H2H/season dashboard data state: h2hData, h2hProgress, and dashData.
+- useAuxiliaryData now owns auxiliary request cancellation and caches: auxAbortRef, h2hCacheRef, dashCacheRef, beginAuxLoad, finishAuxLoad, cancelAuxLoading, resetAuxiliaryData, loadH2H, and loadSeasonDash.
+- The hook preserves the previous behavior: non-mobile/non-embed modal auto-open, per-comparison caches, H2H progress updates, 12 H2H result limit, 15 season result limit, 1200 ms pacing every 3 meetings, 400 ms lap pacing, 3000 ms 429 backoff, incremental startTransition state updates, abort cleanup, and empty-result handling.
+- F1PhantomCars.jsx now delegates H2H and season dashboard loading to useAuxiliaryData while keeping the modal/tab trigger points and rendering in the container.
+- URL restore, preset loading, change-matchup, modal close, inline tab changes, and close-all paths now clear or cancel auxiliary data through the hook API instead of reaching into refs/state directly.
+- Removed the old createAbortError, abortableSleep, getComparisonCacheKey, auxAbortRef, h2hCacheRef, dashCacheRef, beginAuxLoad, finishAuxLoad, inline loadH2H, and inline loadSeasonDash code from F1PhantomCars.jsx. The remaining isAbortError helper stayed temporarily in F1PhantomCars.jsx because preset loading still used it before step 12.
+- package.json format and format:check scripts now include src/hooks/useAuxiliaryData.js.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 3 step 12 completed in this pass:
+- Added src/services/presets.js.
+- src/services/presets.js now owns the preset OpenF1 lookup/fetch sequence: meeting lookup by normalized name, supported-session filtering, driver deduping, primary driver lap loading, fastest-lap validation, stint loading, and progress callbacks at 10/20/30/45.
+- Added src/hooks/usePresetLoader.js.
+- usePresetLoader now owns the loadPreset orchestration that was previously inline in F1PhantomCars.jsx: countdown cancellation, showreel preservation/stop behavior, beginCancelableLoad, presetActiveRef updates, preset/mobile menu close, auxiliary request cancellation/reset, driver-selection reset, H2H/season view close, selector data application, 50/60/80/100 replay progress handoff through loadReplayForActiveLoad, error reporting, load indicator cleanup, and finishCancelableLoad.
+- The hook preserves the previous unavailable-year error, Greek error messages, progress percentages, replay insufficient-data message, selector apply handoff through applyPresetSelectorData, and replay controller ownership in useReplayLoader.
+- Added an active-controller guard before applying preset selector data and after replay loading. This prevents a canceled or replaced preset request from applying cached selector data after a newer load has taken over.
+- F1PhantomCars.jsx no longer imports raw preset fetch dependencies from src/api.js, normalizeText, uniqueDrivers, or bestLap. It now passes existing replay/selector/auxiliary APIs into usePresetLoader and keeps only the loadPreset trigger points for the presets modal and showreel.
+- package.json format and format:check scripts now include src/hooks/usePresetLoader.js. src/services/presets.js is already covered by the src/services/**/*.js glob.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 1 completed in this pass:
+- Added src/components/HeaderToolbar.jsx.
+- HeaderToolbar now owns the non-embed top bar markup for desktop and mobile: F1 Stories logo/link, desktop nav links, meeting/year label, preset/share/stats/laps/H2H/season/gallery/card/embed/screenshot/showreel/theme/keyboard buttons, and the mobile compact action row.
+- Added src/components/MobileToolMenu.jsx.
+- MobileToolMenu now owns the mobile tools overlay/panel markup and close-after-action behavior for stats, laps, H2H, season, gallery, social card, embed, and screenshot actions.
+- F1PhantomCars.jsx still owns all state, booleans, and handlers. The new components are presentational only and receive existing labels, flags, and callbacks as props.
+- Removed the inline header and mobile menu JSX from F1PhantomCars.jsx, reducing the container to roughly 1,187 lines.
+- package.json format and format:check scripts now include src/components/HeaderToolbar.jsx and src/components/MobileToolMenu.jsx without formatting the whole existing components directory.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 2 completed in this pass:
+- Added src/components/ComparisonSelectors.jsx.
+- ComparisonSelectors now owns the non-embed selector strip markup: year selector, meeting selector, session selector, driver slots 1-4, lap selectors, add/remove driver buttons, compare/load button, and the no-meetings empty state.
+- F1PhantomCars.jsx still owns selector state and actions through useComparisonSelectors. It now passes refs, state collections, selected values, loading state, and handlers into ComparisonSelectors.
+- Added a compact comparisonSelectorSlots view model in F1PhantomCars.jsx so the component receives a four-slot array instead of many slot-specific props.
+- Moved selector-only display helpers out of F1PhantomCars.jsx. ComparisonSelectors now imports getDriverFullName, formatDriverOption, formatSessionLabel, and fmt, and owns the previous formatLapOption helper.
+- F1PhantomCars.jsx no longer imports getDriverFullName or formatDriverOption.
+- package.json format and format:check scripts now include src/components/ComparisonSelectors.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 3 completed in this pass:
+- Added src/components/PlaybackBar.jsx.
+- PlaybackBar now owns the replay playback bar markup: reset button, play/pause button, loop button, progress range input, per-driver timing readouts, setup button, speed selector, desktop telemetry toggle, embed share button, embed open-link button, and embed branding text.
+- F1PhantomCars.jsx still owns playback state through usePlaybackController. It passes play, loop, progress, speed, driver readouts, share state, and callbacks into PlaybackBar.
+- The parent preserves the previous scrubber behavior by updating progRef.current and setProg inside the onProgressChange callback passed to PlaybackBar.
+- The component preserves current responsive differences: compact embed-phone controls, mobile labels, desktop telemetry toggle, non-embed setup button, and embed share/open-link/branding controls.
+- package.json format and format:check scripts now include src/components/PlaybackBar.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 4 completed in this pass:
+- Added src/components/InlineTabBar.jsx.
+- InlineTabBar now owns the mobile non-embed and embed tab bar markup for 3D, telemetry, stats, laps, H2H, and season tabs.
+- The component preserves the previous differences between contexts: full labels on app mobile, icon-only labels on embed mobile, full labels with title attributes on embed desktop, active tab styling, horizontal overflow behavior, and embed touch scrolling.
+- F1PhantomCars.jsx still owns mobTab and selectComparisonTab. It now renders InlineTabBar when tp exists and either mobile app tabs or embed tabs are needed.
+- Removed the duplicated inline mobile and embed tab bar arrays from F1PhantomCars.jsx.
+- package.json format and format:check scripts now include src/components/InlineTabBar.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 5 completed in this pass:
+- Added src/components/ShareDialog.jsx.
+- ShareDialog now owns the share dialog markup: Greek title/copy, fallback notice text, readonly URL input, focus-to-select behavior, close button, copy button, responsive width, fixed dialog positioning, shadow, and current F1 theme styling.
+- F1PhantomCars.jsx still owns share/gallery state through useShareAndGallery. It now passes shareDialogUrl, shareDialogNotice, clearShareDialog, and copyShareDialogUrl into ShareDialog instead of rendering the dialog inline.
+- Removed the direct getModalCloseButtonStyle import from F1PhantomCars.jsx. ShareDialog imports the existing modal close style helper locally.
+- package.json format and format:check scripts now include src/components/ShareDialog.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 6 completed in this pass:
+- Added src/components/Toast.jsx.
+- Toast now owns the fixed status surface markup: role/status accessibility attributes, mobile max-width, playback-aware bottom offset, success/info tone colors, border, text color, shadow, typography, and message rendering.
+- F1PhantomCars.jsx still owns toast state, toastTimerRef, and the 2800 ms auto-dismiss behavior through pushToast. This preserves existing timer behavior while removing the inline status JSX.
+- Added src/components/AppFooter.jsx.
+- AppFooter now owns the non-embed footer markup: f1stories.gr link, logo image with the existing onError hide fallback, OpenF1 data credit, current-year F1 Stories copyright, responsive gap, border, and theme styling.
+- package.json format and format:check scripts now include src/components/AppFooter.jsx and src/components/Toast.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 7 completed in this pass:
+- Added src/components/CountdownOverlay.jsx.
+- CountdownOverlay now owns the fixed full-screen countdown surface: five-light sequence, active light timing, red glow, GO state Greek copy, z-index, dark backdrop, center alignment, and current theme border/card/mono styling.
+- Added src/components/ErrorBanner.jsx.
+- ErrorBanner now owns the non-embed top error strip: red-tinted background/border, message layout, close button, aria label, and current theme red styling. F1PhantomCars.jsx still owns clearing err and sceneErr through the passed close handler.
+- Added src/components/LoadingStatusBar.jsx.
+- LoadingStatusBar now owns the non-embed loading strip: loading message, cancel button copy, cancel handler handoff, optional progress bar, progress transition, and theme colors.
+- F1PhantomCars.jsx still owns countdown state through usePlaybackController and loading/error/cancel state through useReplayLoader. The new components are presentational only.
+- package.json format and format:check scripts now include src/components/CountdownOverlay.jsx, src/components/ErrorBanner.jsx, and src/components/LoadingStatusBar.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 8 completed in this pass:
+- Added src/components/ReplayStage.jsx.
+- ReplayStage now owns the track-stage surface: 3D SceneStage3D lazy loading, 2D SVG replay view, mobile/embed 3D tab visibility, track-view buttons, camera controls, visualization toggle, MiniMap overlay, interval delta overlay, sector delta overlay, WebGL error fallback with 2D replay, app empty state, embed loading/error/idle state, and 2D touch scrub handoff.
+- F1PhantomCars.jsx still owns replay data, playback refs/state, selected driver/lap view models, track-view/camera/viz state, scene error state, auxiliary open/change handlers, preset opening, and screenshot ref. ReplayStage receives those as props and remains presentational.
+- Moved the stage-specific lazy SceneStage3D import and MiniMap/SectorDelta/TrackReplay2D imports out of F1PhantomCars.jsx.
+- Removed renderTrackViewButtons and the local TRACK_VIEW_MODES constant from F1PhantomCars.jsx. ReplayStage owns the local rendering helper for track-view mode buttons.
+- package.json format and format:check scripts now include src/components/ReplayStage.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 9 completed in this pass:
+- Added src/components/AuxiliaryContentArea.jsx.
+- AuxiliaryContentArea now owns the desktop telemetry sidebar, mobile/embed telemetry tab, inline stats tab, inline laps tab, inline H2H tab, and inline season tab.
+- The component preserves the existing Suspense boundaries, inline modal props, closeInlineTab handoff, desktop/sidebar sizing, mobile/embed flex sizing, scroll behavior, animation, telemetry panel props, and current theme styling.
+- F1PhantomCars.jsx still owns auxiliary state and data through useAuxiliaryViews/useAuxiliaryData. It now passes telemetryProps and inlineTabProps into AuxiliaryContentArea instead of rendering those panes inline.
+- package.json format and format:check scripts now include src/components/AuxiliaryContentArea.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 10 completed in this pass:
+- Added src/components/ModalLayer.jsx.
+- ModalLayer now owns the fixed backdrop surface, top-level Suspense boundary, lazy modal imports, Presets/Telemetry/Stats/Laps/Keys/H2H/Dash/Gallery/Embed/Tour modal mounting, and ShareDialog rendering.
+- The component preserves backdrop close behavior through the passed closeAll handler, share dialog close/copy handlers, Presets unavailable-year data, telemetry overlay panel props, gallery clear/select callbacks, H2H/Dash cancellation-aware close handlers, TourOverlay embed exclusion, z-index/backdrop styling, and current theme styling.
+- F1PhantomCars.jsx still owns modal state and close handlers through useAuxiliaryViews/useAuxiliaryData/useShareAndGallery. It now passes grouped flags, handlers, data, and shareDialog props into ModalLayer.
+- Moved the remaining top-level lazy modal imports and the ShareDialog import out of F1PhantomCars.jsx.
+- package.json format and format:check scripts now include src/components/ModalLayer.jsx.
+- Verification after this extraction: npm run lint, npm run format:check, npm test, npm run test:e2e, npm run build, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but the Chromium smoke tests pass.
+
+Phase 4 step 11 completed in this pass:
+- Added src/components/AppShell.jsx.
+- AppShell now owns the top-level ThemeProvider placement, desktop/mobile/embed shell class selection, and root app-shell inline layout style: width, minHeight, background, text color, font family, horizontal overflow, flex display, and column direction for mobile/embed shells.
+- Added src/components/GlobalStyles.jsx.
+- GlobalStyles now owns the injected global CSS that was previously inline in F1PhantomCars.jsx: fade/pulse keyframes, reset box sizing, app-shell mobile/embed viewport height rules including 100dvh support, scrollbar styling, shared select/button/range styling, f1-btn styling, and header nav/logo/action classes.
+- F1PhantomCars.jsx no longer imports ThemeProvider and no longer computes shellClassName. It now renders its product content inside AppShell while continuing to own state orchestration, view-model derivation, modal/replay/selector prop wiring, showreel, URL/share behavior, and keyboard handling.
+- package.json format and format:check scripts now include src/components/AppShell.jsx and src/components/GlobalStyles.jsx.
+- Current line counts after this extraction: src/F1PhantomCars.jsx is 1,017 lines, src/components/AppShell.jsx is 28 lines, src/components/GlobalStyles.jsx is 35 lines, and src/hooks/useScene.js is 1,003 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 1 completed in this pass:
+- Added src/scene/createRenderer.js.
+- createRenderer now owns WebGL support probing, scene error formatting, scene/camera/WebGLRenderer creation, dark/light scene background and fog setup, renderer options, initial size and pixel ratio, tone mapping/exposure, canvas append/style setup, WebGL context-loss listener registration, canvas removal, renderer render-list/context/dispose cleanup, and scene graph disposal.
+- Added attachRendererResize in src/scene/createRenderer.js. It preserves the previous ResizeObserver-first sizing path, window resize fallback, 50 ms resize settle delay, screen.orientation/change fallback behavior, 350 ms mobile orientation settle delay, camera aspect/projection updates, renderer resizing, dirty flag callback, and timer/listener cleanup.
+- Moved disposeScene/disposeMaterial out of useScene.js into createRenderer.js and kept disposeScene exported because the async GLTF model loader still needs to dispose a late-arriving scene after teardown.
+- useScene.js now imports createSceneRenderer, attachRendererResize, getSceneSupportError, formatSceneError, and disposeScene. It still owns scene content construction, input listeners, adaptive quality, animation, camera movement, car updates, and render-loop policy.
+- package.json format and format:check scripts now include src/scene/**/*.js.
+- Current line counts after this extraction: src/hooks/useScene.js is 912 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 2 completed in this pass:
+- Added src/scene/materials.js.
+- materials.js now owns scene material factories for colored line segments, dark/light ground materials, texture plane overlays, sky dome material, star shader material, dark/light track ribbon material, heatmap/brake track overlays, sprite label materials, sector marker materials, start line material, car shadow/glow/pole/fallback materials, delta line material, racing line material, and trail shader material.
+- useScene.js no longer imports Three material classes directly. It still owns geometry construction, canvas texture drawing, object placement, GLTF material cloning/tinting, scene assembly, input listeners, adaptive quality, camera motion, and the render loop.
+- The extraction preserves existing colors, opacities, transparent flags, depthWrite flags, side/fog settings, shader source, roughness/metalness values, ghost opacity, trail opacity differences, and low-detail sector marker opacity.
+- package.json already covers src/scene/**/*.js, so materials.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 921 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 3 completed in this pass:
+- Added src/scene/buildTrack.js.
+- buildTrack now owns CatmullRom curve creation, segment count calculation, 2.0 track width, ribbon geometry/index generation, left/right edge point generation, dark/light track ribbon mesh creation through materials.js, heatmap and brake overlay color buffers, sector-colored edge lines, sector divider lines, sector marker definitions and InstancedMesh setup, sector label canvas sprites, corner detection, turn marker canvas sprites, and start/finish line construction.
+- buildTrack uses the existing material factories from src/scene/materials.js and local freeze/disposal-compatible scene object creation. Geometry and textures are still disposed through normal scene graph disposal from src/scene/createRenderer.js.
+- useScene.js now calls buildTrack and receives curve, seg, and sectorMarkers. It still owns scene lighting, ground/sky/stars, car groups, GLB model loading, GLTF material cloning/tinting, car labels/trails, delta/racing lines, input listeners, adaptive quality, cameras, animation, and render-loop cleanup.
+- package.json already covers src/scene/**/*.js, so buildTrack.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 728 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 4 completed in this pass:
+- Added src/scene/buildCars.js.
+- buildCars now owns car group construction, car shadow/glow geometry, non-ghost PointLight setup, driver label pole geometry, driver label canvas badge drawing, sprite label materials, car userData initialization, optional third/fourth car creation, fallback BoxGeometry meshes, detailed GLB model loading, GLTFLoader/MeshoptDecoder dynamic imports, inactive late-GLTF scene disposal, GLTF clone centering/scaling, imported material cloning/tinting/emissive adjustments, mirror material tinting, ghost material opacity, trail buffer geometry, trail alpha buffers, trail shader material use, mobile/desktop trail max counts, and returning car/trail handles.
+- useScene.js now calls buildCars and receives car1-car4 plus tr1-tr4. It still owns scene lighting, ground/sky/stars, delta and racing lines, input listeners, adaptive quality, camera math, animation, and render-loop cleanup.
+- The extraction preserves the previous detailed-car loading policy with shouldLoadDetailedCars set true, fallback behavior on loader/import failure, context-lost guard before starting the loader, and late disposal when a GLTF finishes after inactive teardown.
+- package.json already covers src/scene/**/*.js, so buildCars.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 629 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 5 completed in this pass:
+- Added src/scene/cameras.js.
+- cameras.js now owns frameLerp, follow-camera mode detection, follow/cinematic camera target updates, orbit/top target updates, braking shake use for camera targets, and final camera position/quaternion interpolation/change detection.
+- Added src/scene/updateCars.js.
+- updateCars.js now owns per-frame car position smoothing, heading helper reuse, Quaternion reuse through car userData.prevQuat, forward-vector smoothing, lateral offset physics, trail advancement, optional third/fourth car updates, delta line buffer updates, delta line opacity updates, sector marker pulse updates, marker dummy reuse, and dirty-flag output for the render loop.
+- useScene.js now delegates car/camera update math through updateCarsAndMarkers, updateReplayCameraTargets, updateManualCameraTargets, and applyCameraMotion. It still owns RAF scheduling, visibility/playback throttling, adaptive quality checks, input listeners, scene lifecycle, render calls, and cleanup.
+- The extraction preserves the previous frameLerp formula, playback-speed smoothing constants, follow-camera rotation boost, car proximity lateral offsets, trail alpha decay, sector marker timing, cinematic camera curve sampling, orbit auto-rotation, top camera target, camera lerp/lookAt change detection, and render-loop dirty decisions.
+- package.json already covers src/scene/**/*.js, so cameras.js and updateCars.js are included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 536 lines, src/scene/cameras.js is 98 lines, src/scene/updateCars.js is 244 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 6 completed in this pass:
+- Added src/scene/adaptiveQuality.js.
+- adaptiveQuality.js now owns adaptive-quality controller state: basePixelRatio, canReduceResolution, minimumAdaptivePixelRatio, the 60-sample Float32Array FPS window, fps window index/full flags, lastFpsCheck, qualityTier, recoveryCount, quality tier application, FPS checks, and visible-frame recording.
+- useScene.js now creates the adaptive quality controller and calls adaptiveQuality.recordFrame from the render loop. It still owns RAF scheduling, visibility/playback throttling, frame timestamp capture, render calls, input listeners, scene lifecycle, and cleanup.
+- The extraction preserves the previous canReduceResolution rules, 2 second check interval, <20 sample guard, average FPS calculation, <28/<42/>=55 thresholds, three-check recovery rule, pixel-ratio tier values, renderer setPixelRatio/setSize behavior, contextLost/container guards, _starFrozen updates, and _dirty updates.
+- package.json already covers src/scene/**/*.js, so adaptiveQuality.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 493 lines, src/scene/adaptiveQuality.js is 82 lines, src/scene/cameras.js is 98 lines, src/scene/updateCars.js is 244 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 7 completed in this pass:
+- Added src/scene/buildEnvironment.js.
+- buildEnvironment now owns cinematic lighting, dark/light AmbientLight values, sun DirectionalLight values and placement, HemisphereLight values, dark-mode warm fill light, ground mesh/material setup, dark-mode radial glow texture/plane, mobile glow texture sizing, dark-mode desktop grid canvas/repeat setup, sky dome geometry/detail levels, sky vertex color gradient values, dark-mode star generation, upper-hemisphere star distribution, star alpha range, star material creation, and environment object freezing.
+- useScene.js now calls buildEnvironment and receives starMaterial for animation. It still owns track/car creation orchestration, delta/racing lines, input listeners, RAF scheduling, render calls, resize wiring, and cleanup.
+- The extraction preserves normal scene graph disposal through createRenderer.js. The initial R.current state now stores _starMat from buildEnvironment instead of assigning it before R.current was replaced, so the existing star animation path has the material handle it expects.
+- package.json already covers src/scene/**/*.js, so buildEnvironment.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 370 lines, src/scene/buildEnvironment.js is 174 lines, src/scene/adaptiveQuality.js is 82 lines, src/scene/cameras.js is 98 lines, src/scene/updateCars.js is 244 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 8 completed in this pass:
+- Added src/scene/inputControls.js.
+- inputControls now owns canvas mouse/touch/wheel control wiring: mouse down/move/up/leave handlers, wheel zoom clamp, touchstart/touchmove/touchend handlers, two-finger pinch distance tracking, pinch touchmove preventDefault, cs.drag/lx/ly/angle/pitch/dist mutation, dirty-flag callback, passive listener options, and listener cleanup.
+- useScene.js now calls attachInputControls and uses inputControls.isActive() for render-loop active-state throttling. It still owns delta/racing line setup, RAF scheduling, render calls, resize wiring, scene lifecycle, and cleanup orchestration.
+- The extraction preserves the previous active-state behavior from isPlaying || cs.drag || pinchDist !== null by exposing controls.drag || pinchDist !== null from the helper.
+- package.json already covers src/scene/**/*.js, so inputControls.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 348 lines, src/scene/inputControls.js is 77 lines, src/scene/buildEnvironment.js is 174 lines, src/scene/adaptiveQuality.js is 82 lines, src/scene/cameras.js is 98 lines, src/scene/updateCars.js is 244 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 9 completed in this pass:
+- Added src/scene/buildRaceOverlays.js.
+- buildRaceOverlays now owns the removed SpotLight placeholders, delta line BufferGeometry setup, six-value Float32Array delta position buffer, Float32BufferAttribute with DynamicDrawUsage, delta material creation, deltaLine.frustumCulled = false, optional racing line construction, curve.getPoints(seg), racing-line material creation, 0.015 racing-line y offset, scene.add calls, and freezeObjectTransform behavior for overlay scene objects.
+- The helper returns spot1, spot2, deltaLine, and deltaPos so R.current keeps the same shape used by the render loop and updateCarsAndMarkers.
+- useScene.js now delegates overlay setup through buildRaceOverlays. It still owns scene module orchestration, RAF scheduling, render calls, resize wiring, scene lifecycle, and cleanup orchestration.
+- package.json already covers src/scene/**/*.js, so buildRaceOverlays.js is included in format and format:check.
+- Current line counts after this extraction: src/hooks/useScene.js is 318 lines, src/scene/buildRaceOverlays.js is 34 lines, src/scene/inputControls.js is 77 lines, src/scene/buildEnvironment.js is 174 lines, src/scene/adaptiveQuality.js is 82 lines, src/scene/cameras.js is 98 lines, src/scene/updateCars.js is 244 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 10 completed in this pass:
+- Added src/scene/renderLoop.js.
+- renderLoop now owns RAF scheduling, ACTIVE_MS/IDLE_MS/HIDDEN_MS throttling, document.hidden and visibleRef scene visibility checks, previous frame time tracking, hidden-scene lastSceneVisible/lastSimTime resets, progress/play/camera dirty decisions, cinematic camera time advancement, adaptiveQuality.recordFrame calls, car/sector update calls, replay/manual camera target updates, camera motion application, star material animation, renderer.render try/catch handling, R.current.fr assignment, and cleanup cancellation.
+- useScene.js now starts and stops the render loop through startSceneRenderLoop. It still owns scene construction/module orchestration, WebGL context-lost state, R.current assembly, adaptive-quality controller creation, resize wiring, input-control attachment, React effects that update refs, and overall scene cleanup.
+- package.json format and format:check scripts now include src/hooks/useScene.js. The hook is small enough to keep under the scoped formatter, so future lifecycle-glue changes get the same Prettier guardrail as the extracted hooks and scene modules.
+- Current line counts after this extraction and formatting: src/hooks/useScene.js is 353 lines, src/scene/renderLoop.js is 155 lines, src/scene/buildRaceOverlays.js is 34 lines, src/scene/inputControls.js is 77 lines, src/scene/buildEnvironment.js is 174 lines, src/scene/adaptiveQuality.js is 82 lines, src/scene/cameras.js is 98 lines, src/scene/updateCars.js is 244 lines, src/scene/buildCars.js is 256 lines, src/scene/buildTrack.js is 297 lines, src/scene/materials.js is 126 lines, src/scene/createRenderer.js is 204 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this extraction: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 5 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Phase 5 step 11 completed in this pass:
+- Added e2e/scene.smoke.spec.js.
+- The new scene smoke test uses a deterministic share URL and route-level OpenF1 fixtures for meetings, sessions, drivers, laps, stints, location, and car_data. It does not depend on live OpenF1 data.
+- The fixture creates a Monza Qualifying comparison for Max Verstappen vs Lando Norris with 96 synthetic location points and 96 telemetry samples per driver. The URL restore chain loads the selector state, auto-loads replay streams, and mounts SceneStage3D through the real app path.
+- The test waits for the WebGL canvas, samples rendered pixels by drawing the canvas into a small 2D canvas, asserts nonblank pixel energy, switches to 2D, verifies the 2D replay appears and the WebGL canvas is removed, switches back to 3D, and asserts the WebGL canvas renders nonblank pixels again.
+- The test also collects browser page errors and console errors, matching the existing shell smoke style.
+- Current e2e coverage is now 6 Chromium tests: 5 shell/UI smoke tests in e2e/app.smoke.spec.js and 1 deterministic 3D renderer smoke test in e2e/scene.smoke.spec.js.
+- Current line counts after this addition: e2e/scene.smoke.spec.js is 209 lines, e2e/app.smoke.spec.js is 104 lines, src/hooks/useScene.js is 353 lines, src/scene/renderLoop.js is 155 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this addition: npm run format, npm run lint, npx playwright test e2e/scene.smoke.spec.js, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 6 Chromium smoke tests pass. test-results was removed after the Playwright runs.
+
+Phase 6 step 1 completed in this pass:
+- Added src/ui/styles.js as the first small UI style/token layer.
+- styles.js currently exports uiRadii, uiType, focusRingStyle, controlButtonStyle, segmentedButtonStyle, and panelSurfaceStyle. The helpers centralize common control radii, button sizing, command/segmented-control letter spacing, active/inactive segmented button colors, and simple themed panel surfaces.
+- Applied the helpers narrowly to src/components/ReplayStage.jsx and src/components/PlaybackBar.jsx. ReplayStage now uses segmentedButtonStyle for 3D/2D and camera controls, controlButtonStyle for compact overlay command buttons, and panelSurfaceStyle for telemetry cards, 2D lap delta, and the interval delta overlay surface. PlaybackBar now uses controlButtonStyle for reset/play/loop/setup/telemetry/share command buttons.
+- The visual output is intentionally close to the previous UI: existing labels, colors, spacing values, active/inactive states, and icon text are preserved. This is a maintainability slice, not a redesign.
+- package.json format and format:check scripts now include src/ui/**/*.js, so the style helper layer is covered by the same scoped formatter guardrail.
+- Current line counts after this addition: src/ui/styles.js is 102 lines, src/components/ReplayStage.jsx is 816 lines, src/components/PlaybackBar.jsx is 188 lines, package.json remains 40 lines, and src/F1PhantomCars.jsx remains 1,017 lines.
+- Verification after this addition: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate all passed. Playwright still emits Node DEP0205 and NO_COLOR/FORCE_COLOR warnings, but all 6 Chromium smoke tests pass. test-results was removed after the Playwright run.
+
+Codebase shape after review:
+- src/F1PhantomCars.jsx is the main product container at 1,017 lines. It owns restoreStateRef/reset orchestration, selector/playback/tab view-model wiring, share URL derivation, showreel, global keyboard handling, and grouped props for ModalLayer, ReplayStage, AuxiliaryContentArea, PlaybackBar, and ComparisonSelectors. Top-level shell/theme/global CSS concerns have moved to AppShell and GlobalStyles.
+- src/hooks/useScene.js is the 3D renderer lifecycle/content hook at 353 formatted lines. It owns scene module orchestration, R.current assembly, WebGL context-lost state, adaptive-quality controller creation, resize wiring, input-control attachment, React ref-sync effects, and cleanup. Renderer setup, resize wiring, WebGL support/error handling, context-loss listener wiring, scene disposal, reusable material factory setup, environment construction, track construction, car/model construction, trail construction, delta/racing overlay construction, RAF scheduling, render calls, frame visibility policy, car updates, sector marker updates, camera target/motion math, adaptive quality state/tiering, and canvas input controls moved to src/scene modules.
+- src/scene/createRenderer.js owns WebGL support checks, error formatting, scene/camera/renderer setup, dark/light scene background/fog setup, canvas append/remove, context-loss listener wiring, resize/orientation handling, renderer disposal, and scene graph disposal.
+- src/scene/materials.js owns reusable scene material factories for ground, sky, stars, track ribbon/overlays, labels, markers, car visuals, delta/racing lines, and trails.
+- src/scene/buildEnvironment.js owns lighting, ground/glow/grid, sky dome, stars, and returns the star material used by the render loop animation.
+- src/scene/buildTrack.js owns CatmullRom curve creation, ribbon/overlay geometry, sector lines/markers/labels, corner turn markers, and start/finish line construction.
+- src/scene/buildCars.js owns car group creation, driver labels, GLB/fallback car model setup, imported material tinting, late inactive GLTF disposal, and trail geometry/material setup.
+- src/scene/buildRaceOverlays.js owns delta/racing line overlay construction and the removed-SpotLight placeholder handles returned into R.current.
+- src/scene/updateCars.js owns car movement, smoothing, lateral offsets, trail advancement, delta line updates, and sector marker animation.
+- src/scene/cameras.js owns frameLerp, follow/cinematic/orbit/top camera targets, braking shake application, and final camera interpolation/change detection.
+- src/scene/adaptiveQuality.js owns rolling FPS sampling, adaptive pixel-ratio tiers, recovery tracking, and star-freeze/dirty updates for adaptive quality.
+- src/scene/inputControls.js owns canvas mouse/touch/wheel camera controls and exposes cleanup plus an active-state signal for render-loop throttling.
+- src/scene/renderLoop.js owns RAF scheduling, visibility throttling, dirty-frame decisions, per-frame scene update coordination, render try/catch behavior, and RAF cleanup cancellation.
+- src/api.js is a thin OpenF1 client with retries, abort-aware sleep, and a small response cache.
+- src/helpers.js contains path normalization, interpolation, formatting, URL encode/decode, and mobile detection.
+- src/hooks/useThemePreference.js owns theme URL/localStorage behavior.
+- src/hooks/useTrackViewPreference.js owns 2D/3D URL/localStorage behavior.
+- src/hooks/usePlaybackController.js owns playback state, countdown, RAF ticking, refs, and 2D touch scrub gestures.
+- src/hooks/useReplayLoader.js owns replay data, replay load cancellation, replay stream application, and shared replay load progress/error state.
+- src/hooks/useAuxiliaryViews.js owns modal/mobile-tab/telemetry view flags and pure auxiliary close/reset helpers.
+- src/hooks/useAuxiliaryData.js owns H2H/season dashboard request orchestration, progress, caches, data state, and cancellation.
+- src/hooks/usePresetLoader.js owns preset load orchestration and bridges preset selector data into useComparisonSelectors plus replay streams into useReplayLoader.
+- src/hooks/useShareAndGallery.js owns gallery persistence, share status/dialog state, clipboard/native share behavior, social card generation, and screenshot download behavior.
+- src/hooks/useComparisonSelectors.js owns setup selector state, selector request ids, meeting/session/driver loading, selector action APIs, reducer-backed driver/lap/stint slot state, driver-count trimming, lap/stint loading for slots 1-4, lap request cancellation/stale guards, lap select models, fastest-lap auto-selection, and meeting/session/driver/lap URL restore.
+- src/services/presets.js owns preset-specific OpenF1 selector-data lookup and fetch preparation.
+- src/ui/styles.js owns the first shared UI tokens/helpers for radii, control text spacing, control button style objects, segmented button style objects, panel surface style objects, and future focus ring reuse.
+- src/components contains focused 2D replay and telemetry UI plus AppShell, GlobalStyles, HeaderToolbar, MobileToolMenu, ComparisonSelectors, ReplayStage, AuxiliaryContentArea, ModalLayer, PlaybackBar, InlineTabBar, ShareDialog, Toast, AppFooter, CountdownOverlay, ErrorBanner, and LoadingStatusBar.
+- src/modals contains separate modal components, mostly presentational with inline styles.
+- Tests currently cover helper URL/format behavior in test/helpers.test.js, extracted domain/service behavior in test/domain.test.js, app shell/modal/theme/embed smoke behavior in e2e/app.smoke.spec.js, and deterministic 3D canvas render/2D round-trip behavior in e2e/scene.smoke.spec.js.
+
+Issues fixed during the refactor so far:
+- Fixed a React hook-order bug in src/components/TelChart.jsx. It previously returned before useMemo when traces were empty, which could violate the Rules of Hooks if traces changed between empty and non-empty.
+- Stabilized TelChart path memoization by memoizing telemetry trace arrays in src/components/TelemetryPanel.jsx. This avoids rebuilding SVG paths on every playback progress tick.
+- Fixed async load finalization in src/F1PhantomCars.jsx. An aborted or stale telemetry/preset request could clear loading state or disable cancellation for a newer active request. finishCancelableLoad now only finalizes the matching controller, and catch blocks only mutate loading/error state for the active non-aborted controller.
+- Fixed preset-active cleanup in src/F1PhantomCars.jsx so an older preset request cannot mark presetActiveRef false after a newer request has taken over.
+- Fixed tour dismissal persistence in src/F1PhantomCars.jsx. Esc now uses the same dismissal path as the TourOverlay button, so the first-run tour does not reappear after keyboard dismissal.
+- Fixed light-theme contrast in src/components/TelemetryPanel.jsx and the empty-state title in src/F1PhantomCars.jsx by using theme text color instead of hardcoded white.
+- Fixed same-year gallery/share URL restore after selector collections are cleared. useComparisonSelectors now treats restoreTick as a meetings reload key, so restoring a saved comparison for the currently selected year can still refetch meetings and continue the restore chain.
+- Fixed stale stint state during manual driver changes. selectDriverSlot now clears the changed slot's stint list at the same time it clears the selected lap and lap list.
+- Fixed a remaining stale preset edge by checking the active replay controller before applying preset selector data after lookup. A canceled or replaced preset can no longer update selector state if cached OpenF1 responses return after a newer load has started.
+
+Verification completed:
+- npm run format passed.
+- npm run lint passed.
+- npm run format:check passed.
+- npm test passed. Current coverage is 14 node:test tests.
+- npx playwright test e2e/scene.smoke.spec.js passed.
+- npm run test:e2e passed. Playwright reports Node/NO_COLOR warnings, but all 6 Chromium smoke tests pass.
+- npm run build passed. The prebuild optimizer kept public/f1car.glb unchanged because the optimized output was larger.
+- npm audit --audit-level=moderate passed with zero vulnerabilities.
+
+Important remaining risks:
+- F1PhantomCars.jsx is too large to maintain safely. The largest risk is not visual polish, it is state coupling between selectors, URL restore, replay loading, showreel, mobile tabs, and modal state.
+- useScene.js is now mostly lifecycle glue, but the mutable R.current scene-state object is still assembled manually and updated through several effects. The new deterministic canvas smoke test protects the main 3D path, but it does not yet cover mobile WebGL behavior, context loss, adaptive quality downshifts, or real OpenF1 data variation.
+- Manual replay, preset replay, H2H, and season dashboard now have dedicated hooks/services, but data flow still needs a common request/run abstraction if more OpenF1 workflows are added.
+- UI styling is still mostly inline outside the extracted global shell CSS and new src/ui/styles.js helper layer. ReplayStage and PlaybackBar have the first shared control helpers, but HeaderToolbar, MobileToolMenu, ComparisonSelectors, ModalLayer, LoadingStatusBar, ErrorBanner, Toast, and modal components still repeat button/panel/header styles.
+- Browser smoke tests exist and now validate a deterministic replay plus WebGL canvas pixels, but they still stub OpenF1 and do not validate real API data, real race-week edge cases, or production deployment behavior.
+
+Phase 1: Baseline and guardrails
+Goal: make the codebase safer to change before large refactors.
+Steps:
+- Add ESLint with react-hooks rules. This would have caught the TelChart hook-order bug.
+- Add a format command. Keep the current style if avoiding large churn, but enforce consistent imports, semicolons, and JSX line breaks going forward.
+- Add a lightweight Playwright smoke test suite:
+  - app loads desktop without console errors
+  - app loads mobile viewport without horizontal overflow
+  - embed mode loads with ?embed=1
+  - opening and closing each modal does not break keyboard Escape handling
+  - light and dark theme both keep critical text readable
+- Add unit tests around encodeURL/decodeURL for d4 and embed state. Existing tests cover d3 but not full four-driver state.
+- Add unit tests for prepareLapSelectModel after moving it out of F1PhantomCars.jsx.
+
+Phase 2: Extract data and domain logic
+Status: completed.
+Completed modules:
+- src/domain/laps.js for lap select preparation, best lap selection, lap lookup, lap timestamp ranges, and stint compound lookup.
+- src/domain/circuit.js for circuit direction/turn metadata, path area calculation, and flip decision.
+- src/domain/drivers.js for driver display names, unique driver filtering, formatted select labels, and colors.
+- src/domain/replay.js for replay minimum-data validation and replay geometry.
+- src/services/openf1.js for higher-level OpenF1 replay loading while keeping raw HTTP concerns in src/api.js.
+Context for later:
+- loadReplayStreams preserves AbortController support by forwarding signal into fetchLocation and fetchCarData.
+- buildReplayStreamRequests skips drivers whose lap has no valid timestamp range, then loadReplayStreams requires valid primary slots 1 and 2.
+- High-volume location/car_data still are not cached. Do not add caching there unless the product explicitly needs it.
+
+Phase 3: Refactor app state into hooks or reducers
+Status: substantially complete for the planned state/data extractions. useReplayLoader, useThemePreference, useTrackViewPreference, usePlaybackController, useAuxiliaryViews, useAuxiliaryData, usePresetLoader, useShareAndGallery, and the main useComparisonSelectors extraction/action API/reducer slices are complete. Remaining F1PhantomCars.jsx work is mostly view composition, showreel/keyboard polish, and cross-cutting share URL/view-model wiring.
+Goal: reduce F1PhantomCars.jsx from an orchestration monolith into composable product areas.
+Suggested hooks:
+- useThemePreference for theme URL/localStorage behavior. Completed in src/hooks/useThemePreference.js.
+- useTrackViewPreference for 2D/3D URL/localStorage behavior. Completed in src/hooks/useTrackViewPreference.js.
+- useComparisonSelectors for year, meeting, session, drivers, laps, stints, restore flags, and selector request ids. Main slices completed in src/hooks/useComparisonSelectors.js: setup selector loading, selector request ids, selector action API, reducer-backed driver/lap/stint slot state, reset/trim helpers, lap/stint loading, lap select models, fastest-lap auto-selection, and meeting/session/driver/lap URL restore.
+- useReplayLoader for tp, loc, tel, circuitFlip, circuitTurns, loading, progress percentage, cancel behavior, and replay load actions. Completed in src/hooks/useReplayLoader.js.
+- usePlaybackController for prog, play, speed, loop, countdown, keyboard playback actions, raf throttling, and touch scrub. Completed in src/hooks/usePlaybackController.js, except the global keyboard listener itself remains in F1PhantomCars.jsx because it also controls modals, tabs, theme, camera, and telemetry visibility.
+- useAuxiliaryViews for modal open/close, mobile tabs, telemetry sidebar state, and pure auxiliary reset behavior. Completed in src/hooks/useAuxiliaryViews.js.
+- useAuxiliaryData for H2H/season dashboard request orchestration, progress, caches, data state, and cancellation. Completed in src/hooks/useAuxiliaryData.js.
+- usePresetLoader for preset lookup/fetch orchestration, presetActiveRef behavior, progress, auxiliary reset, selector apply handoff, replay loading handoff, and stale-controller guards. Completed in src/hooks/usePresetLoader.js with src/services/presets.js for preset selector-data loading.
+- useShareAndGallery for gallery persistence, clipboard/native share fallback, share dialog state, screenshot, and social card generation. Completed in src/hooks/useShareAndGallery.js. shareURLState and shareUrl remain in F1PhantomCars.jsx because they are a cross-cutting view model.
+Implementation notes:
+- useReplayLoader already consumes loadReplayStreams, hasMinimumReplayData, and buildReplayGeometry through src/domain/replay.js and src/services/openf1.js. Preserve the current user-visible progress percentages: manual load uses 15/20/55/100, preset load uses 50/60/80/100 around replay fetches.
+- Do not move selector loading into useReplayLoader. The exposed setLoading, setErr, and setSceneErr are a temporary bridge until useComparisonSelectors or a small load-status hook is extracted.
+- Keep behavior identical while extracting. Do not redesign UI in the same commit as state extraction.
+- Driver slot state now uses a reducer internally, but the public return shape is still d1/d2/d3/d4, sl1/sl2/sl3/sl4, laps1/laps2/laps3/laps4, and st1/st2/st3/st4. A later componentization pass can switch UI consumers to an array model.
+- Next Phase 3 candidates:
+  - Optional before Phase 4: extract showreel runtime into a useShowreel hook. It should preserve showreelRef, showreelTimerRef, preserveShowreel preset calls, stopShowreelRuntime, and toggle behavior.
+  - Optional before Phase 4: extract global keyboard command handling into a small useGlobalShortcuts hook. This needs care because it touches modals, tabs, theme, camera, playback, telemetry, and view mode.
+  - Phase 4 can start now. The best next practical slice is componentizing the header/toolbar and mobile tool menu because those are mostly presentational and can use the existing hook outputs without moving more state.
+
+Phase 4: Componentize the application shell
+Goal: move JSX layout out of F1PhantomCars.jsx without changing behavior.
+Suggested components:
+- AppShell. Completed in src/components/AppShell.jsx.
+- GlobalStyles. Completed in src/components/GlobalStyles.jsx.
+- HeaderToolbar. Completed in src/components/HeaderToolbar.jsx.
+- MobileToolMenu. Completed in src/components/MobileToolMenu.jsx.
+- ComparisonSelectors. Completed in src/components/ComparisonSelectors.jsx.
+- ReplayStage. Completed in src/components/ReplayStage.jsx.
+- AuxiliaryContentArea. Completed in src/components/AuxiliaryContentArea.jsx.
+- ModalLayer. Completed in src/components/ModalLayer.jsx.
+- ReplayOverlays. Covered by CountdownOverlay, ErrorBanner, LoadingStatusBar, ModalLayer, and ReplayStage.
+- PlaybackBar. Completed in src/components/PlaybackBar.jsx.
+- Toast. Completed in src/components/Toast.jsx.
+- ShareDialog. Completed in src/components/ShareDialog.jsx.
+- AppFooter. Completed in src/components/AppFooter.jsx.
+- CountdownOverlay. Completed in src/components/CountdownOverlay.jsx.
+- ErrorBanner. Completed in src/components/ErrorBanner.jsx.
+- LoadingStatusBar. Completed in src/components/LoadingStatusBar.jsx.
+- EmbedTabBar or InlineTabBar. Completed as src/components/InlineTabBar.jsx.
+Implementation notes:
+- Pass a small view model into components rather than long prop chains where possible.
+- Keep modal components lazy loaded.
+- Replace repeated inline button style objects with shared helpers or CSS classes.
+- The project currently uses emoji icons. If adding an icon library later, use a consistent icon set and keep text labels only where commands need clarity.
+
+Phase 5: Split the 3D renderer
+Goal: make useScene maintainable and testable without changing the visual output.
+Suggested files:
+- src/scene/createRenderer.js for WebGL support checks, renderer setup, context loss, resize. Completed in src/scene/createRenderer.js.
+- src/scene/materials.js for theme-dependent materials. Completed in src/scene/materials.js.
+- src/scene/buildTrack.js for ribbon, edges, sectors, turn markers, start line. Completed in src/scene/buildTrack.js.
+- src/scene/buildCars.js for fallback car meshes, GLB model loading, labels, trails. Completed in src/scene/buildCars.js.
+- src/scene/cameras.js for orbit, follow, top, and cinematic camera math. Completed in src/scene/cameras.js.
+- src/scene/updateCars.js for car motion, trails, delta lines, and sector marker animation. Completed in src/scene/updateCars.js.
+- src/scene/adaptiveQuality.js for FPS window and pixel ratio tiers. Completed in src/scene/adaptiveQuality.js.
+- src/scene/buildEnvironment.js for lighting, ground glow/grid, sky dome, and stars. Completed in src/scene/buildEnvironment.js.
+- src/scene/inputControls.js for mouse/touch/wheel orbit and pinch controls. Completed in src/scene/inputControls.js.
+- src/scene/buildRaceOverlays.js for delta line, optional racing line, and removed-SpotLight placeholders. Completed in src/scene/buildRaceOverlays.js.
+- src/scene/renderLoop.js for RAF scheduling, visibility throttling, dirty-frame decisions, render try/catch behavior, and cleanup cancellation. Completed in src/scene/renderLoop.js.
+- Playwright 3D smoke test using deterministic local replay data, WebGL canvas pixel checks, and a 3D to 2D to 3D round trip. Completed in e2e/scene.smoke.spec.js.
+- src/hooks/useScene.js should become lifecycle glue only.
+Implementation notes:
+- Preserve disposeScene behavior during extraction. Leaking geometries/materials/textures is the biggest rendering regression risk.
+- The deterministic 3D smoke test is now in place. Keep it focused and fast; add separate e2e specs only for genuinely new browser-critical behavior.
+
+Phase 6: UI polish and design system
+Goal: make the UI feel professional and maintainable.
+Steps:
+- Move common tokens from constants.js/theme.js into a small UI layer: spacing, radii, font sizes, panel styles, button variants, input variants. Started with src/ui/styles.js, now used by ReplayStage and PlaybackBar.
+- Replace hardcoded theme-sensitive colors such as #fff with F1.text unless the background is guaranteed dark or brand-colored.
+- Audit mobile widths for selectors, toolbar buttons, playback controls, and modal headers. The current inline layout is dense and can overflow in Greek labels.
+- Standardize modal structure. Most modals repeat fixed positioning, header, close button, scroll body, border, and z-index.
+- Review card radii and nested card usage. Current UI uses 10 to 18 px radii in multiple places.
+Radius audit note:
+- Phase 6 radius review is complete. Shared uiRadii tokens now cover component/card/global CSS radii reviewed in this pass; remaining borderRadius/border-radius literals are intentional zero-radius square edges or 50% circular markers/spinners.
+
+Phase 7: Product hardening
+Goal: make the app reliable for embeds, articles, and public sharing.
+Steps:
+- Add explicit empty states for missing meetings, sessions, drivers, laps, location, and telemetry.
+- Add request telemetry in development only: endpoint, status, retry count, duration, and whether it was aborted.
+- Add defensive URL restore behavior for invalid driver/lap combinations. Current restore waits for data but does not clearly surface all invalid cases.
+- Add OpenF1 availability messaging by year/session when data is partial.
+- Add a deployment checklist: npm test, npm run build, manual desktop smoke, manual mobile smoke, embed smoke, share URL restore smoke.
+Empty-state note:
+- Selector-level empty states now cover missing meetings, missing supported sessions, missing drivers, and missing valid laps after each prerequisite has loaded.
+- Replay loading now reports specific empty states for missing/insufficient primary location data and missing primary telemetry instead of the generic insufficient-data message.
+Request telemetry note:
+- Development-only API telemetry records endpoint, URL, HTTP status, retry count, duration, cache state, and aborted state in globalThis.__f1OpenF1RequestTelemetry and emits console.debug only in development.
+URL restore note:
+- Shared-link restoration now validates encoded meeting, session, driver, and lap values after the relevant OpenF1 data has loaded. Missing meeting/session/driver/lap values surface clear Greek warnings, invalid driver slots are cleared instead of becoming phantom selections, invalid laps keep the fastest-lap fallback, and upstream restore failures consume downstream restore flags to avoid stale URL values being applied after manual selector changes.
+OpenF1 availability note:
+- Selector availability messaging now centralizes partial OpenF1 coverage copy in src/domain/availability.js. The year picker label for 2026 stays explicit, selected 2026 shows an early/partial coverage note, and selected Practice/Sprint sessions show session-level guidance without changing existing empty states, URL restore, preset loading, replay loading, or embed behavior.
+Deployment checklist note:
+- Release checks are documented in docs/deployment-checklist.md and linked from README.MD. The checklist covers npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, npm audit --audit-level=moderate, expected build/Playwright warnings, manual desktop smoke, manual mobile smoke, embed smoke, share URL restore smoke, and release gate criteria.
+Release-readiness documentation audit note:
+- README.MD now reflects the Phase 3-7 refactor state: F1PhantomCars.jsx is described as a composition container, extracted hooks/domain/services/ui layers are linked, current validation scripts are listed, deployment uses npm run deploy, and deep-link parameters/invalid restore behavior are documented.
+Release-candidate cleanup note:
+- The dirty worktree has been reviewed and grouped in docs/release-change-inventory.md. The inventory separates development request telemetry, defensive URL restore, OpenF1 availability messaging, release documentation, generated dist output, verification expectations, and current tracked/new files for commit preparation.
+Release finalization note:
+- docs/release-finalization.md records the final commit/deploy decision: the release candidate is commit-ready after automated verification, but npm run deploy should remain gated until desktop, mobile, embed, and share URL restore manual smoke evidence is recorded or explicitly waived.
+Automated release gate note:
+- The full automated gate passed on 2026-06-08 in this workspace: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate. docs/release-finalization.md and docs/release-change-inventory.md now record that status. npm run build refreshed dist/index.html. Only the manual smoke evidence/waiver remains before deploy.
+Release-gate smoke/fix note:
+- Production-preview smoke was run against http://127.0.0.1:4173/ghostcar/ with deterministic OpenF1 fixtures for desktop, mobile, embed, and shared-link restore. It exposed a release-gate issue where invalid shared-link lap warnings were cleared by URL auto-load. src/hooks/useReplayLoader.js and src/F1PhantomCars.jsx now preserve restore warnings for shared-link/embed auto-loads while keeping manual loads clearing stale errors. e2e/scene.smoke.spec.js now covers the invalid shared-lap warning after fallback auto-load. docs/release-finalization.md records the smoke evidence.
+Final restore-warning gate note:
+- After the fix, the full gate passed on 2026-06-08: npm run format, npm run lint, npm run format:check, npm test, npm run build, npm run test:e2e, and npm audit --audit-level=moderate. npm test passed 26 tests; npm run test:e2e passed 7 tests including the new invalid shared-lap warning regression. Production-preview smoke passed for desktop, mobile, embed, and shared-link restore.
+Deploy result note:
+- npm run deploy completed with "Published" on 2026-06-08. origin/gh-pages commit 82cb7c7 contains index-CmbgH6nC.js. A no-cache request and a later normal request to https://georgiosbalatzis.github.io/ghostcar/ both served index-CmbgH6nC.js.
+Source branch push note:
+- Source branch fix/orientation-change-resize was pushed to origin on 2026-06-08. GitHub reported the PR URL: https://github.com/georgiosbalatzis/ghostcar/pull/new/fix/orientation-change-resize. Production still served index-CmbgH6nC.js during the post-deploy check.
+
+Suggested next prompt:
+Continue post-deploy cleanup. Verify the local branch remains synchronized with origin/fix/orientation-change-resize, confirm production still serves index-CmbgH6nC.js, and open or review the PR at https://github.com/georgiosbalatzis/ghostcar/pull/new/fix/orientation-change-resize if source review is needed.

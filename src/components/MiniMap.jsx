@@ -1,13 +1,14 @@
 import { useEffect, useRef, useMemo, memo } from "react";
 import { lerp, norm } from "../helpers.js";
 import { useF1 } from "../theme.js";
+import { uiRadii } from "../ui/styles.js";
 
 const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = false }) {
   const F1 = useF1();
   const ref = useRef(null);
   const staticCanvasRef = useRef(null);
-  const nn1 = useMemo(() => l1 ? norm(l1, flip) : null, [l1, flip]);
-  const nn2 = useMemo(() => l2 ? norm(l2, flip) : null, [l2, flip]);
+  const nn1 = useMemo(() => (l1 ? norm(l1, flip) : null), [l1, flip]);
+  const nn2 = useMemo(() => (l2 ? norm(l2, flip) : null), [l2, flip]);
   const projector = useMemo(() => {
     if (!tp?.length) return null;
     const pad = 14;
@@ -40,15 +41,15 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
     ctx.clearRect(0, 0, size, size);
     ctx.fillStyle = F1.overlay;
     ctx.beginPath();
-    ctx.moveTo(8, 0);
-    ctx.lineTo(size - 8, 0);
-    ctx.quadraticCurveTo(size, 0, size, 8);
-    ctx.lineTo(size, size - 8);
-    ctx.quadraticCurveTo(size, size, size - 8, size);
-    ctx.lineTo(8, size);
-    ctx.quadraticCurveTo(0, size, 0, size - 8);
-    ctx.lineTo(0, 8);
-    ctx.quadraticCurveTo(0, 0, 8, 0);
+    ctx.moveTo(uiRadii.card, 0);
+    ctx.lineTo(size - uiRadii.card, 0);
+    ctx.quadraticCurveTo(size, 0, size, uiRadii.card);
+    ctx.lineTo(size, size - uiRadii.card);
+    ctx.quadraticCurveTo(size, size, size - uiRadii.card, size);
+    ctx.lineTo(uiRadii.card, size);
+    ctx.quadraticCurveTo(0, size, 0, size - uiRadii.card);
+    ctx.lineTo(0, uiRadii.card);
+    ctx.quadraticCurveTo(0, 0, uiRadii.card, 0);
     ctx.fill();
     ctx.strokeStyle = "rgba(225,6,0,0.22)";
     ctx.lineWidth = 8;
@@ -105,9 +106,12 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
       ctx.fill();
       ctx.shadowBlur = 0;
     }
-    dot(nn1, c1); dot(nn2, c2);
+    dot(nn1, c1);
+    dot(nn2, c2);
   }, [projector, tp, prog, nn1, nn2, c1, c2]);
-  return <canvas ref={ref} width={size} height={size} style={{ width: size, height: size, borderRadius: 8 }} />;
+  return (
+    <canvas ref={ref} width={size} height={size} style={{ width: size, height: size, borderRadius: uiRadii.card }} />
+  );
 });
 
 export default MiniMap;
