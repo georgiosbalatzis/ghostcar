@@ -8,7 +8,6 @@ import {
 
 export default function MobileToolMenu({
   F1,
-  isDark,
   hasReplay,
   hasPrimaryDrivers,
   hasSession,
@@ -23,15 +22,14 @@ export default function MobileToolMenu({
     action();
     onClose();
   };
-  const menuBorderColor = "rgba(59,130,246,0.2)";
+  const menuBorderColor = F1.borderLight;
   const menuSurfaceStyle = {
     ...fixedSurfaceStyle({ top: 0, left: 0, right: 0, zIndex: 50 }),
     ...panelSurfaceStyle(F1, {
-      background: isDark ? "rgba(17,17,24,0.97)" : "rgba(245,245,247,0.97)",
+      background: F1.carbonLight,
       borderColor: menuBorderColor,
       borderRadius: 0,
       padding: "12px 14px 14px",
-      backdropFilter: "blur(20px)",
       boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
     }),
     border: "none",
@@ -118,10 +116,10 @@ export default function MobileToolMenu({
 
   return (
     <>
-      <div onClick={onClose} style={overlayBackdropStyle({ background: "rgba(0,0,0,0.5)", zIndex: 49, blur: 4 })} />
+      <div onClick={onClose} style={overlayBackdropStyle({ background: "rgba(0,0,0,0.5)", zIndex: 49, blur: 0 })} />
       <div style={menuSurfaceStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "#3b82f6", letterSpacing: "0.10em" }}>ΕΡΓΑΛΕΙΑ</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: F1.blue, letterSpacing: "0.10em" }}>ΕΡΓΑΛΕΙΑ</span>
           <button
             title="Κλείσιμο μενού εργαλείων"
             aria-label="Κλείσιμο μενού εργαλείων"

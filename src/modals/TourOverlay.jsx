@@ -25,7 +25,7 @@ export default function TourOverlay({ onClose }) {
   return (
     <div
       style={{
-        ...overlayBackdropStyle({ background: "rgba(0,0,0,0.7)", zIndex: 200, blur: 4 }),
+        ...overlayBackdropStyle({ background: "rgba(0,0,0,0.7)", zIndex: 200, blur: 0 }),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

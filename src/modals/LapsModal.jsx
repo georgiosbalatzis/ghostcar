@@ -29,7 +29,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
     : getModalDrawerSurfaceStyle(F1, { mob, width: 380 });
   return (
-    <div style={wrapStyle}>
+    <div className="analysis-dialog" style={wrapStyle}>
       <div style={getModalHeaderStyle(F1, { padding: "14px 16px" })}>
         <span style={{ fontWeight: 700, fontSize: 14, fontFamily: F1.sans, letterSpacing: "0.05em" }}>
           ΧΡΟΝΟΙ ΓΥΡΩΝ
@@ -42,7 +42,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
               fontSize: 10,
               background: sortMode === "time" ? F1.blue : F1.cardBg,
               borderColor: sortMode === "time" ? F1.blue : F1.borderLight,
-              color: sortMode === "time" ? "#fff" : F1.text,
+              color: sortMode === "time" ? F1.accentContrast : F1.text,
             }}
           >
             ΤΑΧΥΤΕΡΟΙ
@@ -54,7 +54,7 @@ const LapsModal = memo(function LapsModal({ mob, drivers, onClose, inline }) {
               fontSize: 10,
               background: sortMode === "lap" ? F1.blue : F1.cardBg,
               borderColor: sortMode === "lap" ? F1.blue : F1.borderLight,
-              color: sortMode === "lap" ? "#fff" : F1.text,
+              color: sortMode === "lap" ? F1.accentContrast : F1.text,
             }}
           >
             ΓΥΡΟΣ #

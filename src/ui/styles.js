@@ -1,20 +1,20 @@
 export const uiRadii = {
-  control: 4,
-  badge: 3,
-  compactCard: 5,
-  listRow: 6,
-  textArea: 6,
-  telemetryCard: 6,
-  card: 8,
-  driverTelemetryFallbackCard: 10,
-  driverTelemetryCard: 12,
-  embedFrame: 12,
-  lapDeltaCard: 12,
-  modalSurface: 12,
-  panel: 8,
-  sceneErrorPanel: 16,
-  toast: 10,
-  replayPanel: 18,
+  control: 2,
+  badge: 2,
+  compactCard: 2,
+  listRow: 2,
+  textArea: 2,
+  telemetryCard: 2,
+  card: 2,
+  driverTelemetryFallbackCard: 2,
+  driverTelemetryCard: 2,
+  embedFrame: 2,
+  lapDeltaCard: 2,
+  modalSurface: 2,
+  panel: 2,
+  sceneErrorPanel: 2,
+  toast: 2,
+  replayPanel: 2,
 };
 
 export const uiType = {
@@ -101,7 +101,7 @@ export function segmentedButtonStyle(
     inactiveBackground = F1.overlay,
     activeBorder = F1.blue,
     inactiveBorder = F1.borderLight,
-    activeColor = "#fff",
+    activeColor = F1.accentContrast,
     inactiveColor = F1.textDim,
   } = {}
 ) {
@@ -121,7 +121,7 @@ export function panelSurfaceStyle(
   F1,
   {
     background = F1.overlay,
-    borderColor = `${F1.blue}33`,
+    borderColor = F1.borderLight,
     borderRadius = uiRadii.panel,
     padding,
     backdropFilter,
@@ -141,7 +141,7 @@ export function panelSurfaceStyle(
 export function overlayBackdropStyle({
   background = "rgba(0,0,0,0.6)",
   zIndex = 99,
-  blur = 4,
+  blur = 0,
   position = "fixed",
   inset = 0,
 } = {}) {

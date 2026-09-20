@@ -9,14 +9,14 @@ const TAB_DEFS = [
   { id: "season", icon: "🏆", label: "Σεζόν", title: "Σεζόν" },
 ];
 
-function getTabLabel(tab, { embed, mob }) {
-  if (embed && mob) return tab.icon;
-  return `${tab.icon} ${tab.label}`;
+function getTabLabel(tab) {
+  return tab.label;
 }
 
 export default function InlineTabBar({ F1, mob, embed, activeTab, onSelectTab }) {
   return (
     <div
+      className="analysis-tabs"
       style={{
         ...panelSurfaceStyle(F1, {
           background: F1.carbonLight,

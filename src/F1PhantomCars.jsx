@@ -910,6 +910,7 @@ export default function App({ embed }) {
           mob={mob}
           F1={F1}
           highlightConfig={highlightConfig}
+          hasReplay={Boolean(tp)}
           availableYears={AVAILABLE_YEARS}
           year={year}
           meetings={mts}
@@ -951,7 +952,7 @@ export default function App({ embed }) {
       )}
 
       {/* Main area */}
-      <div style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
+      <div className="analysis-workspace" style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
         <ReplayStage
           mob={mob}
           embed={embed}

@@ -3,6 +3,7 @@ import { panelSurfaceStyle } from "../ui/styles.js";
 export default function AppFooter({ mob, F1, logoSrc }) {
   return (
     <div
+      className="app-footer"
       style={{
         ...panelSurfaceStyle(F1, {
           background: F1.carbon,

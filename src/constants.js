@@ -1,84 +1,37 @@
 export { CIRCUIT_DATA, getCircuitInfo } from "./domain/circuit.js";
 
-// ─── F1 Stories Design System — Aligned with f1stories.gr ───
-// Dark: "Neutral Charcoal" — matches f1stories.gr dark mode
-// Light: "Clean White" — Apple-inspired, matches f1stories.gr light mode
-// Accent: #E10600 (F1 red) used sparingly for highlights & CTAs
-
-export const F1_DARK = {
-  // Primary accent
-  red: "#E10600", redDark: "#B30500", redGlow: "rgba(225,6,0,0.15)",
-  blue: "#3b82f6", blueDark: "#2563eb", blueGlow: "rgba(59,130,246,0.15)",
-
-  // Backgrounds — f1stories.gr dark palette
-  carbon: "#111118",         // deepest background (was #15151e)
-  carbonLight: "#18181f",    // slightly elevated surfaces
-  carbonMid: "#1e1e28",      // hover / elevated cards
-  panelBg: "rgba(14,14,22,0.97)",
-  overlay: "rgba(10,10,16,0.94)",
-  cardBg: "rgba(22,22,32,0.88)",
-  inputBg: "rgba(24,24,36,0.95)",
-
-  // Text — softer contrast, less blue-tinted
-  text: "#e4e4ec",
-  textDim: "#8a8a9e",
-  textMuted: "#4e4e64",
-
-  // Borders — subtle, warm-neutral
-  border: "rgba(70,70,100,0.22)",
-  borderLight: "rgba(55,55,80,0.15)",
-
-  // Semantic colors
-  green: "#00d26a", greenDim: "#00a854",
-  yellow: "#ffd700",
-  purple: "#9b59b6",
-  white: "#ffffff",
-
-  // 3D scene
-  fogColor: 0x0e0e16, groundColor: 0x141420,
-  trackColor: 0x36364a, lineColor: 0xe10600, sceneBg: 0x0e0e16,
-
-  // Typography — Titillium Web (same as f1stories.gr)
-  mono: "'Titillium Web', 'Barlow Condensed', sans-serif",
-  sans: "'Titillium Web', sans-serif",
+// F1Stories editorial palette, verified against the rendered homepage in both themes.
+// Legacy accent property names remain aliases so consumers keep their existing contracts.
+const typography = {
+  sans: "'IBM Plex Sans', system-ui, sans-serif",
+  mono: "'IBM Plex Sans', system-ui, sans-serif",
+  display: "'Barlow Condensed', 'IBM Plex Sans', sans-serif",
 };
-
+export const F1_DARK = {
+  ...typography,
+  red: "#ff826b", redDark: "#ed4c32", redGlow: "#ff826b12",
+  blue: "#ff826b", blueDark: "#ffa28f", blueGlow: "#ff826b12",
+  accentContrast: "#17191b",
+  carbon: "#181a1c", carbonLight: "#222426", carbonMid: "#2c2e30",
+  panelBg: "#181a1c", overlay: "#222426", cardBg: "#222426", inputBg: "#222426",
+  text: "#eee7dc", textDim: "#bcb8b0", textMuted: "#aaa69e",
+  border: "#47494a", borderLight: "#36383a",
+  green: "#90c8a6", greenDim: "#77b68f", yellow: "#dfc078", purple: "#bd9bd1", white: "#ffffff",
+  fogColor: 0x181a1c, groundColor: 0x222426,
+  trackColor: 0x515455, lineColor: 0xed4c32, sceneBg: 0x181a1c,
+};
 export const F1_LIGHT = {
-  // Primary accent
-  red: "#E10600", redDark: "#B30500", redGlow: "rgba(225,6,0,0.08)",
-  blue: "#2563eb", blueDark: "#1d4ed8", blueGlow: "rgba(59,130,246,0.12)",
-
-  // Backgrounds — f1stories.gr clean white palette
-  carbon: "#f5f5f7",         // main bg (Apple-inspired off-white)
-  carbonLight: "#ededf0",    // slightly darker surface
-  carbonMid: "#e0e0e6",      // hover states
-  panelBg: "rgba(255,255,255,0.98)",
-  overlay: "rgba(248,248,252,0.96)",
-  cardBg: "rgba(240,240,244,0.9)",
-  inputBg: "rgba(255,255,255,0.96)",
-
-  // Text — true dark for readability
-  text: "#1a1a2e",
-  textDim: "#555570",
-  textMuted: "#8888a0",
-
-  // Borders — very subtle
-  border: "rgba(0,0,0,0.1)",
-  borderLight: "rgba(0,0,0,0.06)",
-
-  // Semantic colors — slightly toned down for light bg
-  green: "#00a854", greenDim: "#008844",
-  yellow: "#cc9900",
-  purple: "#8844aa",
-  white: "#ffffff",
-
-  // 3D scene — lighter, cleaner
-  fogColor: 0xeceef2, groundColor: 0xdddee4,
-  trackColor: 0x8a8a9a, lineColor: 0xe10600, sceneBg: 0xeceef2,
-
-  // Typography
-  mono: "'Titillium Web', 'Barlow Condensed', sans-serif",
-  sans: "'Titillium Web', sans-serif",
+  ...typography,
+  red: "#a82e1c", redDark: "#8e281a", redGlow: "#a82e1c12",
+  blue: "#a82e1c", blueDark: "#8e281a", blueGlow: "#a82e1c12",
+  accentContrast: "#f2eee4",
+  carbon: "#f2eee4", carbonLight: "#e9e3d6", carbonMid: "#dfd9ca",
+  panelBg: "#f2eee4", overlay: "#e9e3d6", cardBg: "#e9e3d6", inputBg: "#f2eee4",
+  text: "#20251f", textDim: "#505649", textMuted: "#5b6256",
+  border: "#b6b6a7", borderLight: "#c8c8b9",
+  green: "#286342", greenDim: "#286342", yellow: "#85600d", purple: "#785392", white: "#ffffff",
+  fogColor: 0xe9e3d6, groundColor: 0xdfd9ca,
+  trackColor: 0x777b72, lineColor: 0xa82e1c, sceneBg: 0xe9e3d6,
 };
 
 export const TIRE_COLORS = { SOFT: "#ff3333", MEDIUM: "#ffcc00", HARD: "#cccccc", INTERMEDIATE: "#44cc44", WET: "#4488ff" };

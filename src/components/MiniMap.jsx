@@ -51,7 +51,7 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
     ctx.lineTo(0, uiRadii.card);
     ctx.quadraticCurveTo(0, 0, uiRadii.card, 0);
     ctx.fill();
-    ctx.strokeStyle = "rgba(225,6,0,0.22)";
+    ctx.strokeStyle = F1.borderLight;
     ctx.lineWidth = 8;
     ctx.beginPath();
     tp.forEach((point, index) => {
@@ -61,7 +61,7 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
     });
     ctx.closePath();
     ctx.stroke();
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = F1.textMuted;
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     tp.forEach((point, index) => {
@@ -75,11 +75,11 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
     ctx.save();
     ctx.translate(start.x, start.y);
     ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = F1.text;
     ctx.fillRect(-4, -4, 8, 8);
     ctx.restore();
     staticCanvasRef.current = staticCanvas;
-  }, [F1.overlay, projector, size, tp]);
+  }, [F1.overlay, F1.borderLight, F1.textMuted, F1.text, projector, size, tp]);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -100,7 +100,7 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
       ctx.fill();
       ctx.fillStyle = color;
       ctx.shadowColor = color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(pp.x, pp.y, 5.5, 0, Math.PI * 2);
       ctx.fill();
@@ -108,7 +108,7 @@ const MiniMap = memo(function MM({ tp, l1, l2, prog, c1, c2, size = 150, flip = 
     }
     dot(nn1, c1);
     dot(nn2, c2);
-  }, [projector, tp, prog, nn1, nn2, c1, c2]);
+  }, [F1, projector, tp, prog, nn1, nn2, c1, c2]);
   return (
     <canvas ref={ref} width={size} height={size} style={{ width: size, height: size, borderRadius: uiRadii.card }} />
   );

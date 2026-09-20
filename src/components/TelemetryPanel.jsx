@@ -1,6 +1,5 @@
 import { memo, useMemo } from "react";
 import { useF1 } from "../theme.js";
-import { TIRE_COLORS } from "../constants.js";
 import { telAt } from "../helpers.js";
 import { uiRadii } from "../ui/styles.js";
 import TelChart from "./TelChart.jsx";
@@ -90,7 +89,8 @@ const TelemetryPanel = memo(function TelemetryPanel({
   const brakeTraces = useMemo(() => allDrivers.map((d) => ({ data: d.b, color: d.co })), [allDrivers]);
 
   return (
-    <div style={{ padding: mob ? 10 : 14, overflowY: "auto", flex: 1 }}>
+    <div className="telemetry-panel" style={{ padding: mob ? 10 : 14, overflowY: "auto", flex: 1 }}>
+      <div className="section-label">03 / Τηλεμετρία</div>
       {/* Speedometer gauges */}
       <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
         {allDrivers.map((x, i) => {
@@ -98,6 +98,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
           return (
             <div
               key={i}
+              className="telemetry-driver"
               style={{
                 flex: 1,
                 minWidth: numDrivers > 2 ? 120 : "auto",
@@ -120,134 +121,73 @@ const TelemetryPanel = memo(function TelemetryPanel({
               >
                 {x.di?.name_acronym || "—"}
               </div>
-              <svg
-                width={numDrivers > 2 ? "70" : "90"}
-                height={numDrivers > 2 ? "42" : "55"}
-                viewBox="0 0 90 55"
-                style={{ margin: "2px auto" }}
-              >
-                <path
-                  d="M 10 50 A 35 35 0 0 1 80 50"
-                  fill="none"
-                  stroke={F1.border}
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 10 50 A 35 35 0 0 1 80 50"
-                  fill="none"
-                  stroke={x.co}
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(Math.min(ct.speed, 360) / 360) * 110} 110`}
-                />
-                <text
-                  x="45"
-                  y="42"
-                  textAnchor="middle"
-                  fill={F1.text}
-                  fontSize="18"
-                  fontWeight="900"
-                  fontFamily={F1.mono}
-                >
-                  {Math.round(ct.speed)}
-                </text>
-                <text x="45" y="52" textAnchor="middle" fill={F1.textMuted} fontSize="7" fontFamily={F1.mono}>
-                  KM/H
-                </text>
-              </svg>
-              <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 1 }}>
-                <div style={{ width: 24, textAlign: "center" }}>
-                  <div
-                    style={{
-                      height: 16,
-                      width: 5,
-                      margin: "0 auto",
-                      background: F1.border,
-                      borderRadius: uiRadii.control / 2,
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        width: "100%",
-                        height: `${ct.throttle}%`,
-                        background: F1.green,
-                        borderRadius: uiRadii.control / 2,
-                        transition: "height 0.1s",
-                      }}
-                    />
-                  </div>
-                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΓΚΖ</div>
-                </div>
-                <div style={{ width: 24, textAlign: "center" }}>
-                  <div
-                    style={{
-                      height: 16,
-                      width: 5,
-                      margin: "0 auto",
-                      background: F1.border,
-                      borderRadius: uiRadii.control / 2,
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        width: "100%",
-                        height: ct.brake > 0 ? "100%" : "0%",
-                        background: F1.red,
-                        borderRadius: uiRadii.control / 2,
-                        transition: "height 0.1s",
-                      }}
-                    />
-                  </div>
-                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΦΡΝ</div>
-                </div>
-                <div style={{ width: 24, textAlign: "center" }}>
-                  <div
-                    style={{ fontSize: 14, fontWeight: 900, color: F1.text, fontFamily: F1.mono, lineHeight: "16px" }}
-                  >
-                    {ct.n_gear ?? ct.gear ?? "—"}
-                  </div>
-                  <div style={{ fontSize: 6, color: F1.textMuted, fontFamily: F1.mono, marginTop: 1 }}>ΣΧ</div>
-                </div>
+              <div className="telemetry-speed">
+                {Math.round(ct.speed || 0)}
+                <small>km/h</small>
               </div>
-              {x.tire && (
-                <div style={{ position: "absolute", top: 4, right: 4, display: "flex", alignItems: "center", gap: 2 }}>
-                  <div
-                    style={{ width: 5, height: 5, borderRadius: "50%", background: TIRE_COLORS[x.tire] || "#888" }}
-                  />
-                  <span style={{ fontSize: 7, fontFamily: F1.mono, color: F1.textMuted }}>{x.tire}</span>
-                </div>
-              )}
-              {ct.drs >= 10 && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 3,
-                    right: 4,
-                    fontSize: 7,
-                    fontWeight: 700,
-                    color: F1.green,
-                    fontFamily: F1.mono,
-                    background: `${F1.green}15`,
-                    padding: "1px 3px",
-                    borderRadius: uiRadii.control / 2,
-                    animation: "pulse 1s infinite",
-                  }}
-                >
-                  DRS
-                </div>
-              )}
+              <div className="telemetry-metrics">
+                <span>
+                  Γκάζι<b>{Math.round(ct.throttle || 0)}%</b>
+                </span>
+                <span>
+                  Φρένο<b>{ct.brake > 0 ? "Ναι" : "Όχι"}</b>
+                </span>
+                <span>
+                  Σχέση<b>{ct.n_gear ?? ct.gear ?? "—"}</b>
+                </span>
+                <span>
+                  DRS<b>{ct.drs >= 10 ? "Ανοιχτό" : "Κλειστό"}</b>
+                </span>
+              </div>
+              {x.tire && <div style={{ marginTop: 8, fontSize: 10, color: F1.textDim }}>{x.tire}</div>}
             </div>
           );
         })}
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        {/* Telemetry charts */}
+        <div
+          style={{
+            fontSize: 10,
+            color: F1.textMuted,
+            fontFamily: F1.mono,
+            letterSpacing: "0.1em",
+            marginBottom: 3,
+            fontWeight: 700,
+          }}
+        >
+          ΤΑΧΥΤΗΤΑ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span>
+        </div>
+        <TelChart traces={speedTraces} maxVal={370} prog={prog} />
+        <div
+          style={{
+            fontSize: 10,
+            color: F1.textMuted,
+            fontFamily: F1.mono,
+            letterSpacing: "0.1em",
+            marginBottom: 3,
+            marginTop: 8,
+            fontWeight: 700,
+          }}
+        >
+          ΓΚΑΖΙ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span>
+        </div>
+        <TelChart traces={throttleTraces} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
+        <div
+          style={{
+            fontSize: 10,
+            color: F1.textMuted,
+            fontFamily: F1.mono,
+            letterSpacing: "0.1em",
+            marginBottom: 3,
+            marginTop: 8,
+            fontWeight: 700,
+          }}
+        >
+          ΦΡΕΝΟ
+        </div>
+        <TelChart traces={brakeTraces} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
       </div>
 
       {/* Elevation */}
@@ -338,7 +278,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                     </g>
                   );
                 })}
-                {["S1", "S2", "S3", "END"].map((l, i) => (
+                {["START", "S1", "S2", "S3"].map((l, i) => (
                   <text
                     key={l}
                     x={(i / 3) * 280 + 10}
@@ -384,18 +324,18 @@ const TelemetryPanel = memo(function TelemetryPanel({
                 style={{
                   flex: 1,
                   minWidth: 48,
-                  background: F1.cardBg,
+                  background: "transparent",
                   borderRadius: uiRadii.badge,
                   padding: "3px 4px",
                   textAlign: "center",
                 }}
               >
-                <div style={{ fontSize: 7, color: F1.textMuted, fontFamily: F1.mono }}>{trap.label}</div>
+                <div style={{ fontSize: 9, color: F1.textMuted, fontFamily: F1.mono }}>{trap.label}</div>
                 <div
                   style={{
                     fontSize: 11,
                     fontWeight: 800,
-                    color: trap.faster === 1 ? co1 : trap.faster === 2 ? co2 : F1.text,
+                    color: co1,
                     fontFamily: F1.mono,
                   }}
                 >
@@ -405,7 +345,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                   style={{
                     fontSize: 11,
                     fontWeight: 800,
-                    color: trap.faster === 2 ? co2 : trap.faster === 1 ? co1 : F1.text,
+                    color: co2,
                     fontFamily: F1.mono,
                     opacity: 0.7,
                   }}
@@ -421,7 +361,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
       {/* Sector indicator */}
       {tp &&
         (() => {
-          const sColors = ["#00d26a", "#ffd700", "#9b59b6"];
+          const sColors = [F1.text, F1.text, F1.text];
           const sLabels = ["ΤΟΜΕΑΣ 1", "ΤΟΜΕΑΣ 2", "ΤΟΜΕΑΣ 3"];
           return (
             <div style={{ display: "flex", gap: 3, marginBottom: 10 }}>
@@ -433,8 +373,8 @@ const TelemetryPanel = memo(function TelemetryPanel({
                     padding: "4px 0",
                     textAlign: "center",
                     borderRadius: uiRadii.badge,
-                    background: s === sIdx ? sColors[s] + "22" : F1.cardBg,
-                    border: s === sIdx ? `1px solid ${sColors[s]}55` : "1px solid transparent",
+                    background: "transparent",
+                    borderBottom: s === sIdx ? `2px solid ${F1.blue}` : `1px solid ${F1.borderLight}`,
                     transition: "all 0.3s",
                   }}
                 >
@@ -457,7 +397,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                         borderRadius: "50%",
                         background: sColors[s],
                         margin: "3px auto 0",
-                        boxShadow: `0 0 8px ${sColors[s]}`,
+                        boxShadow: "none",
                       }}
                     />
                   )}
@@ -533,49 +473,6 @@ const TelemetryPanel = memo(function TelemetryPanel({
             </div>
           );
         })()}
-
-      {/* Telemetry charts */}
-      <div
-        style={{
-          fontSize: 10,
-          color: F1.textMuted,
-          fontFamily: F1.mono,
-          letterSpacing: "0.1em",
-          marginBottom: 3,
-          fontWeight: 700,
-        }}
-      >
-        ΤΑΧΥΤΗΤΑ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(km/h)</span>
-      </div>
-      <TelChart traces={speedTraces} maxVal={370} prog={prog} />
-      <div
-        style={{
-          fontSize: 10,
-          color: F1.textMuted,
-          fontFamily: F1.mono,
-          letterSpacing: "0.1em",
-          marginBottom: 3,
-          marginTop: 8,
-          fontWeight: 700,
-        }}
-      >
-        ΓΚΑΖΙ <span style={{ color: F1.textMuted, fontWeight: 400 }}>(%)</span>
-      </div>
-      <TelChart traces={throttleTraces} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
-      <div
-        style={{
-          fontSize: 10,
-          color: F1.textMuted,
-          fontFamily: F1.mono,
-          letterSpacing: "0.1em",
-          marginBottom: 3,
-          marginTop: 8,
-          fontWeight: 700,
-        }}
-      >
-        ΦΡΕΝΟ
-      </div>
-      <TelChart traces={brakeTraces} maxVal={100} h={35} prog={prog} fillColor={`${F1.red}10`} />
     </div>
   );
 });

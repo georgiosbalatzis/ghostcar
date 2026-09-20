@@ -5,6 +5,7 @@ export default function ErrorBanner({ F1, message, onClose }) {
 
   return (
     <div
+      role="alert"
       style={{
         ...panelSurfaceStyle(F1, {
           background: `${F1.red}11`,

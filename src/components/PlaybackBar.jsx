@@ -34,12 +34,13 @@ export default function PlaybackBar({
 
   return (
     <div
+      className="playback-bar"
       style={{
         display: "flex",
         alignItems: "center",
         gap: isCompactEmbed ? 4 : mob ? 6 : 10,
         padding: isCompactEmbed ? "5px 8px" : mob ? "6px 10px" : "6px 18px",
-        background: `linear-gradient(180deg, ${F1.carbonLight}, ${F1.carbon})`,
+        background: F1.carbon,
         borderTop: `1px solid ${F1.blue}22`,
         flexShrink: 0,
       }}
@@ -55,6 +56,7 @@ export default function PlaybackBar({
         </button>
       )}
       <button
+        className="play-button"
         title={playTitle}
         aria-label={playTitle}
         onClick={onStart}
@@ -76,10 +78,11 @@ export default function PlaybackBar({
           onClick={onToggleLoop}
           style={controlButtonStyle({ padding: "3px 7px", opacity: loop ? 1 : 0.35, fontSize: 11 })}
         >
-          {mob ? "🔁" : "🔁 ΕΠΑΝ."}
+          {mob ? "↻" : "↻ ΕΠΑΝ."}
         </button>
       )}
       <input
+        aria-label="Πρόοδος γύρου"
         type="range"
         min="0"
         max="1"
@@ -89,6 +92,7 @@ export default function PlaybackBar({
         style={{ flex: 1, height: isCompactEmbed ? 6 : 4, accentColor: F1.blue }}
       />
       <div
+        className="playback-times"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -113,6 +117,7 @@ export default function PlaybackBar({
       </div>
       {!embed && (
         <button
+          className="setup-button"
           title="Επιστροφή στις επιλογές"
           aria-label="Επιστροφή στις επιλογές"
           onClick={onSetup}
@@ -122,6 +127,7 @@ export default function PlaybackBar({
         </button>
       )}
       <select
+        aria-label="Ταχύτητα αναπαραγωγής"
         value={speed}
         onChange={(event) => onSpeedChange(parseFloat(event.target.value))}
         style={{ width: isCompactEmbed ? 42 : 48, padding: "2px 3px", fontSize: 10 }}
@@ -139,7 +145,7 @@ export default function PlaybackBar({
           onClick={onToggleTelemetry}
           style={controlButtonStyle({ padding: "3px 7px", fontSize: 10, opacity: showTelemetry ? 1 : 0.35 })}
         >
-          {showTelemetry ? "📊 ON" : "📊 OFF"}
+          {showTelemetry ? "Τηλεμετρία −" : "Τηλεμετρία +"}
         </button>
       )}
       {embed && !mob && (

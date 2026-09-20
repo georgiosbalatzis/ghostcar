@@ -80,8 +80,8 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
 
     scene = new Scene();
     if (isDark) {
-      scene.background = new Color(0x080812);
-      scene.fog = new FogExp2(0x080812, 0.006);
+      scene.background = new Color(theme.sceneBg);
+      scene.fog = new FogExp2(theme.sceneBg, 0.006);
     } else {
       scene.background = new Color(theme.sceneBg);
       scene.fog = new Fog(theme.sceneBg, 120, 350);

@@ -5,6 +5,7 @@ export default function LoadingStatusBar({ F1, message, progress, canCancel, onC
 
   return (
     <div
+      role="status"
       style={{
         ...panelSurfaceStyle(F1, {
           background: "transparent",

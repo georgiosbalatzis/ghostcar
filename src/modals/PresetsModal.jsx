@@ -101,7 +101,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
   }, [query, circuitOptions]);
 
   return (
-    <div style={getModalSurfaceStyle(F1, { mob, width: 540, maxHeight: "80vh" })}>
+    <div className="analysis-dialog" style={getModalSurfaceStyle(F1, { mob, width: 540, maxHeight: "80vh" })}>
       <div style={getModalHeaderStyle(F1)}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>
@@ -147,32 +147,35 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
             ))}
           </select>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 12 }}>
-          <select
-            value={driverFilter}
-            onChange={(e) => setDriverFilter(e.target.value)}
-            style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
-          >
-            <option value="all">Ολοι οι οδηγοί</option>
-            {driverOptions.map((driver) => (
-              <option key={driver.value} value={driver.value}>
-                {driver.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={circuitFilter}
-            onChange={(e) => setCircuitFilter(e.target.value)}
-            style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
-          >
-            <option value="all">Ολες οι πίστες</option>
-            {circuitOptions.map((circuit) => (
-              <option key={circuit.value} value={circuit.value}>
-                {circuit.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <details className="preset-filters">
+          <summary>Φίλτρα οδηγού και πίστας</summary>
+          <div style={{ display: "grid", gridTemplateColumns: mob ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <select
+              value={driverFilter}
+              onChange={(e) => setDriverFilter(e.target.value)}
+              style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
+            >
+              <option value="all">Ολοι οι οδηγοί</option>
+              {driverOptions.map((driver) => (
+                <option key={driver.value} value={driver.value}>
+                  {driver.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={circuitFilter}
+              onChange={(e) => setCircuitFilter(e.target.value)}
+              style={{ width: "100%", borderRadius: uiRadii.card, padding: "10px 12px", fontSize: 12 }}
+            >
+              <option value="all">Ολες οι πίστες</option>
+              {circuitOptions.map((circuit) => (
+                <option key={circuit.value} value={circuit.value}>
+                  {circuit.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </details>
         {!!query && (!!matchingDrivers.length || !!matchingCircuits.length) && (
           <div
             style={{
@@ -210,106 +213,81 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
             </div>
           </div>
         )}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-          <button
-            onClick={() => setYearFilter("all")}
-            style={{
-              padding: "5px 10px",
-              fontSize: 10,
-              background: yearFilter === "all" ? F1.blue : F1.cardBg,
-              borderColor: yearFilter === "all" ? F1.blue : F1.borderLight,
-              color: yearFilter === "all" ? "#fff" : F1.text,
-            }}
-          >
-            ΟΛΑ
-          </button>
-          {years.map((yr) => (
-            <button
-              key={yr}
-              onClick={() => setYearFilter(yr)}
-              style={{
-                padding: "5px 10px",
-                fontSize: 10,
-                background: yearFilter === yr ? F1.blue : F1.cardBg,
-                borderColor: yearFilter === yr ? F1.blue : F1.borderLight,
-                color: yearFilter === yr ? "#fff" : unavailableSet.has(yr) ? F1.textMuted : F1.text,
-                opacity: unavailableSet.has(yr) ? 0.7 : 1,
-              }}
-            >
-              {yr}
-            </button>
-          ))}
-        </div>
-        {years.map((yr) => {
-          const items = filteredPresets.filter((p) => p.cat === yr);
-          if (!items.length) return null;
-          const yearUnavailable = unavailableSet.has(yr);
-          return (
-            <div key={yr} style={{ marginBottom: 16 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  alignItems: "baseline",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  color: F1.blue,
-                  letterSpacing: "0.12em",
-                  marginBottom: 8,
-                  fontFamily: F1.mono,
-                  borderBottom: `1px solid ${F1.blue}22`,
-                  paddingBottom: 4,
-                }}
-              >
-                <span>ΣΕΖΟΝ {yr}</span>
-                {yearUnavailable && (
-                  <span style={{ fontSize: 9, color: F1.textMuted, letterSpacing: "0.04em" }}>
-                    Η τηλεμετρία έρχεται σύντομα
-                  </span>
-                )}
-              </div>
-              {items.map((p, i) => (
-                <button
-                  key={i}
-                  onClick={() => !yearUnavailable && onLoadPreset(p)}
-                  disabled={yearUnavailable}
-                  title={
-                    yearUnavailable
-                      ? "Αυτό το preset θα ενεργοποιηθεί μόλις υπάρξει διαθέσιμη τηλεμετρία για τη σεζόν."
-                      : p.label
-                  }
+        {[...years]
+          .sort((a, b) => Number(unavailableSet.has(a)) - Number(unavailableSet.has(b)))
+          .map((yr) => {
+            const items = filteredPresets.filter((p) => p.cat === yr);
+            if (!items.length) return null;
+            const yearUnavailable = unavailableSet.has(yr);
+            return (
+              <div key={yr} style={{ marginBottom: 16 }}>
+                <div
                   style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "10px 12px",
-                    marginBottom: 4,
-                    fontSize: 12,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    alignItems: "baseline",
+                    fontSize: 11,
+                    fontWeight: 900,
+                    color: F1.blue,
+                    letterSpacing: "0.12em",
+                    marginBottom: 8,
                     fontFamily: F1.mono,
-                    borderLeft: `3px solid ${yearUnavailable ? F1.textMuted : F1.blue}`,
-                    lineHeight: 1.4,
-                    opacity: yearUnavailable ? 0.55 : 1,
-                    cursor: yearUnavailable ? "not-allowed" : "pointer",
+                    borderBottom: `1px solid ${F1.blue}22`,
+                    paddingBottom: 4,
                   }}
                 >
-                  <div style={{ fontWeight: 700, color: yearUnavailable ? F1.textDim : F1.text }}>{p.label}</div>
-                  <div
+                  <span>ΣΕΖΟΝ {yr}</span>
+                  {yearUnavailable && (
+                    <span style={{ fontSize: 9, color: F1.textMuted, letterSpacing: "0.04em" }}>
+                      Η τηλεμετρία έρχεται σύντομα
+                    </span>
+                  )}
+                </div>
+                {items.map((p, i) => (
+                  <button
+                    key={i}
+                    className="preset-row"
+                    onClick={() => !yearUnavailable && onLoadPreset(p)}
+                    disabled={yearUnavailable}
+                    title={
+                      yearUnavailable
+                        ? "Αυτό το preset θα ενεργοποιηθεί μόλις υπάρξει διαθέσιμη τηλεμετρία για τη σεζόν."
+                        : p.label
+                    }
                     style={{
-                      marginTop: 4,
-                      fontSize: 10,
-                      color: yearUnavailable ? F1.textMuted : F1.textDim,
-                      fontFamily: F1.sans,
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      marginBottom: 4,
+                      fontSize: 12,
+                      fontFamily: F1.mono,
+                      borderLeft: `3px solid ${yearUnavailable ? F1.textMuted : F1.blue}`,
+                      lineHeight: 1.4,
+                      opacity: yearUnavailable ? 0.55 : 1,
+                      cursor: yearUnavailable ? "not-allowed" : "pointer",
                     }}
                   >
-                    {DRIVER_NAME_BY_NUMBER[p.d1] || `#${p.d1}`} εναντίον {DRIVER_NAME_BY_NUMBER[p.d2] || `#${p.d2}`} •{" "}
-                    {p.meeting.replace(" Grand Prix", "")} • {formatSessionLabel(p.session)}
-                  </div>
-                </button>
-              ))}
-            </div>
-          );
-        })}
+                    <div style={{ fontWeight: 700, color: yearUnavailable ? F1.textDim : F1.text }}>
+                      {p.label.replace(/^[^A-Za-zΑ-Ωα-ω0-9]+/u, "")}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 10,
+                        color: yearUnavailable ? F1.textMuted : F1.textDim,
+                        fontFamily: F1.sans,
+                      }}
+                    >
+                      {DRIVER_NAME_BY_NUMBER[p.d1] || `#${p.d1}`} εναντίον {DRIVER_NAME_BY_NUMBER[p.d2] || `#${p.d2}`} •{" "}
+                      {p.meeting.replace(" Grand Prix", "")} • {formatSessionLabel(p.session)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         {!filteredPresets.length && (
           <div style={{ padding: "18px 6px", fontSize: 12, color: F1.textDim, textAlign: "center", lineHeight: 1.6 }}>
             Δεν βρέθηκαν presets με αυτά τα φίλτρα. Μπορείς να χρησιμοποιήσεις τα γρήγορα φίλτρα οδηγών και πιστών πιο

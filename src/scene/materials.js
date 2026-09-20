@@ -16,7 +16,7 @@ export function createVertexColorLineMaterial(opacity = 1) {
 
 export function createGroundMaterial({ isDark, theme }) {
   return isDark
-    ? new MeshStandardMaterial({ color: 0x0a0a14, roughness: 0.95, metalness: 0.05 })
+    ? new MeshStandardMaterial({ color: theme.groundColor, roughness: 0.95, metalness: 0.05 })
     : new MeshBasicMaterial({ color: theme.groundColor });
 }
 

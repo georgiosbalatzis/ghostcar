@@ -33,6 +33,8 @@ const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
       preserveAspectRatio="none"
       style={{ borderRadius: uiRadii.badge, background: F1.cardBg, display: "block", marginBottom: 2 }}
     >
+      <line x1="0" y1={H - 1} x2={W} y2={H - 1} stroke={F1.borderLight} />
+      <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke={F1.borderLight} strokeDasharray="2 5" />
       {traces.map((tr, i) => {
         const path = paths[i];
         if (!path) return null;
@@ -45,14 +47,14 @@ const TelChart = memo(function TC({ traces, maxVal, h: ch, prog, fillColor }) {
               fill="none"
               stroke={tr.color}
               strokeWidth={isFirst ? 1.5 : 1.2}
-              opacity={isFirst ? 0.8 : 0.5}
+              opacity={0.9}
               strokeDasharray={isFirst ? "none" : `${4 + i},${2 + i}`}
             />
           </g>
         );
       })}
       {prog !== undefined && (
-        <line x1={prog * W} y1="0" x2={prog * W} y2={H} stroke="#fff" strokeWidth="1" opacity="0.5" />
+        <line x1={prog * W} y1="0" x2={prog * W} y2={H} stroke={F1.text} strokeWidth="1" opacity="0.5" />
       )}
       {prog !== undefined &&
         traces.map((tr, i) => {

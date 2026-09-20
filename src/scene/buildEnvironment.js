@@ -48,9 +48,9 @@ function createGroundGlowTexture(size) {
   const ctx = canvas.getContext("2d");
   const half = size / 2;
   const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-  grad.addColorStop(0, "rgba(30,35,60,0.5)");
-  grad.addColorStop(0.5, "rgba(15,18,35,0.3)");
-  grad.addColorStop(1, "rgba(8,8,18,0)");
+  grad.addColorStop(0, "rgba(38,40,42,0.22)");
+  grad.addColorStop(0.5, "rgba(30,32,34,0.12)");
+  grad.addColorStop(1, "rgba(24,26,28,0)");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
   return new CanvasTexture(canvas);
@@ -61,7 +61,7 @@ function createGroundGridTexture() {
   canvas.width = 512;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  ctx.strokeStyle = "rgba(255,255,255,0.03)";
+  ctx.strokeStyle = "rgba(238,231,220,0.015)";
   ctx.lineWidth = 1;
   for (let i = 0; i <= 512; i += 32) {
     ctx.beginPath();

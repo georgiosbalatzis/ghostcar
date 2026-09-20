@@ -10,7 +10,7 @@ import {
 export default function GalleryModal({ mob, gallery, onClose, onClear, onSelect }) {
   const F1 = useF1();
   return (
-    <div style={getModalSurfaceStyle(F1, { mob, width: 500, maxHeight: "80vh" })}>
+    <div className="analysis-dialog" style={getModalSurfaceStyle(F1, { mob, width: 500, maxHeight: "80vh" })}>
       <div style={getModalHeaderStyle(F1)}>
         <span style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>ΣΥΛΛΟΓΗ ΣΥΓΚΡΙΣΕΩΝ</span>
         <button aria-label="Κλείσιμο συλλογής συγκρίσεων" onClick={onClose} style={getModalCloseButtonStyle(F1)}>
@@ -24,7 +24,8 @@ export default function GalleryModal({ mob, gallery, onClose, onClear, onSelect 
           </div>
         ) : (
           gallery.map((g) => (
-            <div
+            <button
+              className="gallery-row"
               key={g.id}
               style={{
                 display: "flex",
@@ -67,7 +68,7 @@ export default function GalleryModal({ mob, gallery, onClose, onClear, onSelect 
                   {g.delta}s
                 </div>
               </div>
-            </div>
+            </button>
           ))
         )}
         {gallery.length > 0 && (

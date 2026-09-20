@@ -74,11 +74,13 @@ test("available modals open and close with Escape", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByText(/ΕΠΙΛΕΓΜΕΝΕΣ ΜΑΧΕΣ/)).toBeHidden();
 
+  await page.getByLabel("Άνοιγμα μενού εργαλείων").click();
   await page.getByRole("button", { name: "Άνοιγμα συλλογής" }).click();
   await expect(page.getByText(/ΣΥΛΛΟΓΗ ΣΥΓΚΡΙΣΕΩΝ/)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByText(/ΣΥΛΛΟΓΗ ΣΥΓΚΡΙΣΕΩΝ/)).toBeHidden();
 
+  await page.getByLabel("Άνοιγμα μενού εργαλείων").click();
   await page.getByRole("button", { name: "Εμφάνιση συντομεύσεων πληκτρολογίου" }).click();
   await expect(page.getByText(/ΣΥΝΤΟΜΕΥΣΕΙΣ ΠΛΗΚΤΡΟΛΟΓΙΟΥ/)).toBeVisible();
   await page.keyboard.press("Escape");

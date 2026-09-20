@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react";
 import { CAM_LABELS, CAM_MODES } from "../constants.js";
 import { fmt } from "../helpers.js";
-import { controlButtonStyle, panelSurfaceStyle, segmentedButtonStyle, uiRadii, uiType } from "../ui/styles.js";
+import { controlButtonStyle, panelSurfaceStyle, segmentedButtonStyle, uiRadii } from "../ui/styles.js";
 import MiniMap from "./MiniMap.jsx";
 import SectorDelta from "./SectorDelta.jsx";
 import TrackReplay2D from "./TrackReplay2D.jsx";
@@ -24,6 +24,7 @@ function TrackViewButtons({ F1, compact = false, trackView, onTrackViewMode }) {
 function DriverTelemetryCard({ F1, driver, progress, fallback = false }) {
   return (
     <div
+      className="replay-driver"
       style={{
         minWidth: 0,
         ...panelSurfaceStyle(F1, {
@@ -59,6 +60,7 @@ function TwoDLapDelta({ F1, delta, driver1, driver2, color1, color2, lap1, lap2 
 
   return (
     <div
+      className="replay-delta"
       style={{
         minWidth: 0,
         ...panelSurfaceStyle(F1, {
@@ -73,6 +75,7 @@ function TwoDLapDelta({ F1, delta, driver1, driver2, color1, color2, lap1, lap2 
         ΔΙΑΦΟΡΑ ΓΥΡΟΥ
       </div>
       <div
+        className="replay-delta-number"
         style={{
           fontSize: 28,
           fontWeight: 900,
@@ -84,7 +87,10 @@ function TwoDLapDelta({ F1, delta, driver1, driver2, color1, color2, lap1, lap2 
         {delta > 0 ? "+" : ""}
         {delta.toFixed(3)}s
       </div>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 10, color: F1.textDim }}>
+      <div style={{ fontSize: 11, color: F1.textDim }}>
+        {delta === 0 ? "Ίδιος χρόνος" : `${delta < 0 ? driver1?.name_acronym : driver2?.name_acronym} ταχύτερος`}
+      </div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 11, color: F1.textDim }}>
         <span style={{ color: color1 }}>
           {driver1?.name_acronym} {fmt(lap1?.lap_duration)}
         </span>
@@ -120,6 +126,7 @@ function TwoDReplayView({
 }) {
   return (
     <div
+      className="replay-2d"
       style={{
         width: "min(1080px, 100%)",
         display: "grid",
@@ -130,42 +137,25 @@ function TwoDReplayView({
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.blue, marginBottom: 4 }}>
-              ΕΛΑΦΡΙΑ ΠΡΟΒΟΛΗ 2D
-            </div>
-            <div style={{ fontSize: 12, color: F1.textDim, lineHeight: 1.6 }}>
-              SVG replay με ζωντανά σημεία προόδου. Το WebGL μένει κλειστό σε αυτή τη λειτουργία για παλαιότερες GPU,
-              ενσωματωμένα γραφικά και συσκευές σε εξοικονόμηση μπαταρίας.
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div className="replay-2d-heading">
+          <span className="section-label">02 / Αναπαράσταση γύρου</span>
+          <div style={{ display: "flex", gap: 4 }}>
             <TrackViewButtons F1={F1} trackView={trackView} onTrackViewMode={onTrackViewMode} />
           </div>
         </div>
         <div
+          className="replay-2d-track"
           onTouchStart={(event) => onReplayTouchStart(event, canTouchScrubReplay)}
           onTouchEnd={onReplayTouchEnd}
           onTouchCancel={onReplayTouchCancel}
         >
           <TrackReplay2D tp={tp} drivers={replayDrivers} prog={progress} flip={circuitFlip} />
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>
-          Το scrubber και τα controls πιο κάτω εξακολουθούν να οδηγούν το replay, ενώ τηλεμετρία, στατιστικά και πίνακες
-          γύρων παραμένουν διαθέσιμα.
+        <div className="replay-note">
+          Ακολούθησε τις γραμμές των οδηγών. Σύρε τη γραμμή χρόνου για να εξερευνήσεις τον γύρο.
         </div>
       </div>
-      <div style={{ display: "grid", gap: 10 }}>
+      <div className="replay-2d-details" style={{ display: "grid", gap: 10 }}>
         <TwoDLapDelta
           F1={F1}
           delta={delta}
@@ -184,103 +174,24 @@ function TwoDReplayView({
   );
 }
 
-function StageControls({
-  mob,
-  embed,
-  F1,
-  trackView,
-  onTrackViewMode,
-  cam,
-  onCameraModeChange,
-  vizMode,
-  onVizModeChange,
-}) {
-  if (embed && mob) {
-    return (
-      <div style={{ position: "absolute", top: 8, left: 8, zIndex: 2, display: "flex", gap: 4, flexWrap: "wrap" }}>
-        <TrackViewButtons F1={F1} compact trackView={trackView} onTrackViewMode={onTrackViewMode} />
-        <button
-          onClick={() =>
-            onCameraModeChange((currentMode) => {
-              const index = CAM_MODES.indexOf(currentMode);
-              return CAM_MODES[(index + 1) % CAM_MODES.length];
-            })
-          }
-          style={{
-            ...controlButtonStyle({
-              padding: "4px 10px",
-              fontSize: 9,
-              fontWeight: 700,
-              letterSpacing: uiType.commandLetterSpacing,
-              background: F1.overlay,
-              borderColor: F1.blue,
-              color: "#fff",
-            }),
-            background: F1.overlay,
-            backdropFilter: "blur(6px)",
-          }}
-        >
-          📷 {CAM_LABELS[cam]}
-        </button>
-        {vizMode !== "normal" && (
-          <button
-            onClick={() => onVizModeChange("normal")}
-            style={{
-              ...controlButtonStyle({
-                padding: "4px 8px",
-                fontSize: 9,
-                fontWeight: 700,
-                background: "#0088ff44",
-                borderColor: "#0088ff",
-                color: "#fff",
-              }),
-              background: "#0088ff44",
-              backdropFilter: "blur(6px)",
-            }}
-          >
-            ✕ {vizMode === "brake" ? "Φρένο" : "Ταχύτητα"}
-          </button>
-        )}
-      </div>
-    );
-  }
-
+function StageControls({ F1, trackView, onTrackViewMode, cam, onCameraModeChange, vizMode, onVizModeChange }) {
   return (
-    <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 3, flexWrap: "wrap" }}>
-      <TrackViewButtons F1={F1} trackView={trackView} onTrackViewMode={onTrackViewMode} />
-      <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-      {CAM_MODES.map((mode) => (
-        <button
-          key={mode}
-          onClick={() => onCameraModeChange(mode)}
-          style={segmentedButtonStyle(F1, {
-            active: cam === mode,
-            padding: "3px 8px",
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: undefined,
-          })}
-        >
-          {CAM_LABELS[mode]}
-        </button>
-      ))}
-      <div style={{ width: 1, height: 16, background: F1.borderLight }} />
-      <button
-        onClick={() =>
-          onVizModeChange((value) => (value === "normal" ? "heatmap" : value === "heatmap" ? "brake" : "normal"))
-        }
-        style={segmentedButtonStyle(F1, {
-          active: vizMode !== "normal",
-          padding: "3px 8px",
-          fontSize: 9,
-          fontWeight: 700,
-          letterSpacing: undefined,
-          activeBackground: "#0088ff",
-          activeBorder: "#0088ff",
-        })}
-      >
-        {vizMode === "brake" ? "🟥 Φρένο" : vizMode === "heatmap" ? "🌡 Ταχύτητα" : "🌡 Θερμικό"}
-      </button>
+    <div className="stage-controls">
+      <div style={{ display: "flex", gap: 4 }}>
+        <TrackViewButtons F1={F1} trackView={trackView} onTrackViewMode={onTrackViewMode} />
+      </div>
+      <select aria-label="Κάμερα" value={cam} onChange={(event) => onCameraModeChange(event.target.value)}>
+        {CAM_MODES.map((mode) => (
+          <option key={mode} value={mode}>
+            {CAM_LABELS[mode]}
+          </option>
+        ))}
+      </select>
+      <select aria-label="Χρωματισμός πίστας" value={vizMode} onChange={(event) => onVizModeChange(event.target.value)}>
+        <option value="normal">Πίστα</option>
+        <option value="heatmap">Ταχύτητα</option>
+        <option value="brake">Φρένο</option>
+      </select>
     </div>
   );
 }
@@ -290,6 +201,7 @@ function IntervalDeltaOverlay({ mob, embed, F1, delta, color1, color2, driver1, 
 
   return (
     <div
+      className="interval-delta"
       style={{
         position: "absolute",
         ...(embed && mob ? { top: 8, right: 8 } : { bottom: 8, left: 10 }),
@@ -304,9 +216,8 @@ function IntervalDeltaOverlay({ mob, embed, F1, delta, color1, color2, driver1, 
             borderColor: `${F1.blue}33`,
             borderRadius: uiRadii.telemetryCard,
             padding: embed && mob ? "4px 10px" : mob ? "5px 12px" : "6px 16px",
-            backdropFilter: "blur(8px)",
           }),
-          backdropFilter: "blur(8px)",
+
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -314,14 +225,14 @@ function IntervalDeltaOverlay({ mob, embed, F1, delta, color1, color2, driver1, 
       >
         <div
           style={{
-            fontSize: 7,
+            fontSize: 10,
             color: F1.textMuted,
             letterSpacing: "0.15em",
             fontWeight: 700,
             textTransform: "uppercase",
           }}
         >
-          Δ
+          ΔΙΑΦΟΡΑ ΓΥΡΟΥ
         </div>
         <div
           style={{
@@ -385,7 +296,6 @@ function SceneErrorFallback({
           borderRadius: uiRadii.sceneErrorPanel,
           border: `1px solid ${F1.red}33`,
           background: `${F1.overlay}`,
-          backdropFilter: "blur(14px)",
           boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
         }}
       >
@@ -399,7 +309,7 @@ function SceneErrorFallback({
         >
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: F1.red, marginBottom: 10 }}>
-              2D ΕΦΕΔΡΙΚΗ ΑΝΑΠΑΡΑΓΩΓΗ
+              ΑΝΑΠΑΡΑΣΤΑΣΗ ΓΥΡΟΥ / 2D
             </div>
             <TrackReplay2D tp={tp} drivers={replayDrivers} prog={progress} flip={circuitFlip} />
             <div
@@ -417,7 +327,7 @@ function SceneErrorFallback({
               ))}
             </div>
             <div style={{ marginTop: 10, fontSize: 11, color: F1.textDim, lineHeight: 1.5 }}>
-              Το scrubber και τα controls πιο κάτω οδηγούν πλέον ένα 2D replay πίστας με ζωντανά σημεία προόδου.
+              Η αναπαράσταση συνεχίζεται σε 2D. Χρησιμοποίησε τη γραμμή χρόνου για να εξερευνήσεις τον γύρο.
             </div>
           </div>
           <div style={{ textAlign: mob ? "center" : "left" }}>
@@ -460,59 +370,19 @@ function SceneErrorFallback({
   );
 }
 
-function AppEmptyState({ mob, F1, logoSrc, appName, appSubtitle, onOpenPresets }) {
+function AppEmptyState({ onOpenPresets }) {
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%,-50%)",
-        textAlign: "center",
-        animation: "fadeIn .6s",
-        padding: 20,
-      }}
-    >
-      <img
-        src={logoSrc}
-        alt=""
-        style={{ height: 60, marginBottom: 16, opacity: 0.6 }}
-        onError={(event) => {
-          event.target.style.display = "none";
-        }}
-      />
-      <div style={{ fontSize: mob ? 14 : 18, fontWeight: 900, color: F1.text, marginBottom: 4 }}>{appName}</div>
-      <div style={{ fontSize: 11, color: F1.red, fontWeight: 600, marginBottom: 14, letterSpacing: "0.1em" }}>
-        {appSubtitle}
-      </div>
-      <div style={{ fontSize: 12, color: F1.textDim, maxWidth: 360, lineHeight: 1.6 }}>
-        Σύγκρινε γύρους κατατακτήριων σε 3D ή πέρασε σε ελαφρύ 2D replay όταν το μηχάνημα χρειάζεται πιο ελαφριά
-        προβολή.
-      </div>
-      <div style={{ marginTop: 18, display: "flex", gap: 8, justifyContent: "center" }}>
-        <button onClick={onOpenPresets} className="f1-btn" style={{ padding: "8px 20px", fontSize: 12 }}>
-          ⚡ ΓΡΗΓΟΡΗ ΕΚΚΙΝΗΣΗ
-        </button>
-        <a
-          href="https://f1stories.gr/"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 11,
-            color: F1.textDim,
-            textDecoration: "none",
-            padding: "8px 14px",
-            border: `1px solid ${F1.border}`,
-            borderRadius: uiRadii.control,
-            fontWeight: 600,
-          }}
-        >
-          f1stories.gr →
-        </a>
-      </div>
+    <div className="empty-replay">
+      <div className="section-label">F1 Stories Ghost Car / Ανάλυση γύρων</div>
+      <h1>
+        EVERY LAP.
+        <br />A DIFFERENT STORY<span>.</span>
+      </h1>
+      <p>Δύο οδηγοί. Η ίδια πίστα. Σύγκρινε τους γύρους τους και δες πού κερδίζεται κάθε δέκατο.</p>
+      <button onClick={onOpenPresets} className="f1-btn">
+        Επιλεγμένες μάχες ↗
+      </button>
+      <div className="empty-caption">ΕΠΙΛΕΞΕ → ΣΥΓΚΡΙΝΕ → ΔΕΣ ΤΗ ΔΙΑΦΟΡΑ</div>
     </div>
   );
 }
@@ -645,6 +515,7 @@ export default function ReplayStage({
 }) {
   return (
     <div
+      className="replay-stage"
       style={{
         flex: 1,
         position: "relative",
@@ -653,6 +524,7 @@ export default function ReplayStage({
       }}
     >
       <div
+        className="replay-stage-inner"
         ref={containerRef}
         style={{
           width: "100%",
@@ -759,6 +631,7 @@ export default function ReplayStage({
       )}
       {tp && li1 && li2 && !is2DView && !(embed && mob) && (
         <div
+          className="sector-strip"
           style={{
             position: "absolute",
             bottom: 6,
@@ -770,9 +643,33 @@ export default function ReplayStage({
             maxWidth: "95%",
           }}
         >
-          <SectorDelta s={1} t1={li1.duration_sector_1} t2={li2.duration_sector_1} c1={co1} c2={co2} />
-          <SectorDelta s={2} t1={li1.duration_sector_2} t2={li2.duration_sector_2} c1={co1} c2={co2} />
-          <SectorDelta s={3} t1={li1.duration_sector_3} t2={li2.duration_sector_3} c1={co1} c2={co2} />
+          <SectorDelta
+            label1={di1?.name_acronym}
+            label2={di2?.name_acronym}
+            s={1}
+            t1={li1.duration_sector_1}
+            t2={li2.duration_sector_1}
+            c1={co1}
+            c2={co2}
+          />
+          <SectorDelta
+            label1={di1?.name_acronym}
+            label2={di2?.name_acronym}
+            s={2}
+            t1={li1.duration_sector_2}
+            t2={li2.duration_sector_2}
+            c1={co1}
+            c2={co2}
+          />
+          <SectorDelta
+            label1={di1?.name_acronym}
+            label2={di2?.name_acronym}
+            s={3}
+            t1={li1.duration_sector_3}
+            t2={li2.duration_sector_3}
+            c1={co1}
+            c2={co2}
+          />
         </div>
       )}
       {tp && (

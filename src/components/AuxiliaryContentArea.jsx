@@ -42,6 +42,7 @@ export default function AuxiliaryContentArea({
     <>
       {showTelemetryPanel && (
         <div
+          className="telemetry-rail"
           style={{
             width: !mob && !embed ? 310 : "100%",
             borderLeft: !mob && !embed ? `1px solid ${F1.borderLight}` : "none",

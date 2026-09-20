@@ -224,3 +224,87 @@ test("invalid shared lap warning remains visible after fallback auto-load", asyn
 
   expect(errors).toEqual([]);
 });
+
+for (const width of [320, 390, 768]) {
+  test(`loaded replay remains usable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 768 ? 1024 : 844 });
+    await page.addInitScript(() => localStorage.setItem("f1s-toured", "1"));
+    await routeOpenF1Fixtures(page);
+    await page.goto(`${sceneUrl}&tv=2d`);
+    await expect(page.getByText("2D ΑΝΑΠΑΡΑΓΩΓΗ")).toBeVisible();
+    const slider = page.getByRole("slider", { name: "Πρόοδος γύρου" });
+    await slider.fill("0.45");
+    await expect(slider).toHaveValue("0.45");
+    await page.getByLabel("Ταχύτητα αναπαραγωγής").selectOption("2");
+    await expect(page.getByLabel("Ταχύτητα αναπαραγωγής")).toHaveValue("2");
+    await page.getByRole("button", { name: "Εναρξη σύγκρισης" }).click();
+    await expect.poll(async () => Number(await slider.inputValue()), { timeout: 8000 }).toBeGreaterThan(0.45);
+    await page.getByRole("button", { name: "Παύση αναπαραγωγής" }).click();
+    await page.getByRole("button", { name: "Ενεργοποίηση επανάληψης" }).click();
+    await expect(page.getByRole("button", { name: "Απενεργοποίηση επανάληψης" })).toBeVisible();
+    const dimensions = await page.evaluate(() => ({
+      page: document.documentElement.scrollWidth,
+      viewport: innerWidth,
+      play: document.querySelector(".play-button").getBoundingClientRect().toJSON(),
+      slider: document.querySelector('input[type="range"]').getBoundingClientRect().toJSON(),
+    }));
+    expect(dimensions.page).toBeLessThanOrEqual(width);
+    expect(dimensions.play.right).toBeLessThanOrEqual(width);
+    expect(dimensions.slider.width).toBeGreaterThan(width < 768 ? 250 : 150);
+    if (width < 768) {
+      await expect(page.locator(".comparison-setup")).not.toHaveAttribute("open");
+      await page.getByRole("button", { name: "Επιστροφή στις επιλογές" }).click();
+      await expect(page.getByLabel("Σεζόν", { exact: true })).toBeVisible();
+    }
+  });
+}
+
+test("mobile embed keeps replay, scrub and transport inside its frame", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 650 });
+  await routeOpenF1Fixtures(page);
+  await page.goto(`${sceneUrl}&tv=2d&embed=1`);
+  await expect(page.getByText("2D ΑΝΑΠΑΡΑΓΩΓΗ")).toBeVisible();
+  const play = page.getByRole("button", { name: "Εναρξη σύγκρισης" });
+  await expect(play).toBeInViewport();
+  await page.getByRole("slider").fill("0.6");
+  await expect(page.getByRole("slider")).toHaveValue("0.6");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expect(page.locator(".masthead")).toHaveCount(0);
+});
+
+test("analysis and sharing utilities preserve the configured comparison", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("f1s-toured", "1"));
+  await routeOpenF1Fixtures(page);
+  await page.goto(`${sceneUrl}&tv=2d`);
+  await expect(page.getByText("2D ΑΝΑΠΑΡΑΓΩΓΗ")).toBeVisible();
+  const openTool = async (name) => {
+    await page.getByLabel("Άνοιγμα μενού εργαλείων").click();
+    await page.getByRole("button", { name, exact: true }).click();
+  };
+  for (const [name, text] of [
+    ["Στατιστικά γύρου", "ΑΝΑΛΥΣΗ ΓΥΡΟΥ"],
+    ["Διαθέσιμοι γύροι", "ΧΡΟΝΟΙ ΓΥΡΩΝ"],
+    ["Αναμετρήσεις H2H", "H2H 2025"],
+    ["Ανάλυση σεζόν", "ΑΝΑΛΥΣΗ ΣΕΖΟΝ 2025"],
+  ]) {
+    await openTool(name);
+    await expect(page.locator(".analysis-dialog").getByText(text, { exact: false }).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+  await openTool("Αποθήκευση στη συλλογή");
+  await openTool("Άνοιγμα συλλογής");
+  await expect(page.locator(".gallery-row")).toHaveCount(1);
+  await page.locator(".gallery-row").click();
+  await expect(page.getByText("2D ΑΝΑΠΑΡΑΓΩΓΗ")).toBeVisible();
+  await expect(page.getByLabel("Οδηγός 1", { exact: true })).toHaveValue("1");
+  await openTool("Ενσωμάτωση αυτής της σύγκρισης");
+  await expect(page.locator("textarea")).toHaveValue(/embed=1/);
+  await page.keyboard.press("Escape");
+  await page.locator(".share-button").click();
+  await expect(page.getByRole("dialog", { name: "Σύνδεσμος κοινοποίησης" })).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("textbox")).toHaveValue(/d1=1&d2=4/);
+  await page.keyboard.press("Escape");
+  await page.getByRole("slider").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(async () => Number(await page.getByRole("slider").inputValue())).toBeGreaterThan(0);
+});

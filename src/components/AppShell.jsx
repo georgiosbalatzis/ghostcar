@@ -9,6 +9,7 @@ export default function AppShell({ themeValue, F1, embed, mob, children }) {
     <ThemeProvider value={themeValue}>
       <div
         className={shellClassName}
+        data-theme={themeValue.isDark ? "dark" : "light"}
         style={{
           width: "100%",
           minHeight: constrainedShell ? undefined : "100vh",

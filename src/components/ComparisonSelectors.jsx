@@ -2,7 +2,7 @@ import { formatSessionLabel } from "../constants.js";
 import { formatOpenF1YearOptionLabel, getOpenF1AvailabilityMessages } from "../domain/availability.js";
 import { getDriverFullName, formatDriverOption } from "../domain/drivers.js";
 import { fmt } from "../helpers.js";
-import { controlButtonStyle, inputControlStyle, panelSurfaceStyle, uiRadii } from "../ui/styles.js";
+import { controlButtonStyle, inputControlStyle, panelSurfaceStyle } from "../ui/styles.js";
 
 function formatLapOption(lap, bestLapNumber) {
   const prefix = lap.lap_number === bestLapNumber ? "ΤΑΧΥΤΕΡΟΣ • " : "";
@@ -14,9 +14,11 @@ function DriverLapSelector({ mob, F1, drivers, slot, onSelectDriver, onSelectLap
     slot.slot <= 2 ? { title: slot.selectedLap ? fmt(slot.selectedLap.lap_duration) : "Επιλογή γύρου" } : {};
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-      <div style={{ width: 3, height: 16, background: slot.color, borderRadius: uiRadii.control / 4 }} />
+    <div className="driver-selector" style={{ borderLeft: `2px solid ${slot.color}` }}>
+      <span className="driver-slot-label">Οδηγός {String.fromCharCode(64 + slot.slot)}</span>
+
       <select
+        aria-label={`Οδηγός ${slot.slot}`}
         title={getDriverFullName(slot.driver) || `Επιλογή οδηγού ${slot.slot}`}
         value={slot.driverNumber || ""}
         onChange={(event) => onSelectDriver(slot.slot, event.target.value)}
@@ -33,14 +35,16 @@ function DriverLapSelector({ mob, F1, drivers, slot, onSelectDriver, onSelectLap
           </option>
         ))}
       </select>
-      {slot.lapSelect.options.length > 0 && (
+      {(slot.driverNumber || slot.lapSelect.options.length > 0) && (
         <select
           {...lapSelectTitle}
+          aria-label={`Γύρος οδηγού ${slot.slot}`}
+          disabled={slot.lapLoading || !slot.lapSelect.options.length}
           value={slot.lapNumber || ""}
           onChange={(event) => onSelectLap(slot.slot, event.target.value)}
           style={inputControlStyle(F1, { width: mob ? 148 : 172, fontSize: mob ? 11 : 12, borderColor: null })}
         >
-          <option value="">Γύρος</option>
+          <option value="">{slot.lapLoading ? "Φόρτωση γύρων…" : "Γύρος"}</option>
           {slot.lapSelect.options.map((lap) => (
             <option key={lap.lap_number} value={lap.lap_number}>
               {formatLapOption(lap, slot.lapSelect.fastestLapNumber)}
@@ -78,6 +82,7 @@ export default function ComparisonSelectors({
   mob,
   F1,
   highlightConfig,
+  hasReplay,
   availableYears,
   year,
   meetings,
@@ -121,7 +126,9 @@ export default function ComparisonSelectors({
   });
 
   return (
-    <div
+    <details
+      open={!mob || !hasReplay || highlightConfig}
+      className="comparison-setup"
       ref={containerRef}
       style={{
         ...panelSurfaceStyle(F1, {
@@ -137,55 +144,76 @@ export default function ComparisonSelectors({
         transition: "box-shadow .25s ease, border-color .25s ease",
       }}
     >
-      <div style={{ ...rowStyle, marginBottom: mob ? 4 : 0 }}>
-        <select
-          ref={yearSelectRef}
-          value={year}
-          onChange={(event) => onYearChange(Number(event.target.value))}
-          style={inputControlStyle(F1, { width: mob ? 124 : "auto", fontSize: mob ? 11 : 12, borderColor: null })}
-        >
-          {availableYears.map((availableYear) => (
-            <option key={availableYear} value={availableYear}>
-              {formatOpenF1YearOptionLabel(availableYear)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={selectedMeeting?.meeting_key || ""}
-          onChange={(event) => onSelectMeeting(event.target.value)}
-          style={{
-            ...inputControlStyle(F1, { fontSize: mob ? 11 : 12, borderColor: null }),
-            minWidth: mob ? 100 : 155,
-            flex: mob ? 1 : undefined,
-          }}
-        >
-          <option value="">Γκραν Πρι</option>
-          {meetings.map((meeting) => (
-            <option key={meeting.meeting_key} value={meeting.meeting_key}>
-              {formatMeetingLabel(meeting.meeting_name)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={selectedSession?.session_key || ""}
-          onChange={(event) => onSelectSession(event.target.value)}
-          disabled={!sessions.length}
-          style={{
-            ...inputControlStyle(F1, { fontSize: mob ? 11 : 12, borderColor: null }),
-            minWidth: mob ? 75 : 115,
-          }}
-        >
-          <option value="">Σκέλος</option>
-          {sessions.map((session) => (
-            <option key={session.session_key} value={session.session_key}>
-              {formatSessionLabel(session.session_name)}
-            </option>
-          ))}
-        </select>
+      <summary className="setup-heading">
+        <span className="section-label">01 / Σύγκριση</span>
+        <span>
+          {hasReplay && selectedMeeting
+            ? formatMeetingLabel(selectedMeeting.meeting_name)
+            : "Επίλεξε γύρους. Δες πού κρίνεται η διαφορά."}
+        </span>
+        <span className="setup-toggle">Αλλαγή ↗</span>
+      </summary>
+      <div className="event-selectors" style={{ ...rowStyle, marginBottom: mob ? 4 : 0 }}>
+        <label>
+          <span>Σεζόν</span>
+          <select
+            aria-label="Σεζόν"
+            ref={yearSelectRef}
+            value={year}
+            onChange={(event) => onYearChange(Number(event.target.value))}
+            style={inputControlStyle(F1, { width: mob ? 124 : "auto", fontSize: mob ? 11 : 12, borderColor: null })}
+          >
+            {availableYears.map((availableYear) => (
+              <option key={availableYear} value={availableYear}>
+                {formatOpenF1YearOptionLabel(availableYear)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Grand Prix</span>
+          <select
+            aria-label="Grand Prix"
+            disabled={!meetings.length}
+            value={selectedMeeting?.meeting_key || ""}
+            onChange={(event) => onSelectMeeting(event.target.value)}
+            style={{
+              ...inputControlStyle(F1, { fontSize: mob ? 11 : 12, borderColor: null }),
+              minWidth: mob ? 100 : 155,
+              flex: mob ? 1 : undefined,
+            }}
+          >
+            <option value="">Γκραν Πρι</option>
+            {meetings.map((meeting) => (
+              <option key={meeting.meeting_key} value={meeting.meeting_key}>
+                {formatMeetingLabel(meeting.meeting_name)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>Σκέλος</span>
+          <select
+            aria-label="Σκέλος"
+            value={selectedSession?.session_key || ""}
+            onChange={(event) => onSelectSession(event.target.value)}
+            disabled={!sessions.length}
+            style={{
+              ...inputControlStyle(F1, { fontSize: mob ? 11 : 12, borderColor: null }),
+              minWidth: mob ? 75 : 115,
+            }}
+          >
+            <option value="">Σκέλος</option>
+            {sessions.map((session) => (
+              <option key={session.session_key} value={session.session_key}>
+                {formatSessionLabel(session.session_name)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      <div style={rowStyle}>
-        {!mob && <div style={{ width: 1, height: 20, background: `${F1.blue}33` }} />}
+      <div className="driver-selectors" style={rowStyle}>
         <DriverLapSelector
           mob={mob}
           F1={F1}
@@ -194,7 +222,7 @@ export default function ComparisonSelectors({
           onSelectDriver={onSelectDriver}
           onSelectLap={onSelectLap}
         />
-        <span style={{ color: F1.blue, fontSize: mob ? 9 : 11, fontWeight: 900, letterSpacing: "0.1em" }}>VS</span>
+        <span className="versus">vs</span>
         <DriverLapSelector
           mob={mob}
           F1={F1}
@@ -272,6 +300,6 @@ export default function ComparisonSelectors({
           Δεν βρέθηκαν έγκυροι γύροι για {missingLapLabels}. Δοκίμασε άλλο οδηγό ή σκέλος.
         </SelectorEmptyMessage>
       )}
-    </div>
+    </details>
   );
 }

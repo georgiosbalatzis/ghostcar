@@ -14,7 +14,7 @@ export default function EmbedModal({ mob, shareState, onClose }) {
   const [copyState, setCopyState] = useState("");
   const textareaRef = useRef(null);
   const embedUrl = encodeURL({ ...shareState, embed: 1 });
-  const embedCode = `<iframe src="${embedUrl}" width="100%" height="650" frameborder="0" style="border-radius:${uiRadii.embedFrame}px;border:1px solid #E1060033;background:#15151e" allowfullscreen loading="lazy"></iframe>`;
+  const embedCode = `<iframe src="${embedUrl}" width="100%" height="650" frameborder="0" style="border-radius:${uiRadii.embedFrame}px;border:1px solid ${F1.border};background:${F1.carbon}" allowfullscreen loading="lazy"></iframe>`;
   const handleCopy = useCallback(async () => {
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
@@ -38,7 +38,7 @@ export default function EmbedModal({ mob, shareState, onClose }) {
   }, [embedCode]);
 
   return (
-    <div style={getModalSurfaceStyle(F1, { mob, width: 560 })}>
+    <div className="analysis-dialog" style={getModalSurfaceStyle(F1, { mob, width: 560 })}>
       <div style={getModalHeaderStyle(F1)}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 16 }}>ΚΕΝΤΡΟ ΕΝΣΩΜΑΤΩΣΗΣ</div>

@@ -19,7 +19,7 @@ export default function ModalLayer({ mob, embed, F1, showBackdrop, onCloseAll, f
       {showBackdrop && (
         <div
           onClick={onCloseAll}
-          style={overlayBackdropStyle({ background: "rgba(0,0,0,0.6)", zIndex: 99, blur: 4 })}
+          style={overlayBackdropStyle({ background: "rgba(0,0,0,0.6)", zIndex: 99, blur: 0 })}
         />
       )}
       <Suspense fallback={null}>

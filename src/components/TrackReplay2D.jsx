@@ -1,4 +1,4 @@
-import { memo, useId, useMemo } from "react";
+import { memo, useMemo } from "react";
 import { norm } from "../helpers.js";
 import { useF1 } from "../theme.js";
 import { uiRadii } from "../ui/styles.js";
@@ -34,7 +34,6 @@ function lerpPoint(points, t) {
 
 export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
   const F1 = useF1();
-  const gradientId = useId().replace(/:/g, "");
 
   const geometry = useMemo(() => {
     if (!tp?.length) return null;
@@ -101,6 +100,8 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
 
   return (
     <svg
+      role="img"
+      aria-label="Αναπαράσταση πίστας και θέσεις οδηγών"
       width="100%"
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="xMidYMid meet"
@@ -109,37 +110,31 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
         width: "100%",
         height: "auto",
         borderRadius: uiRadii.replayPanel,
-        background: `linear-gradient(180deg, ${F1.cardBg}, ${F1.overlay})`,
+        background: F1.carbonLight,
         border: `1px solid ${F1.borderLight}`,
       }}
     >
-      <defs>
-        <linearGradient id={gradientId} x1="0" x2="1">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.08)" />
-        </linearGradient>
-      </defs>
       <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="transparent" />
       <path
         d={geometry.trackPath}
         fill="none"
-        stroke="rgba(225,6,0,0.2)"
-        strokeWidth="26"
+        stroke={F1.borderLight}
+        strokeWidth="18"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d={geometry.trackPath}
         fill="none"
-        stroke={`url(#${gradientId})`}
-        strokeWidth="10"
+        stroke={F1.textMuted}
+        strokeWidth="6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <g transform={`translate(${geometry.startPoint.x},${geometry.startPoint.y}) rotate(45)`}>
-        <rect x="-7" y="-7" width="14" height="14" fill="#ffffff" opacity="0.85" rx="2" />
+        <rect x="-7" y="-7" width="14" height="14" fill={F1.text} opacity="0.85" rx="2" />
       </g>
-      {driverStates.map((driver) => (
+      {driverStates.map((driver, index) => (
         <g key={driver.label}>
           <path
             d={driver.trailPath}
@@ -153,14 +148,14 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
           <circle cx={driver.current.x} cy={driver.current.y} r="16" fill={driver.color} opacity="0.14" />
           <circle cx={driver.current.x} cy={driver.current.y} r="8.5" fill={driver.color} />
           <circle cx={driver.current.x} cy={driver.current.y} r="3.5" fill="#ffffff" opacity="0.9" />
-          <g transform={`translate(${driver.current.x + 14},${driver.current.y - 18})`}>
-            <rect x="0" y="0" width="56" height="22" rx="11" fill="rgba(10,10,16,0.82)" stroke={`${driver.color}66`} />
+          <g transform={`translate(${driver.current.x + 14},${driver.current.y + (index % 2 ? 14 : -36)})`}>
+            <rect x="0" y="0" width="66" height="26" rx="2" fill={F1.overlay} stroke={`${driver.color}66`} />
             <text
-              x="28"
-              y="14.5"
+              x="33"
+              y="18"
               textAnchor="middle"
               fill={driver.color}
-              fontSize="11"
+              fontSize="17"
               fontWeight="700"
               fontFamily={F1.mono}
             >
@@ -169,10 +164,10 @@ export default memo(function TrackReplay2D({ tp, drivers, prog, flip }) {
           </g>
         </g>
       ))}
-      <text x="28" y="34" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono} letterSpacing="0.18em">
+      <text x="28" y="34" fill={F1.textMuted} fontSize="17" fontFamily={F1.mono} letterSpacing="0.18em">
         2D ΑΝΑΠΑΡΑΓΩΓΗ
       </text>
-      <text x={WIDTH - 28} y={34} textAnchor="end" fill={F1.textMuted} fontSize="11" fontFamily={F1.mono}>
+      <text x={WIDTH - 28} y={34} textAnchor="end" fill={F1.textMuted} fontSize="17" fontFamily={F1.mono}>
         {Math.round(Math.max(0, Math.min(1, prog)) * 100)}%
       </text>
     </svg>

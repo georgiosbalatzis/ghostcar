@@ -12,6 +12,7 @@ export default function TelemetryModal({ mob, onClose, panelProps }) {
 
   return (
     <div
+      className="analysis-dialog"
       role="dialog"
       aria-modal="true"
       aria-label="Γραφήματα τηλεμετρίας"

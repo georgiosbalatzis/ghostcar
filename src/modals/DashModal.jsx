@@ -50,7 +50,7 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
     ? { background: F1.carbon, display: "flex", flexDirection: "column", height: "100%", animation: "fadeIn .2s" }
     : getModalSurfaceStyle(F1, { mob, width: 600, maxHeight: "85vh" });
   return (
-    <div style={wrapStyle}>
+    <div className="analysis-dialog" style={wrapStyle}>
       <div style={getModalHeaderStyle(F1)}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans }}>ΑΝΑΛΥΣΗ ΣΕΖΟΝ {year}</div>
