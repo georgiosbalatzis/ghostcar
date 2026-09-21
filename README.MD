@@ -146,7 +146,7 @@
 - **Vite**
 - **Three.js**
 - plain React state / hooks, χωρίς εξωτερικό state manager
-- **gh-pages** για static deployment
+- **GitHub Pages Actions** για static deployment
 
 Δεν υπάρχει backend. Όλο το app είναι client-side και βασίζεται σε public data fetching.
 
@@ -154,35 +154,35 @@
 
 ### Κύριο entry
 
-- [src/main.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/main.jsx)
-- [src/F1PhantomCars.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/F1PhantomCars.jsx)
+- [src/main.jsx](src/main.jsx)
+- [src/F1PhantomCars.jsx](src/F1PhantomCars.jsx)
 
 Το `F1PhantomCars.jsx` είναι πλέον κυρίως composition container. Συνδέει τα hooks, τα view models και τα presentational components χωρίς να κρατά όλη τη λεπτομέρεια του UI inline.
 
 Κύριες ευθύνες που έχουν εξαχθεί:
 
-- selector state / URL restore / lap loading στο [src/hooks/useComparisonSelectors.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useComparisonSelectors.js)
-- replay loading, progress, cancellation και replay data στο [src/hooks/useReplayLoader.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useReplayLoader.js)
-- playback timeline, speed, loop, countdown και touch scrub στο [src/hooks/usePlaybackController.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/usePlaybackController.js)
-- auxiliary modal/tab state στο [src/hooks/useAuxiliaryViews.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useAuxiliaryViews.js)
-- H2H / season dashboard data loading στο [src/hooks/useAuxiliaryData.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useAuxiliaryData.js)
-- preset orchestration στο [src/hooks/usePresetLoader.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/usePresetLoader.js)
-- share, gallery και screenshot helpers στο [src/hooks/useShareAndGallery.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useShareAndGallery.js)
+- selector state / URL restore / lap loading στο [src/hooks/useComparisonSelectors.js](src/hooks/useComparisonSelectors.js)
+- replay loading, progress, cancellation και replay data στο [src/hooks/useReplayLoader.js](src/hooks/useReplayLoader.js)
+- playback timeline, speed, loop, countdown και touch scrub στο [src/hooks/usePlaybackController.js](src/hooks/usePlaybackController.js)
+- auxiliary modal/tab state στο [src/hooks/useAuxiliaryViews.js](src/hooks/useAuxiliaryViews.js)
+- H2H / season dashboard data loading στο [src/hooks/useAuxiliaryData.js](src/hooks/useAuxiliaryData.js)
+- preset orchestration στο [src/hooks/usePresetLoader.js](src/hooks/usePresetLoader.js)
+- share, gallery και screenshot helpers στο [src/hooks/useShareAndGallery.js](src/hooks/useShareAndGallery.js)
 
 ### Core modules
 
-- [src/api.js](/Users/giorgos/WebstormProjects/ghostcar/src/api.js): wrappers προς OpenF1, retries, cancellation-aware backoff, response cache, development request telemetry
-- [src/helpers.js](/Users/giorgos/WebstormProjects/ghostcar/src/helpers.js): normalization, interpolation, formatting και URL helpers
-- [src/constants.js](/Users/giorgos/WebstormProjects/ghostcar/src/constants.js): F1 palette, ομάδες, presets, camera labels και compatibility re-exports
-- [src/theme.js](/Users/giorgos/WebstormProjects/ghostcar/src/theme.js): light/dark palette μέσω React context
-- [src/domain/](/Users/giorgos/WebstormProjects/ghostcar/src/domain): pure helpers για laps, drivers, replay validation, circuit metadata και OpenF1 availability copy
-- [src/services/](/Users/giorgos/WebstormProjects/ghostcar/src/services): OpenF1 replay stream και preset data orchestration
-- [src/ui/styles.js](/Users/giorgos/WebstormProjects/ghostcar/src/ui/styles.js): shared UI tokens και style helpers
+- [src/api.js](src/api.js): wrappers προς OpenF1, retries, cancellation-aware backoff, response cache, development request telemetry
+- [src/helpers.js](src/helpers.js): normalization, interpolation, formatting και URL helpers
+- [src/constants.js](src/constants.js): F1 palette, ομάδες, presets, camera labels και compatibility re-exports
+- [src/theme.js](src/theme.js): light/dark palette μέσω React context
+- [src/domain/](src/domain): pure helpers για laps, drivers, replay validation, circuit metadata και OpenF1 availability copy
+- [src/services/](src/services): OpenF1 replay stream και preset data orchestration
+- [src/ui/styles.js](src/ui/styles.js): shared UI tokens και style helpers
 
 ### 3D / rendering layer
 
-- [src/components/SceneStage3D.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/components/SceneStage3D.jsx)
-- [src/hooks/useScene.js](/Users/giorgos/WebstormProjects/ghostcar/src/hooks/useScene.js)
+- [src/components/SceneStage3D.jsx](src/components/SceneStage3D.jsx)
+- [src/hooks/useScene.js](src/hooks/useScene.js)
 
 Το rendering layer:
 
@@ -193,24 +193,24 @@
 
 ### 2D / telemetry layer
 
-- [src/components/TrackReplay2D.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/components/TrackReplay2D.jsx)
-- [src/components/TelemetryPanel.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/components/TelemetryPanel.jsx)
-- [src/components/TelChart.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/components/TelChart.jsx)
-- [src/components/MiniMap.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/components/MiniMap.jsx)
-- [src/components/SectorDelta.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/components/SectorDelta.jsx)
+- [src/components/TrackReplay2D.jsx](src/components/TrackReplay2D.jsx)
+- [src/components/TelemetryPanel.jsx](src/components/TelemetryPanel.jsx)
+- [src/components/TelChart.jsx](src/components/TelChart.jsx)
+- [src/components/MiniMap.jsx](src/components/MiniMap.jsx)
+- [src/components/SectorDelta.jsx](src/components/SectorDelta.jsx)
 
 ### Modal / auxiliary views
 
-- [src/modals/PresetsModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/PresetsModal.jsx)
-- [src/modals/StatsModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/StatsModal.jsx)
-- [src/modals/LapsModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/LapsModal.jsx)
-- [src/modals/H2HModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/H2HModal.jsx)
-- [src/modals/DashModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/DashModal.jsx)
-- [src/modals/EmbedModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/EmbedModal.jsx)
-- [src/modals/GalleryModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/GalleryModal.jsx)
-- [src/modals/TelemetryModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/TelemetryModal.jsx)
-- [src/modals/KeysModal.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/KeysModal.jsx)
-- [src/modals/TourOverlay.jsx](/Users/giorgos/WebstormProjects/ghostcar/src/modals/TourOverlay.jsx)
+- [src/modals/PresetsModal.jsx](src/modals/PresetsModal.jsx)
+- [src/modals/StatsModal.jsx](src/modals/StatsModal.jsx)
+- [src/modals/LapsModal.jsx](src/modals/LapsModal.jsx)
+- [src/modals/H2HModal.jsx](src/modals/H2HModal.jsx)
+- [src/modals/DashModal.jsx](src/modals/DashModal.jsx)
+- [src/modals/EmbedModal.jsx](src/modals/EmbedModal.jsx)
+- [src/modals/GalleryModal.jsx](src/modals/GalleryModal.jsx)
+- [src/modals/TelemetryModal.jsx](src/modals/TelemetryModal.jsx)
+- [src/modals/KeysModal.jsx](src/modals/KeysModal.jsx)
+- [src/modals/TourOverlay.jsx](src/modals/TourOverlay.jsx)
 
 ## Ροή δεδομένων
 
@@ -253,13 +253,13 @@
 
 ### Προϋποθέσεις
 
-- Node.js 18+
+- Node.js 20.19+ (ή 22.13+ / 24+ για το υπάρχον ESLint tooling)
 - npm
 
 ### Εγκατάσταση
 
 ```bash
-npm install
+npm ci
 ```
 
 ### Development server
@@ -282,7 +282,7 @@ npm run preview
 
 ## Διαθέσιμα scripts
 
-Από το [package.json](/Users/giorgos/WebstormProjects/ghostcar/package.json):
+Από το [package.json](package.json):
 
 - `npm run dev`: εκκίνηση Vite development server
 - `npm run lint`: ESLint έλεγχος
@@ -292,23 +292,21 @@ npm run preview
 - `npm run test:e2e`: Playwright smoke tests
 - `npm run build`: production build στο `dist/`
 - `npm run preview`: preview του production build
-- `npm run deploy`: publish του `dist/` μέσω `gh-pages`
 - `npm audit --audit-level=moderate`: dependency audit gate για release
 
 ## Deployment
 
-Το project είναι static-first και μπορεί να ανέβει εύκολα σε GitHub Pages.
+Η authoritative source branch είναι η `main`. Το [.github/workflows/deploy.yml](.github/workflows/deploy.yml) εκτελεί σε κάθε push στη `main`:
 
-Τυπική ροή:
-
-```bash
-npm run build
-npm run deploy
+```text
+main → npm ci → npm run build → dist/ → GitHub Pages artifact
 ```
 
-Το repository χρησιμοποιεί ήδη το package `gh-pages`, οπότε το deployment παραμένει απλό και χωρίς backend βήμα.
+Το workflow χρησιμοποιεί `actions/configure-pages`, `actions/upload-pages-artifact` και `actions/deploy-pages`. Το Vite base παραμένει `/ghostcar/`. Τα `node_modules/` και `dist/` παράγονται τοπικά/στο CI και δεν ανήκουν στο source control.
 
-Πριν από release ή publish, ακολούθησε το [deployment checklist](/Users/giorgos/WebstormProjects/ghostcar/docs/deployment-checklist.md).
+Η branch `gh-pages` είναι ιστορική και δεν οδηγεί το τρέχον production deployment. Το παλιό `npm run deploy` έχει αφαιρεθεί. Η branch διατηρείται για ξεχωριστή απόφαση του maintainer.
+
+Πριν από release, ακολούθησε το [deployment checklist](docs/deployment-checklist.md). Για σύντομο developer onboarding δες το [AGENTS.md](AGENTS.md).
 
 ## Embed χρήση
 
@@ -378,12 +376,13 @@ npm run deploy
 
 ### Public assets
 
-- [public/f1car.glb](/Users/giorgos/WebstormProjects/ghostcar/public/f1car.glb): 3D μοντέλο μονοθεσίου
-- [public/f1-stories-logo.svg](/Users/giorgos/WebstormProjects/ghostcar/public/f1-stories-logo.svg): local logo asset
+- [public/f1car.glb](public/f1car.glb): 3D μοντέλο μονοθεσίου
+- [public/logo.png](public/logo.png): logo στο header/footer και metadata icons
+- [public/f1-stories-logo.svg](public/f1-stories-logo.svg): local logo asset
 
 ### SEO / metadata
 
-Το [index.html](/Users/giorgos/WebstormProjects/ghostcar/index.html) περιλαμβάνει:
+Το [index.html](index.html) περιλαμβάνει:
 
 - page title
 - meta description
@@ -401,7 +400,7 @@ npm run deploy
 - data-first ιεραρχία
 - όσο χρειάζεται motion, όχι decorative θόρυβο
 
-Η βασική παλέτα και τα semantic tokens ορίζονται στο [src/constants.js](/Users/giorgos/WebstormProjects/ghostcar/src/constants.js).
+Η βασική παλέτα και τα semantic tokens ορίζονται στο [src/constants.js](src/constants.js).
 
 ## Ποιότητα δεδομένων και περιορισμοί
 

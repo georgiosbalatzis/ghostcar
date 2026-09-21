@@ -2,6 +2,8 @@
 
 Date: 2026-06-08
 
+> Historical record of the June 2026 release, not current deployment instructions. Production now deploys from `main` through GitHub Pages Actions; see [deployment checklist](deployment-checklist.md). References below to `npm run deploy`, tracked `dist/`, and `laststeps.txt` describe that historical release. The legacy command and scratch file have since been removed; durable maintenance guidance is in [AGENTS.md](../AGENTS.md).
+
 ## Decision
 
 The release candidate is commit-ready for source control after the restore-warning auto-load fix and final automated verification pass.

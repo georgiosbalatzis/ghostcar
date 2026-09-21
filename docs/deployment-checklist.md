@@ -1,13 +1,13 @@
 # Deployment Checklist
 
-Use this checklist before publishing `dist` or deploying through `npm run deploy`.
+Use this checklist before pushing release changes to `main`. Production deploys through `.github/workflows/deploy.yml`: `npm ci` → `npm run build` → upload `dist/` → GitHub Pages Actions. The legacy `gh-pages` branch is not the production source; there is no manual npm deployment command.
 
 ## Automated Checks
 
 Run these from the repository root:
 
 ```bash
-npm run format
+npm ci
 npm run lint
 npm run format:check
 npm test
@@ -19,7 +19,7 @@ npm audit --audit-level=moderate
 Expected results:
 
 - `npm test` passes all Node tests.
-- `npm run build` completes successfully and may refresh `dist/index.html` and hashed assets.
+- `npm run build` recreates ignored `dist/index.html`, hashed assets, and public assets; do not commit generated output.
 - `npm run build` may print `Kept existing f1car.glb: 117.2 kB <= 118.3 kB`; this is expected.
 - `npm run test:e2e` passes the Chromium smoke tests.
 - Playwright may print Node `DEP0205` and `NO_COLOR` / `FORCE_COLOR` warnings; these are expected unless the tests fail.

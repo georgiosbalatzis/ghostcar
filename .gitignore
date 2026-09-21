@@ -1,6 +1,23 @@
-node_modules
-dist
-test-results
-playwright-report
-.DS_Store
+# Dependencies and Vite output
+node_modules/
+/dist/
+
+# Local editor and agent settings
+.idea/
+.claude/settings.local.json
 *.local
+
+# OS metadata
+.DS_Store
+._*
+Thumbs.db
+desktop.ini
+
+# Test output
+/coverage/
+/playwright-report/
+/test-results/
+
+# Local npm logs and model optimizer temporary output
+npm-debug.log*
+/public/f1car.glb.tmp
