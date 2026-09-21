@@ -65,12 +65,16 @@ export default function DashModal({ mob, year, di1, di2, co1, co2, dashData, onC
       <div style={getModalBodyStyle({ overflow: undefined, overflowY: "auto", padding: "12px 20px 20px" })}>
         {!dashData ? (
           <div style={{ textAlign: "center", padding: 20, color: F1.textDim, fontSize: 12 }}>
-            Ανάκτηση δεδομένων σεζόν<span style={{ animation: "pulse 1s infinite" }}>...</span>
+            Ανάκτηση δεδομένων σεζόν · τα αποτελέσματα εμφανίζονται σταδιακά
+            <span style={{ animation: "pulse 1s infinite" }}>...</span>
           </div>
         ) : dashData.length === 0 ? (
           <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>Δεν βρέθηκαν δεδομένα</div>
         ) : (
           <>
+            <div style={{ marginBottom: 12, color: F1.textMuted, fontSize: 11 }}>
+              Βάσει {dashData.length} διαθέσιμων συγκρίσεων κατατακτήριων
+            </div>
             <div style={{ marginBottom: 16 }}>
               <div
                 style={{

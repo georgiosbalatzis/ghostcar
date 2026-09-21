@@ -4,6 +4,7 @@ export default function HeaderToolbar({
   logoSrc,
   meetingShortLabel,
   year,
+  comparisonContext,
   hasSession,
   hasReplay,
   hasPrimaryDrivers,
@@ -50,7 +51,7 @@ export default function HeaderToolbar({
       <div className="product-name">
         GHOST CAR <span>LAB</span>
       </div>
-      <span className="meeting-meta">{meetingShortLabel && `${meetingShortLabel} / ${year}`}</span>
+      <span className="meeting-meta">{comparisonContext || (meetingShortLabel && `${meetingShortLabel} / ${year}`)}</span>
       <nav className="header-actions" aria-label="Εργαλεία σύγκρισης">
         <button className="featured-button" title="Άνοιγμα έτοιμων συγκρίσεων" onClick={onOpenPresets}>
           ΜΑΧΕΣ <span>↗</span>

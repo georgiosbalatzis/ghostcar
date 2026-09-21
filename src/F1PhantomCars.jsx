@@ -861,6 +861,11 @@ export default function App({ embed }) {
           logoSrc={LOGO_SRC}
           meetingShortLabel={selMt ? formatMeetingShortLabel(selMt.meeting_name) : ""}
           year={year}
+          comparisonContext={
+            selMt && selSe && di1 && di2 && li1 && li2
+              ? `${di1.name_acronym} · ${di2.name_acronym} / ${formatMeetingShortLabel(selMt.meeting_name)} ${year} · ${formatSessionLabel(selSe.session_name)} · L${li1.lap_number} / L${li2.lap_number}`
+              : ""
+          }
           hasSession={Boolean(selSe)}
           hasReplay={Boolean(tp)}
           hasPrimaryDrivers={Boolean(d1 && d2)}
@@ -1079,6 +1084,7 @@ export default function App({ embed }) {
           onSpeedChange={setSpd}
           onToggleTelemetry={() => setShowTel((value) => !value)}
           onShare={share}
+          auxiliary={mob && mobTab !== "3d" && mobTab !== "telemetry"}
         />
       )}
 

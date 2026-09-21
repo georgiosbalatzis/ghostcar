@@ -30,14 +30,14 @@ export default function KeysModal({ mob, onClose }) {
         width: 380,
         mobileWidth: "92%",
         maxHeight: null,
-        padding: 24,
+        padding: 0,
         display: null,
         flexDirection: null,
         overflow: null,
       })}
     >
-      <div style={getModalHeaderStyle(F1, { padding: 0, borderBottom: null, marginBottom: 16 })}>
-        <span style={{ fontWeight: 900, fontSize: 16, fontFamily: F1.sans, letterSpacing: "0.05em" }}>
+      <div style={getModalHeaderStyle(F1)}>
+        <span style={{ fontWeight: 700, fontSize: 18, fontFamily: F1.sans }}>
           ΣΥΝΤΟΜΕΥΣΕΙΣ ΠΛΗΚΤΡΟΛΟΓΙΟΥ
         </span>
         <button aria-label="Κλείσιμο συντομεύσεων πληκτρολογίου" onClick={onClose} style={getModalCloseButtonStyle(F1)}>

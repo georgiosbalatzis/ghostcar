@@ -37,18 +37,18 @@ function DriverTelemetryCard({ F1, driver, progress, fallback = false }) {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-        <div style={{ fontSize: 10, fontWeight: 900, color: driver.color, letterSpacing: "0.08em" }}>
+        <div style={{ fontSize: 12, fontWeight: 900, color: driver.color, letterSpacing: "0.06em" }}>
           {driver.label}
         </div>
-        <div style={{ fontSize: 10, color: F1.textMuted }}>{Math.round(progress * 100)}%</div>
+        <div style={{ fontSize: 11, color: F1.textMuted }}>{Math.round(progress * 100)}%</div>
       </div>
       <div style={{ fontSize: 14, fontFamily: F1.mono, color: F1.text, fontWeight: 700, marginTop: 4 }}>
         {fmt((driver.lapDuration || 0) * progress)}
       </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 10, color: F1.textDim, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 8, fontSize: 11, color: F1.textDim, flexWrap: "wrap" }}>
         <span>{Math.round(driver.current?.speed || 0)} km/h</span>
         <span>ΓΚΑΖΙ {Math.round(driver.current?.throttle || 0)}%</span>
-        <span>{driver.current?.brake > 0 ? "ΦΡΕΝΟ" : "ΡΟΛΑΡΙΣΜΑ"}</span>
+        <span>ΦΡΕΝΟ: {driver.current?.brake > 0 ? "ΝΑΙ" : "ΟΧΙ"}</span>
         {driver.tire && <span>{driver.tire}</span>}
       </div>
     </div>
@@ -72,7 +72,7 @@ function TwoDLapDelta({ F1, delta, driver1, driver2, color1, color2, lap1, lap2 
       }}
     >
       <div style={{ fontSize: 10, fontWeight: 900, color: F1.textMuted, letterSpacing: "0.08em", marginBottom: 6 }}>
-        ΔΙΑΦΟΡΑ ΓΥΡΟΥ
+        ΤΕΛΙΚΗ ΔΙΑΦΟΡΑ ΓΥΡΟΥ
       </div>
       <div
         className="replay-delta-number"
@@ -91,10 +91,10 @@ function TwoDLapDelta({ F1, delta, driver1, driver2, color1, color2, lap1, lap2 
         {delta === 0 ? "Ίδιος χρόνος" : `${delta < 0 ? driver1?.name_acronym : driver2?.name_acronym} ταχύτερος`}
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8, fontSize: 11, color: F1.textDim }}>
-        <span style={{ color: color1 }}>
+        <span style={{ color: F1.text, borderLeft: `2px solid ${color1}`, paddingLeft: 5 }}>
           {driver1?.name_acronym} {fmt(lap1?.lap_duration)}
         </span>
-        <span style={{ color: color2 }}>
+        <span style={{ color: F1.text, borderLeft: `2px solid ${color2}`, paddingLeft: 5 }}>
           {driver2?.name_acronym} {fmt(lap2?.lap_duration)}
         </span>
       </div>
@@ -166,9 +166,14 @@ function TwoDReplayView({
           lap1={lap1}
           lap2={lap2}
         />
-        {replayDriverCards.map((driver) => (
-          <DriverTelemetryCard key={driver.label} F1={F1} driver={driver} progress={progress} />
-        ))}
+        <div className="replay-driver-legend" aria-label="Οδηγοί σύγκρισης">
+          {replayDriverCards.map((driver) => (
+            <span key={driver.label}>
+              <b style={{ color: driver.color }}>{driver.label}</b>
+              <span>{Math.round(progress * 100)}%</span>
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -232,7 +237,7 @@ function IntervalDeltaOverlay({ mob, embed, F1, delta, color1, color2, driver1, 
             textTransform: "uppercase",
           }}
         >
-          ΔΙΑΦΟΡΑ ΓΥΡΟΥ
+          ΤΕΛΙΚΗ ΔΙΑΦΟΡΑ ΓΥΡΟΥ
         </div>
         <div
           style={{
@@ -246,6 +251,9 @@ function IntervalDeltaOverlay({ mob, embed, F1, delta, color1, color2, driver1, 
           {delta > 0 ? "+" : ""}
           {delta.toFixed(3)}
           <span style={{ fontSize: "0.5em", opacity: 0.7 }}>s</span>
+        </div>
+        <div style={{ fontSize: 10, color: F1.textDim }}>
+          {delta === 0 ? "Ίδιος χρόνος" : `${delta < 0 ? driver1?.name_acronym : driver2?.name_acronym} ταχύτερος`}
         </div>
         {!(embed && mob) && (
           <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
@@ -373,12 +381,12 @@ function SceneErrorFallback({
 function AppEmptyState({ onOpenPresets }) {
   return (
     <div className="empty-replay">
-      <div className="section-label">F1 Stories Ghost Car / Ανάλυση γύρων</div>
+      <div className="section-label">F1 Stories Ghost Car / Διαδραστική ανάλυση</div>
       <h1>
-        EVERY LAP.
-        <br />A DIFFERENT STORY<span>.</span>
+        Δες πού κρίνεται
+        <br />κάθε γύρος<span>.</span>
       </h1>
-      <p>Δύο οδηγοί. Η ίδια πίστα. Σύγκρινε τους γύρους τους και δες πού κερδίζεται κάθε δέκατο.</p>
+      <p>Σύγκρινε δύο οδηγούς στην ίδια πίστα και ακολούθησε τη διαφορά, από την εκκίνηση μέχρι την καρό σημαία.</p>
       <button onClick={onOpenPresets} className="f1-btn">
         Επιλεγμένες μάχες ↗
       </button>
@@ -611,7 +619,7 @@ export default function ReplayStage({
         />
       )}
       {tp && !sceneError && !is2DView && !mob && !embed && (
-        <div style={{ position: "absolute", top: 44, left: 10, zIndex: 2 }}>
+        <div className="replay-minimap" style={{ position: "absolute", top: 58, left: 10, zIndex: 2 }}>
           <MiniMap tp={tp} l1={loc1} l2={loc2} prog={prog} c1={co1} c2={co2} flip={circuitFlip} />
         </div>
       )}

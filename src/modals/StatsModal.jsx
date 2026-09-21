@@ -130,7 +130,7 @@ const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }
                   style={{
                     textAlign: "center",
                     padding: "8px 4px",
-                    color: d.co,
+                    color: F1.text,
                     borderBottom: `2px solid ${d.co}44`,
                     fontSize: 10,
                   }}
@@ -152,7 +152,7 @@ const StatsModal = memo(function StatsModal({ mob, allDrivers, onClose, inline }
                         padding: "6px 4px",
                         textAlign: "center",
                         fontWeight: i === r.bestIdx ? 800 : 400,
-                        color: i === r.bestIdx ? allDrivers[i].co : F1.text,
+                        color: F1.text,
                         background: i === r.bestIdx ? `${allDrivers[i].co}08` : "transparent",
                       }}
                     >

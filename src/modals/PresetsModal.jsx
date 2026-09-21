@@ -41,6 +41,12 @@ function formatCircuitLabel(value) {
     .join(" ");
 }
 
+function splitPresetLabel(label) {
+  const clean = String(label || "").replace(/^[^A-Za-zΑ-Ωα-ω0-9]+/u, "");
+  const [comparison, story] = clean.split(" • ");
+  return { comparison, story: story || comparison };
+}
+
 export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYears = [] }) {
   const F1 = useF1();
   const [query, setQuery] = useState("");
@@ -270,7 +276,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
                     }}
                   >
                     <div style={{ fontWeight: 700, color: yearUnavailable ? F1.textDim : F1.text }}>
-                      {p.label.replace(/^[^A-Za-zΑ-Ωα-ω0-9]+/u, "")}
+                      {splitPresetLabel(p.label).story}
                     </div>
                     <div
                       style={{
@@ -280,7 +286,7 @@ export default function PresetsModal({ mob, onClose, onLoadPreset, unavailableYe
                         fontFamily: F1.sans,
                       }}
                     >
-                      {DRIVER_NAME_BY_NUMBER[p.d1] || `#${p.d1}`} εναντίον {DRIVER_NAME_BY_NUMBER[p.d2] || `#${p.d2}`} •{" "}
+                      {splitPresetLabel(p.label).comparison} • {DRIVER_NAME_BY_NUMBER[p.d1] || `#${p.d1}`} εναντίον {DRIVER_NAME_BY_NUMBER[p.d2] || `#${p.d2}`} •{" "}
                       {p.meeting.replace(" Grand Prix", "")} • {formatSessionLabel(p.session)}
                     </div>
                   </button>

@@ -26,6 +26,7 @@ export default function PlaybackBar({
   onSpeedChange,
   onToggleTelemetry,
   onShare,
+  auxiliary = false,
 }) {
   const isCompactEmbed = embed && mob;
   const playTitle = play ? "Παύση αναπαραγωγής" : "Εναρξη σύγκρισης";
@@ -34,7 +35,7 @@ export default function PlaybackBar({
 
   return (
     <div
-      className="playback-bar"
+      className={`playback-bar${auxiliary ? " playback-bar-auxiliary" : ""}`}
       style={{
         display: "flex",
         alignItems: "center",

@@ -110,12 +110,18 @@ export default function H2HModal({ mob, year, di1, di2, co1, co2, h2hData, progr
           <div style={{ textAlign: "center", padding: 20, color: F1.textDim }}>Δεν βρέθηκαν δεδομένα κατατακτήριων</div>
         ) : (
           <>
+            <div className="h2h-direction" aria-label="Κατεύθυνση διαφοράς">
+              <span style={{ color: co1 }}>{di1?.name_acronym} κερδίζει ←</span>
+              <span>μηδενική διαφορά</span>
+              <span style={{ color: co2 }}>→ κερδίζει {di2?.name_acronym}</span>
+            </div>
             <svg
               width="100%"
               height={h2hData.length * 32 + 20}
               viewBox={`0 0 300 ${h2hData.length * 32 + 20}`}
               style={{ display: "block" }}
             >
+              <line x1="150" y1="0" x2="150" y2={h2hData.length * 32 + 20} stroke={F1.border} strokeWidth="1" />
               {chartData?.rows.map((row, index) => {
                 const tie = row.delta === 0;
                 return (

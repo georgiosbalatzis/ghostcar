@@ -114,7 +114,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                 style={{
                   fontSize: numDrivers > 2 ? 10 : 12,
                   fontWeight: 900,
-                  color: x.co,
+                  color: F1.text,
                   fontFamily: F1.mono,
                   letterSpacing: "0.05em",
                 }}
@@ -149,7 +149,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
         {/* Telemetry charts */}
         <div
           style={{
-            fontSize: 10,
+            fontSize: 11,
             color: F1.textMuted,
             fontFamily: F1.mono,
             letterSpacing: "0.1em",
@@ -162,7 +162,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
         <TelChart traces={speedTraces} maxVal={370} prog={prog} />
         <div
           style={{
-            fontSize: 10,
+            fontSize: 11,
             color: F1.textMuted,
             fontFamily: F1.mono,
             letterSpacing: "0.1em",
@@ -176,7 +176,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
         <TelChart traces={throttleTraces} maxVal={100} prog={prog} fillColor={`${F1.green}10`} />
         <div
           style={{
-            fontSize: 10,
+            fontSize: 11,
             color: F1.textMuted,
             fontFamily: F1.mono,
             letterSpacing: "0.1em",
@@ -239,21 +239,21 @@ const TelemetryPanel = memo(function TelemetryPanel({
               </div>
               <svg
                 width="100%"
-                height="50"
-                viewBox="0 0 300 50"
+                height="76"
+                viewBox="0 0 300 76"
                 preserveAspectRatio="none"
                 style={{ borderRadius: uiRadii.badge, background: F1.cardBg, display: "block" }}
               >
-                <line x1="0" y1="25" x2="300" y2="25" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
+                <line x1="10" y1="30" x2="290" y2="30" stroke={F1.textMuted} strokeWidth="0.5" opacity="0.3" />
                 {pts.map((v, i) => {
                   const x = (i / 3) * 280 + 10;
-                  const y = 25 - (v / maxA) * 20;
+                  const y = 30 - (v / maxA) * 18;
                   return (
                     <g key={i}>
                       {i > 0 && (
                         <line
                           x1={((i - 1) / 3) * 280 + 10}
-                          y1={25 - (pts[i - 1] / maxA) * 20}
+                          y1={30 - (pts[i - 1] / maxA) * 18}
                           x2={x}
                           y2={y}
                           stroke={v < 0 ? co1 : co2}
@@ -264,7 +264,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                       {i > 0 && (
                         <text
                           x={x}
-                          y={y < 25 ? y - 6 : y + 12}
+                          y={y < 30 ? y - 6 : y + 12}
                           textAnchor="middle"
                           fill={F1.text}
                           fontSize="7"
@@ -282,7 +282,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                   <text
                     key={l}
                     x={(i / 3) * 280 + 10}
-                    y="48"
+                    y="72"
                     textAnchor="middle"
                     fill={F1.textMuted}
                     fontSize="7"
@@ -291,10 +291,10 @@ const TelemetryPanel = memo(function TelemetryPanel({
                     {l}
                   </text>
                 ))}
-                <text x="295" y="10" textAnchor="end" fill={co1} fontSize="7">
+                <text x="285" y="12" textAnchor="end" fill={co1} fontSize="8">
                   {di1?.name_acronym}
                 </text>
-                <text x="295" y="45" textAnchor="end" fill={co2} fontSize="7">
+                <text x="285" y="68" textAnchor="end" fill={co2} fontSize="8">
                   {di2?.name_acronym}
                 </text>
               </svg>
@@ -335,7 +335,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                   style={{
                     fontSize: 11,
                     fontWeight: 800,
-                    color: co1,
+                    color: F1.text,
                     fontFamily: F1.mono,
                   }}
                 >
@@ -345,7 +345,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                   style={{
                     fontSize: 11,
                     fontWeight: 800,
-                    color: co2,
+                    color: F1.text,
                     fontFamily: F1.mono,
                     opacity: 0.7,
                   }}
@@ -423,7 +423,7 @@ const TelemetryPanel = memo(function TelemetryPanel({
                   fontWeight: 700,
                 }}
               >
-                ΦΘΟΡΑ ΓΟΜΑΣ
+                ΧΡΟΝΟΣ ΓΥΡΟΥ · ΔΙΑΦΟΡΑ ΑΠΟ ΚΑΛΥΤΕΡΟ
               </div>
               <svg
                 width="100%"
@@ -464,10 +464,13 @@ const TelemetryPanel = memo(function TelemetryPanel({
                   );
                 })}
                 <text x="5" y="10" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">
-                  +{maxDeg.toFixed(1)}s
+                  {di1?.name_acronym} · ΓΥΡΟΙ
                 </text>
                 <text x="5" y="32" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">
-                  καλ.
+                  L{laps[0]?.lap_number}
+                </text>
+                <text x="295" y="32" textAnchor="end" fill={F1.textMuted} fontSize="7" fontFamily="sans-serif">
+                  L{laps[laps.length - 1]?.lap_number}
                 </text>
               </svg>
             </div>

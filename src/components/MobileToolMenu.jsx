@@ -65,30 +65,6 @@ export default function MobileToolMenu({
 
   const actions = [
     {
-      icon: "📈",
-      label: "Στατ.",
-      action: () => runAndClose(() => onSelectTab("stats")),
-      show: hasReplay,
-    },
-    {
-      icon: "⏱",
-      label: "Γύροι",
-      action: () => runAndClose(() => onSelectTab("laps")),
-      show: hasReplay,
-    },
-    {
-      icon: "⚔️",
-      label: "H2H",
-      action: () => runAndClose(() => onSelectTab("h2h")),
-      show: hasReplay && hasPrimaryDrivers,
-    },
-    {
-      icon: "🏆",
-      label: "Σεζόν",
-      action: () => runAndClose(() => onSelectTab("season")),
-      show: hasPrimaryDrivers && hasSession,
-    },
-    {
       icon: "📂",
       label: "Συλλογή",
       action: () => runAndClose(onOpenGallery),

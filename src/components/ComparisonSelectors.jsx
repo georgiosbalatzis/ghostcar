@@ -5,13 +5,14 @@ import { fmt } from "../helpers.js";
 import { controlButtonStyle, inputControlStyle, panelSurfaceStyle } from "../ui/styles.js";
 
 function formatLapOption(lap, bestLapNumber) {
-  const prefix = lap.lap_number === bestLapNumber ? "ΤΑΧΥΤΕΡΟΣ • " : "";
-  return `${prefix}L${lap.lap_number} • ${fmt(lap.lap_duration)}`;
+  return `L${lap.lap_number} · ${fmt(lap.lap_duration)}`;
 }
 
 function DriverLapSelector({ mob, F1, drivers, slot, onSelectDriver, onSelectLap }) {
   const lapSelectTitle =
-    slot.slot <= 2 ? { title: slot.selectedLap ? fmt(slot.selectedLap.lap_duration) : "Επιλογή γύρου" } : {};
+    slot.slot <= 2
+      ? { title: slot.selectedLap ? `${slot.selectedLap.lap_number === slot.lapSelect.fastestLapNumber ? "Ταχύτερος · " : ""}${fmt(slot.selectedLap.lap_duration)}` : "Επιλογή γύρου" }
+      : {};
 
   return (
     <div className="driver-selector" style={{ borderLeft: `2px solid ${slot.color}` }}>
