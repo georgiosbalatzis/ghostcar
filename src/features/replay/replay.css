@@ -280,6 +280,8 @@
   height: 100dvh;
 }
 .embed .stage__body {
+  flex: 1;
+  height: auto;
   min-height: 160px;
 }
 .embed__bar {

@@ -218,6 +218,20 @@ test("mobile embed keeps replay, scrub and play inside its frame", async ({ page
   await expect(page.getByRole("tab")).toHaveCount(0);
 });
 
+test("article embed is always 2D and the stage fills the frame", async ({ page }) => {
+  await page.setViewportSize({ width: 750, height: 660 });
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page);
+  await page.goto(`${comparisonUrl}&tv=3d&embed=1`);
+  await expect(trackMap(page)).toBeVisible();
+  await expect(page.locator(".stage canvas")).toHaveCount(0);
+  const [bodyBottom, barTop] = await Promise.all([
+    page.locator(".stage__body").evaluate((node) => node.getBoundingClientRect().bottom),
+    page.locator(".embed__bar").evaluate((node) => node.getBoundingClientRect().top),
+  ]);
+  expect(Math.abs(barTop - bodyBottom)).toBeLessThanOrEqual(1);
+});
+
 test("publishing and season analysis preserve the loaded comparison", async ({ page }) => {
   const errors = collectPageErrors(page);
   await setPreferences(page, { trackView: "2d" });

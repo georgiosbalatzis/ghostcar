@@ -85,7 +85,10 @@ export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
   const { isDark, setThemeMode, toggleTheme } = useThemePreference(initialURL.theme);
-  const { trackView, setTrackViewMode, setTrackViewFromValue, is2DView } = useTrackViewPreference(initialURL.trackView);
+  // Embeds have no view toggle and sit inside scrolling articles, so they are always the light 2D map.
+  const { trackView, setTrackViewMode, setTrackViewFromValue, is2DView } = useTrackViewPreference(
+    embed ? "2d" : initialURL.trackView
+  );
   const {
     prog,
     setProg,
