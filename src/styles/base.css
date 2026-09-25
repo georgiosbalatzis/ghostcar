@@ -436,11 +436,6 @@ textarea.input {
   padding-top: var(--space-1);
   border-top: 1px solid var(--rule);
 }
-.menu__label {
-  padding: var(--space-2) var(--space-3) var(--space-1);
-  font-size: var(--text-meta);
-  color: var(--muted);
-}
 .menu__item {
   display: flex;
   align-items: center;
@@ -469,7 +464,7 @@ textarea.input {
 }
 .menu__item-hint {
   margin-left: auto;
-  font-size: var(--text-meta);
+  font-size: var(--text-small);
   color: var(--muted);
 }
 @media (max-width: 767px) {

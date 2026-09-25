@@ -1,6 +1,7 @@
 .builder {
   display: grid;
   gap: var(--space-6);
+  container-type: inline-size;
 }
 .builder__group {
   display: grid;
@@ -79,30 +80,17 @@
   margin-top: calc(-1 * var(--space-4));
 }
 
-/* Narrow forms (phones, the edit sheet): season + Grand Prix, then session on its own row. */
-@media (max-width: 767px) {
+/* Narrow forms (phones, the edit sheet) follow the form's own width, not the viewport:
+   season + Grand Prix with the session below, and each driver's lap under the driver. */
+@container (max-width: 560px) {
   .builder__event {
     grid-template-columns: minmax(88px, 7rem) minmax(0, 1fr);
   }
   .builder__event .field:nth-child(3) {
     grid-column: 1 / -1;
   }
-}
-@media (min-width: 768px) {
-  .dialog--sheet .builder__event {
-    grid-template-columns: minmax(88px, 7rem) minmax(0, 1fr);
-  }
-  .dialog--sheet .builder__event .field:nth-child(3) {
-    grid-column: 1 / -1;
-  }
-  .dialog--sheet .slot {
-    grid-template-columns: 14px minmax(0, 1fr) minmax(0, 11rem) var(--control-height);
-  }
-}
-
-@media (max-width: 767px) {
   .slot {
-    grid-template-columns: 12px minmax(0, 1fr) var(--touch-target);
+    grid-template-columns: 12px minmax(0, 1fr) var(--control-height);
     row-gap: var(--space-2);
   }
   .slot__lap {
@@ -114,8 +102,6 @@
   .slot .icon-btn {
     grid-column: 3;
     grid-row: 1;
-    width: var(--touch-target);
-    height: var(--touch-target);
   }
   .builder__submit {
     width: 100%;

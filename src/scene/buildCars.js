@@ -8,15 +8,14 @@ import {
   Color,
   DynamicDrawUsage,
   Group,
-  Line,
   Mesh,
   Points,
   Sprite,
+  SRGBColorSpace,
   Vector3,
 } from "three";
 import { disposeScene } from "./createRenderer.js";
 import {
-  createCarPoleMaterial,
   createCarShadowMaterial,
   createFallbackCarMaterial,
   createSpriteLabelMaterial,
@@ -30,11 +29,24 @@ function freezeObjectTransform(object) {
   return object;
 }
 
-function makeCarGroup({ color, label, isGhost, isLowDetail, tier = 0 }) {
+const LABEL_PX = 24;
+const LABEL_ASPECT = 200 / 80;
+
+// Labels keep one on-screen size at any camera distance (sizeAttenuation is off), so they stay legible
+// on a phone-sized stage and do not balloon in the follow camera. Called on every stage resize.
+export function sizeCarLabels(cars, viewportHeight, fov) {
+  const height = (2 * LABEL_PX * Math.tan((fov * Math.PI) / 360)) / (viewportHeight || 1);
+  for (const car of cars) {
+    const sprite = car?.userData.label;
+    if (!sprite) continue;
+    sprite.scale.set(height * LABEL_ASPECT, height, 1);
+    sprite.updateMatrix();
+  }
+}
+
+function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) {
   const group = new Group();
-  const carColor = new Color(color);
-  // Each slot's label sits at its own height so labels of cars running together never overlap.
-  const labelHeight = 2.3 + tier * 1.8;
+  let sprite = null;
 
   const shadow = new Mesh(new CircleGeometry(1.0, 24), createCarShadowMaterial());
   shadow.rotation.x = -Math.PI / 2;
@@ -42,33 +54,33 @@ function makeCarGroup({ color, label, isGhost, isLowDetail, tier = 0 }) {
   group.add(freezeObjectTransform(shadow));
 
   if (label && !isLowDetail) {
-    const poleGeo = new BufferGeometry().setFromPoints([new Vector3(0, 0.3, 0), new Vector3(0, labelHeight - 0.3, 0)]);
-    const pole = new Line(poleGeo, createCarPoleMaterial(carColor));
-    group.add(freezeObjectTransform(pole));
-
     const canvas = document.createElement("canvas");
     canvas.width = 200;
     canvas.height = 80;
     const ctx = canvas.getContext("2d");
     // Flat label plate: page colour, a narrow driver-colour key, the acronym in the UI face.
-    ctx.fillStyle = "rgba(12,14,15,0.88)";
+    ctx.fillStyle = isDark ? "rgba(12,14,15,0.88)" : "rgba(241,239,233,0.92)";
     ctx.fillRect(0, 0, 200, 80);
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, 10, 80);
-    ctx.fillStyle = "#f1efea";
+    ctx.fillStyle = isDark ? "#f1efea" : "#1b1e1d";
     ctx.font = '600 40px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(label, 106, 42);
 
     const texture = new CanvasTexture(canvas);
-    const sprite = new Sprite(createSpriteLabelMaterial(texture));
-    sprite.position.set(0, labelHeight, 0);
-    sprite.scale.set(2.8, 1.1, 1);
+    // Canvas pixels are sRGB; untagged, three treats them as linear and the colours wash out.
+    texture.colorSpace = SRGBColorSpace;
+    sprite = new Sprite(createSpriteLabelMaterial(texture));
+    sprite.position.set(0, 1.6, 0);
+    // Anchored at the plate's bottom edge and lifted one plate per slot, in screen space, so the labels
+    // of cars running together stack instead of overlapping at any zoom.
+    sprite.center.set(0.5, -tier * 1.2);
     group.add(freezeObjectTransform(sprite));
   }
 
-  group.userData = { color, isGhost, modelLoaded: false };
+  group.userData = { color, isGhost, modelLoaded: false, label: sprite };
   return group;
 }
 
@@ -190,6 +202,7 @@ function makeTrail({ scene, color, ghost, isMob }) {
 export function buildCars({
   scene,
   isLowDetail,
+  isDark,
   isMob,
   l3,
   l4,
@@ -204,25 +217,23 @@ export function buildCars({
   isActive = () => true,
   isContextLost = () => false,
 }) {
-  const car1 = makeCarGroup({ color: c1, label: lab1, isGhost: false, isLowDetail });
-  const car2 = makeCarGroup({ color: c2, label: lab2, isGhost: true, isLowDetail, tier: 1 });
+  const car1 = makeCarGroup({ color: c1, label: lab1, isGhost: false, isLowDetail, isDark });
+  const car2 = makeCarGroup({ color: c2, label: lab2, isGhost: true, isLowDetail, isDark, tier: 1 });
   scene.add(car1);
   scene.add(car2);
 
   const car3 =
-    l3?.length > 0 && lab3 ? makeCarGroup({ color: c3, label: lab3, isGhost: true, isLowDetail, tier: 2 }) : null;
+    l3?.length > 0 && lab3
+      ? makeCarGroup({ color: c3, label: lab3, isGhost: true, isLowDetail, isDark, tier: 2 })
+      : null;
   const car4 =
-    l4?.length > 0 && lab4 ? makeCarGroup({ color: c4, label: lab4, isGhost: true, isLowDetail, tier: 3 }) : null;
+    l4?.length > 0 && lab4
+      ? makeCarGroup({ color: c4, label: lab4, isGhost: true, isLowDetail, isDark, tier: 3 })
+      : null;
   if (car3) scene.add(car3);
   if (car4) scene.add(car4);
 
-  const carGroups = [car1, car2, car3, car4];
-  const shouldLoadDetailedCars = true;
-  if (shouldLoadDetailedCars) {
-    loadDetailedCarModels({ carGroups, isActive, isContextLost });
-  } else {
-    addFallbackCars(carGroups);
-  }
+  loadDetailedCarModels({ carGroups: [car1, car2, car3, car4], isActive, isContextLost });
 
   const tr1 = makeTrail({ scene, color: c1, ghost: false, isMob });
   const tr2 = makeTrail({ scene, color: c2, ghost: true, isMob });

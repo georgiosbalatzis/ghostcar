@@ -12,11 +12,7 @@ export function createVertexColorLineMaterial(opacity = 1) {
   return new LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity });
 }
 
-// Ground and road are flat, unlit and not tone-mapped, so the canvas matches the page tokens exactly.
-export function createGroundMaterial({ theme }) {
-  return new MeshBasicMaterial({ color: theme.groundColor, toneMapped: false });
-}
-
+// The road is flat, unlit and not tone-mapped, so the canvas matches the page tokens exactly.
 export function createTrackRibbonMaterial({ theme }) {
   return new MeshBasicMaterial({ color: theme.trackColor, side: DoubleSide, toneMapped: false });
 }
@@ -32,7 +28,8 @@ export function createTrackOverlayMaterial(opacity) {
 }
 
 export function createSpriteLabelMaterial(map) {
-  return new SpriteMaterial({ map, transparent: true, depthWrite: false });
+  // Not tone-mapped: the plate shows the exact driver colour and page-white text, like the 2D labels.
+  return new SpriteMaterial({ map, transparent: true, depthWrite: false, sizeAttenuation: false, toneMapped: false });
 }
 
 export function createStartLineMaterial() {
@@ -47,10 +44,6 @@ export function createCarShadowMaterial() {
     side: DoubleSide,
     depthWrite: false,
   });
-}
-
-export function createCarPoleMaterial(color) {
-  return new LineBasicMaterial({ color, transparent: true, opacity: 0.5 });
 }
 
 export function createFallbackCarMaterial({ color, isGhost }) {

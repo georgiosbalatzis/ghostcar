@@ -171,5 +171,5 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
   sfR.y += 0.03;
   scene.add(freezeObjectTransform(new Line(new BufferGeometry().setFromPoints([sfL, sfR]), createStartLineMaterial())));
 
-  return { curve, seg, sectorMarkers: null };
+  return { curve, seg };
 }

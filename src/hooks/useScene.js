@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from "react";
 import { Vector3 } from "three";
 import { getSmoothPathPointCount, norm, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
-import { buildCars } from "../scene/buildCars.js";
+import { buildCars, sizeCarLabels } from "../scene/buildCars.js";
 import { buildEnvironment } from "../scene/buildEnvironment.js";
 import { buildRaceOverlays } from "../scene/buildRaceOverlays.js";
 import { buildTrack } from "../scene/buildTrack.js";
@@ -47,15 +47,11 @@ export default function useScene(
   lab3,
   lab4,
   onError,
-  circuitFlip = false,
-  circuitTurns = 20,
-  enabled = true,
-  visible = true
+  circuitFlip = false
 ) {
   const R = useRef({});
   const CS = useRef({ angle: 0, pitch: 0.85, dist: 50, drag: false, lx: 0, ly: 0, cinT: 0 });
   const cmRef = useRef(cam);
-  const visibleRef = useRef(visible);
   const camTargetPos = useRef(new Vector3(40, 30, 40));
   const camTargetLook = useRef(new Vector3(0, 0, 0));
   const smoothPointCount = useMemo(
@@ -84,10 +80,6 @@ export default function useScene(
 
   useEffect(() => {
     const el = ref.current;
-    if (!enabled) {
-      onError?.("");
-      return;
-    }
     if (!el || !tp || tp.length < 10) {
       onError?.("");
       return;
@@ -150,9 +142,9 @@ export default function useScene(
       } = rendererContext;
       onError?.("");
 
-      buildEnvironment({ scene, isDark, theme: T });
+      buildEnvironment({ scene, isDark });
 
-      const { curve, seg, sectorMarkers } = buildTrack({
+      const { curve, seg } = buildTrack({
         scene,
         tp,
         speedArr,
@@ -161,12 +153,12 @@ export default function useScene(
         isDark,
         theme: T,
         isLowDetail,
-        circuitTurns,
       });
 
       const { car1, car2, car3, car4, tr1, tr2, tr3, tr4 } = buildCars({
         scene,
         isLowDetail,
+        isDark,
         isMob,
         l3,
         l4,
@@ -181,6 +173,8 @@ export default function useScene(
         isActive: () => active,
         isContextLost: () => contextLost,
       });
+      const cars = [car1, car2, car3, car4];
+      sizeCarLabels(cars, el.clientHeight, camera.fov);
 
       const { spot1, spot2, deltaLine, deltaPos } = buildRaceOverlays({ scene, curve, seg, isLowDetail });
 
@@ -205,7 +199,6 @@ export default function useScene(
         spot2,
         deltaLine,
         deltaPos,
-        sectorMarkers,
         fr: null,
         _dirty: true,
       };
@@ -243,7 +236,6 @@ export default function useScene(
         camera,
         trackPath: tp,
         cameraModeRef: cmRef,
-        visibleRef,
         controls: cs,
         inputControls,
         targetPosition: camTargetPos.current,
@@ -264,6 +256,7 @@ export default function useScene(
         renderer: ren,
         isContextLost: () => contextLost,
         onResize: () => {
+          sizeCarLabels(cars, el.clientHeight, camera.fov);
           R.current._dirty = true;
         },
       });
@@ -298,8 +291,6 @@ export default function useScene(
     lab3,
     lab4,
     onError,
-    circuitTurns,
-    enabled,
     n1,
     n2,
     n3,
@@ -331,10 +322,6 @@ export default function useScene(
     cmRef.current = cam;
     R.current._dirty = true;
   }, [cam]);
-  useEffect(() => {
-    visibleRef.current = visible;
-    R.current._dirty = true;
-  }, [visible]);
   useEffect(() => {
     R.current._speedRef = speedRef;
     R.current._dirty = true;

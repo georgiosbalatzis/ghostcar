@@ -77,13 +77,14 @@ export default function Menu({ label, trigger, triggerClassName = "icon-btn", al
         {trigger}
       </button>
       <div ref={menuRef} id={id} popover="auto" role="menu" aria-label={label} className="menu" onKeyDown={onKeyDown}>
+        {/* Groups are separated by a rule; their names are for assistive technology only. */}
         {visibleGroups.map((group, groupIndex) => (
-          <div className="menu__group" role="group" aria-label={group.label} key={group.label || groupIndex}>
-            {group.label && (
-              <div className="menu__label" aria-hidden="true">
-                {group.label}
-              </div>
-            )}
+          <div
+            className="menu__group"
+            role="group"
+            aria-label={group.label || undefined}
+            key={group.label || groupIndex}
+          >
             {group.items.map((item) => (
               <button
                 key={item.label}

@@ -45,7 +45,6 @@ export function buildReplayModel(replay) {
     sessionLabel: formatSessionLabel(meta.session?.session_name),
     trackPath: replay.trackPath,
     circuitFlip: replay.circuitFlip,
-    circuitTurns: replay.circuitTurns,
     drivers,
     // Final lap-time difference between the first two drivers (not a live gap).
     delta: first?.lapDuration && second?.lapDuration ? first.lapDuration - second.lapDuration : null,

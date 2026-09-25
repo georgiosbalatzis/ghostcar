@@ -52,6 +52,12 @@ function TrackMap({ trackPath, drivers, prog, flip }) {
 
   if (!geometry) return null;
   const { box } = geometry;
+  const cars = drivers.map((driver, index) => {
+    const point = lerpPoint(geometry.paths[index], prog);
+    return { driver, x: (point.x + box.pad) / box.width, y: (point.y + box.pad) / box.height };
+  });
+  // Labels stack in on-screen order, top car's label highest, so bunched cars never cover each other's names.
+  const rank = cars.map((car) => cars.filter((other) => other.y < car.y).length);
 
   return (
     <div className="track-map-frame" style={{ "--ratio": box.width / box.height }}>
@@ -66,27 +72,24 @@ function TrackMap({ trackPath, drivers, prog, flip }) {
         <path className="track-map__road" d={geometry.trackD} vectorEffect="non-scaling-stroke" />
         <path className="track-map__start" d={geometry.startD} vectorEffect="non-scaling-stroke" />
       </svg>
-      {drivers.map((driver, index) => {
-        const point = lerpPoint(geometry.paths[index], prog);
-        return (
-          <div
-            key={driver.slot}
-            className="car"
-            data-label={driver.label}
-            style={{
-              "--c": driver.color,
-              // Labels stack by slot so bunched cars never cover each other's names.
-              "--stack": index - (drivers.length - 1) / 2,
-              left: `${((point.x + box.pad) / box.width) * 100}%`,
-              top: `${((point.y + box.pad) / box.height) * 100}%`,
-              zIndex: drivers.length - index,
-            }}
-          >
-            <span className="car__dot" />
-            <span className="car__label">{driver.label}</span>
-          </div>
-        );
-      })}
+      {cars.map(({ driver, x, y }, index) => (
+        <div
+          key={driver.slot}
+          // Near the right edge the label goes on the left, so it stays inside the stage.
+          className={x > 0.7 ? "car car--flip" : "car"}
+          data-label={driver.label}
+          style={{
+            "--c": driver.color,
+            "--stack": rank[index] - (cars.length - 1) / 2,
+            left: `${x * 100}%`,
+            top: `${y * 100}%`,
+            zIndex: cars.length - index,
+          }}
+        >
+          <span className="car__dot" />
+          <span className="car__label">{driver.label}</span>
+        </div>
+      ))}
     </div>
   );
 }

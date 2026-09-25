@@ -14,7 +14,6 @@ export function startSceneRenderLoop({
   camera,
   trackPath,
   cameraModeRef,
-  visibleRef,
   controls,
   inputControls,
   targetPosition,
@@ -32,7 +31,6 @@ export function startSceneRenderLoop({
   const prevCameraQuat = new Quaternion();
   let lastFrameTime = 0;
   let lastProg = -1;
-  let lastSector = -1;
   let lastCamMode = cameraModeRef.current;
   let lastPlayState = false;
   let lastSceneVisible = false;
@@ -45,7 +43,7 @@ export function startSceneRenderLoop({
     if (cancelled || isContextLost()) return;
     const sceneState = sceneStateRef.current;
     sceneState.fr = requestAnimationFrame(animate);
-    const isSceneVisible = visibleRef.current && !document.hidden;
+    const isSceneVisible = !document.hidden;
     const isPlaying = !!sceneState._playRef?.current;
     const isActive = !!(isPlaying || inputControls.isActive());
     const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
@@ -93,12 +91,8 @@ export function startSceneRenderLoop({
       deltaTime: dt,
       playbackSpeed,
       followCamera,
-      now,
-      lastSector,
-      hasRendered,
     });
     needsRender = needsRender || carUpdate.needsRender;
-    lastSector = carUpdate.lastSector;
 
     updateReplayCameraTargets({
       cameraMode,

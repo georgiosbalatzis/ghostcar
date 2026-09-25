@@ -38,10 +38,7 @@ export default function SceneStage3D({
     d3.label || "",
     d4.label || "",
     onError,
-    model.circuitFlip,
-    model.circuitTurns,
-    true,
-    true
+    model.circuitFlip
   );
   return null;
 }

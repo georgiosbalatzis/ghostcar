@@ -1,5 +1,4 @@
 import { memo, useMemo } from "react";
-import { fmt } from "../../helpers.js";
 
 function bestIndex(values, lowerIsBetter) {
   let best = -1;
@@ -31,14 +30,16 @@ function TimeRow({ label, values, format }) {
   return (
     <tr>
       <th scope="row">{label}</th>
-      {values.map((value, index) => (
-        <td key={index} className={index === best ? "is-best" : undefined}>
-          <span className="num">{value ? format(value) : "—"}</span>
-          {value && best >= 0 && index !== best && (
-            <span className="gap num">+{(value - values[best]).toFixed(3)}</span>
-          )}
-        </td>
-      ))}
+      {values.map((value, index) => {
+        // Rounded to the displayed precision, so a tie reads as a tie rather than "+0.000".
+        const gap = value && best >= 0 ? Math.round((value - values[best]) * 1000) / 1000 : 0;
+        return (
+          <td key={index} className={value && gap === 0 ? "is-best" : undefined}>
+            <span className="num">{value ? format(value) : "—"}</span>
+            {gap > 0 && <span className="gap num">+{gap.toFixed(3)}</span>}
+          </td>
+        );
+      })}
     </tr>
   );
 }
@@ -94,7 +95,6 @@ function SectorAnalysis({ drivers }) {
                 format={(value) => value.toFixed(3)}
               />
             ))}
-            <TimeRow label="Γύρος" values={drivers.map((driver) => driver.lapDuration)} format={fmt} />
           </tbody>
         </table>
       ) : (

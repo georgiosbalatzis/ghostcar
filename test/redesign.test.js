@@ -41,7 +41,6 @@ test("replay model describes the loaded snapshot, not the live selection", () =>
   const model = buildReplayModel({
     trackPath: path,
     circuitFlip: false,
-    circuitTurns: 11,
     meta: {
       year: 2025,
       meeting: { meeting_name: "Italian Grand Prix" },

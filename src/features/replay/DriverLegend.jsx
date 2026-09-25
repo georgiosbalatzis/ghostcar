@@ -6,10 +6,11 @@ import { fmt } from "../../helpers.js";
 function DriverLegend({ drivers, delta }) {
   const [first, second] = drivers;
   const faster = delta == null ? null : delta < 0 ? first : delta > 0 ? second : null;
+  // With three or four drivers an A–B figure would be ambiguous, so the gap column carries it instead.
+  const showDelta = delta != null && drivers.length === 2;
   return (
     <div className="legend">
-      {/* With three or four drivers an A–B figure would be ambiguous; the gap column carries it. */}
-      {delta != null && drivers.length === 2 && (
+      {showDelta && (
         <div className="legend__delta">
           <span className="legend__caption">Τελική διαφορά γύρου</span>
           <span className="legend__value num">
@@ -38,7 +39,7 @@ function DriverLegend({ drivers, delta }) {
               </th>
               <td className="legend__lap">Γ{driver.lapNumber}</td>
               <td className="num">{fmt(driver.lapDuration)}</td>
-              <td className="num legend__gap">{driver.gap ? `+${driver.gap.toFixed(3)}` : ""}</td>
+              {!showDelta && <td className="num legend__gap">{driver.gap ? `+${driver.gap.toFixed(3)}` : ""}</td>}
             </tr>
           ))}
         </tbody>

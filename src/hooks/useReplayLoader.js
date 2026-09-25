@@ -92,7 +92,6 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
       setReplay({
         trackPath: geometry.trackPath,
         circuitFlip: geometry.circuitFlip,
-        circuitTurns: geometry.circuitTurns,
         streams: bySlot,
         meta,
       });

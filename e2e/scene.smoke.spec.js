@@ -174,6 +174,18 @@ for (const width of [320, 390, 768]) {
 
     await timeline(page).fill("0.45");
     await expect(timeline(page)).toHaveValue("0.45");
+    // Both cars sit near the right edge here: every name stays whole inside the stage and clear of the others.
+    const labels = await page.evaluate(() => {
+      const stage = document.querySelector(".stage__canvas").getBoundingClientRect();
+      const rects = [...document.querySelectorAll(".car__label")].map((node) => node.getBoundingClientRect());
+      return {
+        inside: rects.every((r) => r.left >= stage.left && r.right <= stage.right),
+        overlap: rects.some((a, i) =>
+          rects.slice(i + 1).some((b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom)
+        ),
+      };
+    });
+    expect(labels).toEqual({ inside: true, overlap: false });
     await page.getByLabel("Ταχύτητα αναπαραγωγής").selectOption("2");
     await page.getByRole("button", { name: "Αναπαραγωγή" }).click();
     await expect.poll(async () => Number(await timeline(page).inputValue()), { timeout: 8000 }).toBeGreaterThan(0.45);

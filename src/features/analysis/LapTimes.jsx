@@ -30,7 +30,7 @@ function LapTimes({ slots, drivers, loadedLaps, onSelectLap }) {
           <section key={slot.slot} className="laps__driver" style={{ "--c": colors[index] }}>
             <h3 className="laps__name">
               <span className="swatch" aria-hidden="true" />
-              {driver.name_acronym} <span className="laps__count">{laps.length} γύροι</span>
+              {driver.name_acronym}
             </h3>
             <ol className="laps__list">
               {laps.map((lap) => {

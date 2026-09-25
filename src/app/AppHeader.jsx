@@ -14,6 +14,9 @@ function Brand() {
   );
 }
 
+// Keyboard shortcuts mean nothing on a touch-only device, so neither the list nor the key hints show there.
+const HAS_KEYBOARD = window.matchMedia("(any-pointer: fine)").matches;
+
 // Secondary destinations and preferences. Shared by both header variants.
 function moreGroups({ actions, isDark, showreel, season }) {
   return [
@@ -42,7 +45,7 @@ function moreGroups({ actions, isDark, showreel, season }) {
         {
           label: isDark ? "Φωτεινό θέμα" : "Σκούρο θέμα",
           icon: isDark ? "sun" : "moon",
-          hint: "D",
+          hint: HAS_KEYBOARD ? "D" : undefined,
           onSelect: actions.toggleTheme,
         },
         {
@@ -54,6 +57,7 @@ function moreGroups({ actions, isDark, showreel, season }) {
           label: "Συντομεύσεις πληκτρολογίου",
           icon: "keyboard",
           hint: "?",
+          hidden: !HAS_KEYBOARD,
           onSelect: () => actions.openDialog("shortcuts"),
         },
       ],

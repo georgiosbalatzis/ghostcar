@@ -8,16 +8,9 @@ export function normalizeThemeMode(value) {
   return null;
 }
 
-export default function useThemePreference(initialTheme) {
-  const [isDark, setIsDark] = useState(() => {
-    const urlTheme = normalizeThemeMode(initialTheme);
-    if (urlTheme !== null) return urlTheme;
-    try {
-      return localStorage.getItem(THEME_STORAGE_KEY) !== "light";
-    } catch {
-      return true;
-    }
-  });
+export default function useThemePreference() {
+  // index.html already resolved URL `th` over the stored preference before first paint; start from its answer.
+  const [isDark, setIsDark] = useState(() => document.documentElement.dataset.theme !== "light");
 
   const persistTheme = useCallback((nextIsDark) => {
     try {

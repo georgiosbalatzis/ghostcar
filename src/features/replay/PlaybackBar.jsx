@@ -4,7 +4,8 @@ function formatSpeed(speed) {
   return `${speed}×`;
 }
 
-// Transport: play/pause and the timeline are primary; restart, loop and speed are secondary.
+// Transport: play/pause and the timeline are primary; loop and speed are secondary. Play on a finished
+// lap restarts it, so there is no separate restart button (R still does it from the keyboard).
 // The timeline is normalised lap progress; each driver's own lap is mapped onto it.
 export default function PlaybackBar({
   play,
@@ -13,13 +14,11 @@ export default function PlaybackBar({
   speed,
   speeds,
   onToggle,
-  onReset,
   onLoop,
   onSeek,
   onSpeed,
   compact = false,
 }) {
-  const percent = Math.round(progress * 100);
   return (
     <div className={`transport ${compact ? "transport--compact" : ""}`} role="group" aria-label="Αναπαραγωγή">
       <button
@@ -35,7 +34,7 @@ export default function PlaybackBar({
         type="range"
         className="timeline"
         aria-label="Πρόοδος γύρου"
-        aria-valuetext={`${percent}% του γύρου`}
+        aria-valuetext={`${Math.round(progress * 100)}% του γύρου`}
         min="0"
         max="1"
         step="0.001"
@@ -43,12 +42,8 @@ export default function PlaybackBar({
         style={{ "--p": progress }}
         onChange={(event) => onSeek(parseFloat(event.target.value))}
       />
-      <span className="transport__time num" aria-hidden="true">
-        {percent}%
-      </span>
       {!compact && (
         <div className="transport__secondary">
-          <IconButton icon="restart" label="Επιστροφή στην αρχή (R)" onClick={onReset} />
           <IconButton icon="loop" label="Επανάληψη (L)" pressed={loop} onClick={onLoop} />
           <select
             className="select transport__speed"

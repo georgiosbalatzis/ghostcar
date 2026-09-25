@@ -73,7 +73,7 @@
 }
 .unit {
   margin-left: 2px;
-  font-size: var(--text-meta);
+  font-size: var(--text-small);
   font-weight: 400;
   color: var(--muted);
 }
@@ -82,7 +82,7 @@
 }
 .data-table .gap {
   display: block;
-  font-size: var(--text-meta);
+  font-size: var(--text-small);
   color: var(--muted);
 }
 
@@ -189,7 +189,7 @@
   left: 0;
   padding-right: 4px;
   background: var(--page);
-  font-size: var(--text-meta);
+  font-size: var(--text-small);
   line-height: 1;
   color: var(--muted);
 }
@@ -209,7 +209,7 @@
   height: 18px;
 }
 .brake-lane__label {
-  font-size: var(--text-meta);
+  font-size: var(--text-small);
   color: var(--text-2);
 }
 .brake-lane__svg {
@@ -225,7 +225,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: calc(-1 * var(--space-3));
-  font-size: var(--text-meta);
+  font-size: var(--text-small);
   color: var(--muted);
 }
 
@@ -246,11 +246,6 @@
   margin-bottom: var(--space-2);
   font-size: var(--text-control);
   font-weight: 600;
-}
-.laps__count {
-  margin-left: var(--space-1);
-  font-weight: 400;
-  color: var(--muted);
 }
 .laps__list {
   list-style: none;
@@ -284,9 +279,10 @@
 .lap-row__gap {
   color: var(--muted);
 }
+/* State, not an action, so it stays out of the accent colour. */
 .lap-row__state {
-  font-size: var(--text-meta);
-  color: var(--accent-text);
+  font-size: var(--text-small);
+  color: var(--text-2);
 }
 
 @media (max-width: 1099px) {

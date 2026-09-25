@@ -38,7 +38,6 @@ export function buildReplayGeometry(meeting, referenceLocation) {
 
   return {
     circuitFlip: circuit.flip,
-    circuitTurns: circuit.turns,
     trackPath: norm(referenceLocation, circuit.flip),
   };
 }

@@ -39,14 +39,8 @@ test("getCompoundForLap resolves stint compound by lap", () => {
 });
 
 test("circuit helpers resolve metadata and replay flip decisions", () => {
-  assert.deepEqual(getCircuitInfo({ circuit_short_name: "Suzuka" }), {
-    turns: 18,
-    clockwise: true,
-  });
-  assert.deepEqual(getCircuitInfo({ meeting_name: "Sao Paulo Grand Prix" }), {
-    turns: 15,
-    clockwise: false,
-  });
+  assert.deepEqual(getCircuitInfo({ circuit_short_name: "Suzuka" }), { clockwise: true });
+  assert.deepEqual(getCircuitInfo({ meeting_name: "Sao Paulo Grand Prix" }), { clockwise: false });
 
   const clockwisePoints = [
     { x: 0, z: 0 },
@@ -57,7 +51,6 @@ test("circuit helpers resolve metadata and replay flip decisions", () => {
 
   assert.equal(calculateTrackArea(clockwisePoints), 2);
   assert.deepEqual(getCircuitReplayConfig({ circuit_short_name: "Suzuka" }, clockwisePoints), {
-    turns: 18,
     clockwise: true,
     area: 2,
     flip: true,
@@ -137,7 +130,6 @@ test("replay helpers validate primary slots and build geometry", () => {
   );
 
   const geometry = buildReplayGeometry({ circuit_short_name: "Suzuka" }, location);
-  assert.equal(geometry.circuitTurns, 18);
   assert.equal(typeof geometry.circuitFlip, "boolean");
   assert.equal(geometry.trackPath.length, location.length);
 });

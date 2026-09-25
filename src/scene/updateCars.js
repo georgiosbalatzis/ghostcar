@@ -113,29 +113,6 @@ function updateCar({
   return { x: car.userData.pos.x, y: car.userData.pos.y - 0.2, z: car.userData.pos.z, dirty: localDirty };
 }
 
-function updateSectorMarkers({ sceneState, progress, now, isPlaying, hasRendered, lastSector }) {
-  const curSector = progress < 0.333 ? 0 : progress < 0.666 ? 1 : 2;
-  const sectorChanged = curSector !== lastSector;
-  const nextSector = sectorChanged ? curSector : lastSector;
-  const sectorMarkers = sceneState.sectorMarkers;
-
-  if (sectorMarkers?.mesh && sectorMarkers?.defs?.length && (sectorChanged || isPlaying || !hasRendered)) {
-    const markerDummy = sceneState._markerDummy || (sceneState._markerDummy = new Object3D());
-    sectorMarkers.defs.forEach((marker, index) => {
-      const pulse = marker.sector === curSector ? (isPlaying ? 1.12 + Math.sin(now * 0.006) * 0.08 : 1.12) : 0.82;
-      markerDummy.position.copy(marker.position);
-      markerDummy.rotation.set(-Math.PI / 2, 0, 0);
-      markerDummy.scale.setScalar(marker.baseScale * pulse);
-      markerDummy.updateMatrix();
-      sectorMarkers.mesh.setMatrixAt(index, markerDummy.matrix);
-    });
-    sectorMarkers.mesh.instanceMatrix.needsUpdate = true;
-    return { needsRender: true, lastSector: nextSector };
-  }
-
-  return { needsRender: false, lastSector: nextSector };
-}
-
 export function updateCarsAndMarkers({
   sceneState,
   trackPath,
@@ -145,13 +122,10 @@ export function updateCarsAndMarkers({
   deltaTime,
   playbackSpeed,
   followCamera,
-  now,
-  lastSector,
-  hasRendered,
 }) {
   const { car1, car2, tr1, tr2, spot1, spot2, deltaLine, deltaPos } = sceneState;
   if (!car1 || !car2 || !trackPath || trackPath.length < 2) {
-    return { needsRender: false, lastSector, p1: null, p2: null };
+    return { needsRender: false, p1: null, p2: null };
   }
 
   let needsRender = false;
@@ -230,15 +204,5 @@ export function updateCarsAndMarkers({
     deltaLine.material.opacity = Math.min(0.6, gap * 0.08);
   }
 
-  const markerUpdate = updateSectorMarkers({
-    sceneState,
-    progress,
-    now,
-    isPlaying,
-    hasRendered,
-    lastSector,
-  });
-  needsRender = needsRender || markerUpdate.needsRender;
-
-  return { needsRender, lastSector: markerUpdate.lastSector, p1, p2 };
+  return { needsRender, p1, p2 };
 }
