@@ -19,11 +19,12 @@ Never commit `node_modules/`, `dist/`, `.idea/`, coverage, Playwright reports/re
 
 ## Architecture and behavior to preserve
 
-- `src/main.jsx` and `src/F1PhantomCars.jsx`: entry and composition, share URL orchestration, showreel and keyboard handling.
-- `src/hooks/`: selectors, ordered URL restoration, playback, replay loading, preferences and auxiliary views.
+- `src/main.jsx` and `src/F1PhantomCars.jsx`: entry and orchestration only (data hooks, URL restore, load lifecycle, which surface shows). View state is two values: `dialog` (one open at a time) and `railTab`.
+- `src/hooks/`: selectors, ordered URL restoration, playback, replay loading (with the load-time `replay.meta` snapshot), season comparison, presets, sharing and preferences.
 - `src/api.js`, `src/services/`, `src/domain/`: OpenF1 requests, orchestration and pure calculations. Preserve cancellation/stale-response guards and retry/cache semantics; high-volume location/car telemetry is intentionally uncached.
 - `src/scene/` and `src/hooks/useScene.js`: 3D rendering, adaptive quality and resource disposal. Preserve synchronized 2D/3D playback and WebGL fallback.
-- `src/components/`, `src/modals/`, `src/ui/`: UI; `public/` and `src/assets/fonts/`: production assets and font licenses.
+- `src/features/` (comparison, replay, analysis, insights, sharing), `src/app/` (headers, app-level hooks) and `src/components/ui/` (Dialog, Menu, Tabs, Icon): UI. `src/styles/tokens.css` + `base.css` are the only global styles; feature CSS lives beside its feature. React sets `data-theme` on `<html>`; CSS does the styling. Inline styles only for runtime data (driver colour `--c`, positions, progress). `public/` and `src/assets/fonts/`: production assets and font licenses.
+- Everything that describes a loaded replay (labels, colours, delta, share URL, season pair) reads `buildReplayModel(replay)`, never the live selector state; unapplied edits must not relabel a replay.
 - `test/`: Node tests; `e2e/`: Chromium smoke tests; `docs/`: release checklist, historical release records and visual evidence.
 
 Preserve two-to-four driver slots, fastest-lap fallback, invalid-link warnings, URL restore order (meeting → session → drivers → laps), theme/view URL precedence, gallery/share/embed behavior, mobile touch controls and Greek availability messages. Canceled loads must never overwrite newer selections or clear their loading state.

@@ -253,6 +253,48 @@ function selectorSlotsReducer(slots, action) {
   }
 }
 
+// Loads laps and stints for one slot whenever its driver or the session changes.
+// Request ids guard against stale responses; the abort signal cancels superseded requests.
+function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatchSlots, clearReplaySlot }) {
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (presetActiveRef?.current) return;
+    if (!sessionKey || !driverNumber) {
+      dispatchSlots({ type: "setLaps", slot, value: [], loading: false, loaded: false });
+      dispatchSlots({ type: "setLap", slot, value: null });
+      dispatchSlots({ type: "setStints", slot, value: [] });
+      // Optional slots also drop their replay streams when emptied.
+      if (slot > 2) clearReplaySlot?.(slot);
+      return;
+    }
+    const controller = new AbortController();
+    const requestId = ++requestIdRef.current;
+    const isCurrent = () => requestIdRef.current === requestId;
+    dispatchSlots({ type: "setLapFetchState", slot, loading: true, loaded: false });
+    fetchLaps(sessionKey, driverNumber, { signal: controller.signal })
+      .then((laps) => {
+        if (controller.signal.aborted || !isCurrent()) return;
+        dispatchSlots({ type: "setLaps", slot, value: laps, loading: false, loaded: true });
+        dispatchSlots({ type: "setLap", slot, value: null });
+      })
+      .catch((error) => {
+        if (isAbortError(error) || !isCurrent()) return;
+        dispatchSlots({ type: "setLaps", slot, value: [], loading: false, loaded: true });
+      });
+    fetchStints(sessionKey, driverNumber, { signal: controller.signal })
+      .then((stints) => {
+        if (controller.signal.aborted || !isCurrent()) return;
+        dispatchSlots({ type: "setStints", slot, value: stints });
+      })
+      .catch((error) => {
+        if (isAbortError(error) || !isCurrent()) return;
+        dispatchSlots({ type: "setStints", slot, value: [] });
+      });
+    return () => controller.abort();
+  }, [clearReplaySlot, dispatchSlots, driverNumber, presetActiveRef, sessionKey, slot]);
+}
+
 export default function useComparisonSelectors({
   initialURL,
   defaultYear,
@@ -279,26 +321,8 @@ export default function useComparisonSelectors({
   const [numDrivers, setNumDrivers] = useState(() => getInitialDriverCount(initialURL));
   const [restoreTick, setRestoreTick] = useState(0);
   const selectorRequestIdsRef = useRef({ meetings: 0, sessions: 0, drivers: 0 });
-  const lapRequestIdsRef = useRef({ laps1: 0, laps2: 0, laps3: 0, laps4: 0 });
   const supportedSessionNameSet = useMemo(() => new Set(supportedSessionNames), [supportedSessionNames]);
   const sessionKey = selSe?.session_key;
-  const [slot1, slot2, slot3, slot4] = slots;
-  const d1 = slot1.driverNumber;
-  const d2 = slot2.driverNumber;
-  const d3 = slot3.driverNumber;
-  const d4 = slot4.driverNumber;
-  const sl1 = slot1.lapNumber;
-  const sl2 = slot2.lapNumber;
-  const sl3 = slot3.lapNumber;
-  const sl4 = slot4.lapNumber;
-  const laps1 = slot1.laps;
-  const laps2 = slot2.laps;
-  const laps3 = slot3.laps;
-  const laps4 = slot4.laps;
-  const st1 = slot1.stints;
-  const st2 = slot2.stints;
-  const st3 = slot3.stints;
-  const st4 = slot4.stints;
 
   const nextSelectorRequestId = useCallback((key) => {
     const next = (selectorRequestIdsRef.current[key] || 0) + 1;
@@ -310,55 +334,6 @@ export default function useComparisonSelectors({
     (key, requestId) => selectorRequestIdsRef.current[key] === requestId,
     []
   );
-
-  const nextLapRequestId = useCallback((key) => {
-    const next = (lapRequestIdsRef.current[key] || 0) + 1;
-    lapRequestIdsRef.current[key] = next;
-    return next;
-  }, []);
-
-  const isCurrentLapRequest = useCallback((key, requestId) => lapRequestIdsRef.current[key] === requestId, []);
-
-  const setSlotDriver = useCallback((slot, value) => {
-    dispatchSlots({ type: "setDriver", slot, value });
-  }, []);
-
-  const setSlotLap = useCallback((slot, value) => {
-    dispatchSlots({ type: "setLap", slot, value });
-  }, []);
-
-  const setSlotLaps = useCallback((slot, value, options = {}) => {
-    dispatchSlots({ type: "setLaps", slot, value, ...options });
-  }, []);
-
-  const setSlotStints = useCallback((slot, value) => {
-    dispatchSlots({ type: "setStints", slot, value });
-  }, []);
-
-  const setSlotLapFetchState = useCallback((slot, options = {}) => {
-    dispatchSlots({ type: "setLapFetchState", slot, ...options });
-  }, []);
-
-  const setD1 = useCallback((value) => setSlotDriver(1, value), [setSlotDriver]);
-  const setD2 = useCallback((value) => setSlotDriver(2, value), [setSlotDriver]);
-  const setD3 = useCallback((value) => setSlotDriver(3, value), [setSlotDriver]);
-  const setD4 = useCallback((value) => setSlotDriver(4, value), [setSlotDriver]);
-  const setSl1 = useCallback((value) => setSlotLap(1, value), [setSlotLap]);
-  const setSl2 = useCallback((value) => setSlotLap(2, value), [setSlotLap]);
-  const setSl3 = useCallback((value) => setSlotLap(3, value), [setSlotLap]);
-  const setSl4 = useCallback((value) => setSlotLap(4, value), [setSlotLap]);
-  const setLaps1 = useCallback((value, options) => setSlotLaps(1, value, options), [setSlotLaps]);
-  const setLaps2 = useCallback((value, options) => setSlotLaps(2, value, options), [setSlotLaps]);
-  const setLaps3 = useCallback((value, options) => setSlotLaps(3, value, options), [setSlotLaps]);
-  const setLaps4 = useCallback((value, options) => setSlotLaps(4, value, options), [setSlotLaps]);
-  const setLapFetchState1 = useCallback((options) => setSlotLapFetchState(1, options), [setSlotLapFetchState]);
-  const setLapFetchState2 = useCallback((options) => setSlotLapFetchState(2, options), [setSlotLapFetchState]);
-  const setLapFetchState3 = useCallback((options) => setSlotLapFetchState(3, options), [setSlotLapFetchState]);
-  const setLapFetchState4 = useCallback((options) => setSlotLapFetchState(4, options), [setSlotLapFetchState]);
-  const setSt1 = useCallback((value) => setSlotStints(1, value), [setSlotStints]);
-  const setSt2 = useCallback((value) => setSlotStints(2, value), [setSlotStints]);
-  const setSt3 = useCallback((value) => setSlotStints(3, value), [setSlotStints]);
-  const setSt4 = useCallback((value) => setSlotStints(4, value), [setSlotStints]);
 
   const resetDriverSelections = useCallback(
     (options = {}) => {
@@ -440,41 +415,32 @@ export default function useComparisonSelectors({
   );
 
   const selectSession = useCallback(
-    (sessionKey) => {
-      const nextSessionKey = toNullableNumber(sessionKey);
-      setSelSe(sess.find((session) => session.session_key === nextSessionKey) || null);
+    (nextSessionKey) => {
+      const key = toNullableNumber(nextSessionKey);
+      setSelSe(sess.find((session) => session.session_key === key) || null);
     },
     [sess]
   );
 
   const selectDriverSlot = useCallback((slot, driverNumber) => {
-    const nextDriverNumber = toNullableNumber(driverNumber);
-    dispatchSlots({ type: "selectDriver", slot, driverNumber: nextDriverNumber });
+    dispatchSlots({ type: "selectDriver", slot, driverNumber: toNullableNumber(driverNumber) });
   }, []);
 
   const selectLapSlot = useCallback((slot, lapNumber) => {
-    const nextLapNumber = toNullableNumber(lapNumber);
-    dispatchSlots({ type: "setLap", slot, value: nextLapNumber });
+    dispatchSlots({ type: "setLap", slot, value: toNullableNumber(lapNumber) });
   }, []);
 
-  const clearInactiveSlots = useCallback(
-    (driverCount = numDrivers) => {
-      dispatchSlots({ type: "clearInactive", driverCount });
-      if (driverCount < 4) clearReplaySlot?.(4);
-      if (driverCount < 3) clearReplaySlot?.(3);
-    },
-    [clearReplaySlot, numDrivers]
-  );
-
   useEffect(() => {
-    clearInactiveSlots(numDrivers);
-  }, [clearInactiveSlots, numDrivers]);
+    dispatchSlots({ type: "clearInactive", driverCount: numDrivers });
+    if (numDrivers < 4) clearReplaySlot?.(4);
+    if (numDrivers < 3) clearReplaySlot?.(3);
+  }, [clearReplaySlot, numDrivers]);
 
   useEffect(() => {
     if (presetActiveRef?.current) return;
     const controller = new AbortController();
     const requestId = nextSelectorRequestId("meetings");
-    setLoading?.("Φόρτωση...");
+    setLoading?.("Φόρτωση Γκραν Πρι…");
     setErr?.("");
     setSceneErr?.("");
     setMts([]);
@@ -524,7 +490,7 @@ export default function useComparisonSelectors({
     }
     const controller = new AbortController();
     const requestId = nextSelectorRequestId("sessions");
-    setLoading?.("Φόρτωση σκελών...");
+    setLoading?.("Φόρτωση σκελών…");
     setErr?.("");
     setDrvs([]);
     setSelSe(null);
@@ -565,7 +531,7 @@ export default function useComparisonSelectors({
     }
     const controller = new AbortController();
     const requestId = nextSelectorRequestId("drivers");
-    setLoading?.("Φόρτωση οδηγών...");
+    setLoading?.("Φόρτωση οδηγών…");
     setErr?.("");
     setDriversLoaded(false);
     resetDriverSelections();
@@ -622,199 +588,30 @@ export default function useComparisonSelectors({
     setSelSe(session);
   }, [presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, sess, sessionsLoaded, setErr]);
 
-  useEffect(() => {
-    if (presetActiveRef?.current) return;
-    if (!sessionKey || !d1) {
-      setLaps1([], { loading: false, loaded: false });
-      setSl1(null);
-      setSt1([]);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextLapRequestId("laps1");
-    setLapFetchState1({ loading: true, loaded: false });
-    fetchLaps(sessionKey, d1, { signal: controller.signal })
-      .then((laps) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps1", requestId)) return;
-        setLaps1(laps, { loading: false, loaded: true });
-        setSl1(null);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps1", requestId)) return;
-        setLaps1([], { loading: false, loaded: true });
-      });
-    fetchStints(sessionKey, d1, { signal: controller.signal })
-      .then((stints) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps1", requestId)) return;
-        setSt1(stints);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps1", requestId)) return;
-        setSt1([]);
-      });
-    return () => controller.abort();
-  }, [
-    d1,
-    isCurrentLapRequest,
-    nextLapRequestId,
-    presetActiveRef,
-    sessionKey,
-    setLapFetchState1,
-    setLaps1,
-    setSl1,
-    setSt1,
-  ]);
+  const slotArgs = { sessionKey, presetActiveRef, dispatchSlots, clearReplaySlot };
+  useSlotLaps({ ...slotArgs, slot: 1, driverNumber: slots[0].driverNumber });
+  useSlotLaps({ ...slotArgs, slot: 2, driverNumber: slots[1].driverNumber });
+  useSlotLaps({ ...slotArgs, slot: 3, driverNumber: slots[2].driverNumber });
+  useSlotLaps({ ...slotArgs, slot: 4, driverNumber: slots[3].driverNumber });
 
-  useEffect(() => {
-    if (presetActiveRef?.current) return;
-    if (!sessionKey || !d2) {
-      setLaps2([], { loading: false, loaded: false });
-      setSl2(null);
-      setSt2([]);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextLapRequestId("laps2");
-    setLapFetchState2({ loading: true, loaded: false });
-    fetchLaps(sessionKey, d2, { signal: controller.signal })
-      .then((laps) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps2", requestId)) return;
-        setLaps2(laps, { loading: false, loaded: true });
-        setSl2(null);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps2", requestId)) return;
-        setLaps2([], { loading: false, loaded: true });
-      });
-    fetchStints(sessionKey, d2, { signal: controller.signal })
-      .then((stints) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps2", requestId)) return;
-        setSt2(stints);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps2", requestId)) return;
-        setSt2([]);
-      });
-    return () => controller.abort();
-  }, [
-    d2,
-    isCurrentLapRequest,
-    nextLapRequestId,
-    presetActiveRef,
-    sessionKey,
-    setLapFetchState2,
-    setLaps2,
-    setSl2,
-    setSt2,
-  ]);
-
-  useEffect(() => {
-    if (presetActiveRef?.current) return;
-    if (!sessionKey || !d3) {
-      setLaps3([], { loading: false, loaded: false });
-      setSl3(null);
-      setSt3([]);
-      clearReplaySlot?.(3);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextLapRequestId("laps3");
-    setLapFetchState3({ loading: true, loaded: false });
-    fetchLaps(sessionKey, d3, { signal: controller.signal })
-      .then((laps) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps3", requestId)) return;
-        setLaps3(laps, { loading: false, loaded: true });
-        setSl3(null);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps3", requestId)) return;
-        setLaps3([], { loading: false, loaded: true });
-      });
-    fetchStints(sessionKey, d3, { signal: controller.signal })
-      .then((stints) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps3", requestId)) return;
-        setSt3(stints);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps3", requestId)) return;
-        setSt3([]);
-      });
-    return () => controller.abort();
-  }, [
-    clearReplaySlot,
-    d3,
-    isCurrentLapRequest,
-    nextLapRequestId,
-    presetActiveRef,
-    sessionKey,
-    setLapFetchState3,
-    setLaps3,
-    setSl3,
-    setSt3,
-  ]);
-
-  useEffect(() => {
-    if (presetActiveRef?.current) return;
-    if (!sessionKey || !d4) {
-      setLaps4([], { loading: false, loaded: false });
-      setSl4(null);
-      setSt4([]);
-      clearReplaySlot?.(4);
-      return;
-    }
-    const controller = new AbortController();
-    const requestId = nextLapRequestId("laps4");
-    setLapFetchState4({ loading: true, loaded: false });
-    fetchLaps(sessionKey, d4, { signal: controller.signal })
-      .then((laps) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps4", requestId)) return;
-        setLaps4(laps, { loading: false, loaded: true });
-        setSl4(null);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps4", requestId)) return;
-        setLaps4([], { loading: false, loaded: true });
-      });
-    fetchStints(sessionKey, d4, { signal: controller.signal })
-      .then((stints) => {
-        if (controller.signal.aborted || !isCurrentLapRequest("laps4", requestId)) return;
-        setSt4(stints);
-      })
-      .catch((error) => {
-        if (isAbortError(error) || !isCurrentLapRequest("laps4", requestId)) return;
-        setSt4([]);
-      });
-    return () => controller.abort();
-  }, [
-    clearReplaySlot,
-    d4,
-    isCurrentLapRequest,
-    nextLapRequestId,
-    presetActiveRef,
-    sessionKey,
-    setLapFetchState4,
-    setLaps4,
-    setSl4,
-    setSt4,
-  ]);
-
+  const [laps1, laps2, laps3, laps4] = slots.map((slotState) => slotState.laps);
   const lapSelect1 = useMemo(() => prepareLapSelectModel(laps1), [laps1]);
   const lapSelect2 = useMemo(() => prepareLapSelectModel(laps2), [laps2]);
   const lapSelect3 = useMemo(() => prepareLapSelectModel(laps3), [laps3]);
   const lapSelect4 = useMemo(() => prepareLapSelectModel(laps4), [laps4]);
+  const lapSelects = useMemo(
+    () => [lapSelect1, lapSelect2, lapSelect3, lapSelect4],
+    [lapSelect1, lapSelect2, lapSelect3, lapSelect4]
+  );
 
+  // Fastest-lap fallback: an unselected slot takes its fastest valid lap. Runs before URL lap restore.
   useEffect(() => {
-    if (lapSelect1.fastestLapNumber && !sl1) setSl1(lapSelect1.fastestLapNumber);
-  }, [lapSelect1.fastestLapNumber, setSl1, sl1]);
-  useEffect(() => {
-    if (lapSelect2.fastestLapNumber && !sl2) setSl2(lapSelect2.fastestLapNumber);
-  }, [lapSelect2.fastestLapNumber, setSl2, sl2]);
-  useEffect(() => {
-    if (lapSelect3.fastestLapNumber && !sl3) setSl3(lapSelect3.fastestLapNumber);
-  }, [lapSelect3.fastestLapNumber, setSl3, sl3]);
-  useEffect(() => {
-    if (lapSelect4.fastestLapNumber && !sl4) setSl4(lapSelect4.fastestLapNumber);
-  }, [lapSelect4.fastestLapNumber, setSl4, sl4]);
+    lapSelects.forEach((lapSelect, index) => {
+      if (lapSelect.fastestLapNumber && !slots[index].lapNumber) {
+        dispatchSlots({ type: "setLap", slot: index + 1, value: lapSelect.fastestLapNumber });
+      }
+    });
+  }, [lapSelects, slots]);
 
   useEffect(() => {
     if (presetActiveRef?.current) return;
@@ -837,10 +634,7 @@ export default function useComparisonSelectors({
       );
       setRestoreWarning(setErr, buildRestoreDriversError(missingDrivers));
     }
-    dispatchSlots({
-      type: "restoreDrivers",
-      driverNumbers,
-    });
+    dispatchSlots({ type: "restoreDrivers", driverNumbers });
     setNumDrivers(nextCount);
   }, [driversLoaded, drvs, presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, setErr]);
 
@@ -849,48 +643,13 @@ export default function useComparisonSelectors({
     const restoreState = restoreStateRef?.current;
     const restoreFlags = restoreFlagsRef?.current;
     if (!restoreFlags) return;
-    [
-      {
-        flag: "lap1",
-        slot: 1,
-        encodedLapNumber: restoreState?.l1,
-        driverNumber: d1,
-        lapsLoaded: slot1.lapsLoaded,
-        lapSelect: lapSelect1,
-        setLap: setSl1,
-      },
-      {
-        flag: "lap2",
-        slot: 2,
-        encodedLapNumber: restoreState?.l2,
-        driverNumber: d2,
-        lapsLoaded: slot2.lapsLoaded,
-        lapSelect: lapSelect2,
-        setLap: setSl2,
-      },
-      {
-        flag: "lap3",
-        slot: 3,
-        encodedLapNumber: restoreState?.l3,
-        driverNumber: d3,
-        lapsLoaded: slot3.lapsLoaded,
-        lapSelect: lapSelect3,
-        setLap: setSl3,
-      },
-      {
-        flag: "lap4",
-        slot: 4,
-        encodedLapNumber: restoreState?.l4,
-        driverNumber: d4,
-        lapsLoaded: slot4.lapsLoaded,
-        lapSelect: lapSelect4,
-        setLap: setSl4,
-      },
-    ].forEach(({ flag, slot, encodedLapNumber, driverNumber, lapsLoaded, lapSelect, setLap }) => {
-      if (restoreFlags[flag] || !driverNumber || !lapsLoaded) return;
+    slots.forEach((slotState, index) => {
+      const slot = index + 1;
+      const flag = `lap${slot}`;
+      if (restoreFlags[flag] || !slotState.driverNumber || !slotState.lapsLoaded) return;
       const { hasRequestedLap, requestedLapNumber, lapNumber, missingLap } = resolveRestoredLap(
-        encodedLapNumber,
-        lapSelect
+        restoreState?.[`l${slot}`],
+        lapSelects[index]
       );
       if (!hasRequestedLap) return;
       restoreFlags[flag] = true;
@@ -898,92 +657,51 @@ export default function useComparisonSelectors({
         setRestoreWarning(setErr, buildRestoreLapError(slot, requestedLapNumber));
         return;
       }
-      setLap(lapNumber);
+      dispatchSlots({ type: "setLap", slot, value: lapNumber });
     });
-  }, [
-    d1,
-    d2,
-    d3,
-    d4,
-    lapSelect1,
-    lapSelect2,
-    lapSelect3,
-    lapSelect4,
-    presetActiveRef,
-    restoreFlagsRef,
-    restoreStateRef,
-    restoreTick,
-    setErr,
-    setSl1,
-    setSl2,
-    setSl3,
-    setSl4,
-    slot1.lapsLoaded,
-    slot2.lapsLoaded,
-    slot3.lapsLoaded,
-    slot4.lapsLoaded,
-  ]);
+  }, [lapSelects, presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, setErr, slots]);
 
-  return {
-    year,
-    setYear,
-    mts,
-    setMts,
-    selMt,
-    setSelMt,
-    sess,
-    setSess,
-    selSe,
-    setSelSe,
-    drvs,
-    setDrvs,
-    selectorSlots: slots,
-    setRestoreTick,
-    resetForUrlRestore,
-    applyPresetSelectorData,
-    selectMeeting,
-    selectSession,
-    selectDriverSlot,
-    selectLapSlot,
-    clearInactiveSlots,
-    d1,
-    setD1,
-    d2,
-    setD2,
-    d3,
-    setD3,
-    d4,
-    setD4,
-    sl1,
-    setSl1,
-    sl2,
-    setSl2,
-    sl3,
-    setSl3,
-    sl4,
-    setSl4,
-    laps1,
-    setLaps1,
-    laps2,
-    setLaps2,
-    laps3,
-    setLaps3,
-    laps4,
-    setLaps4,
-    st1,
-    setSt1,
-    st2,
-    setSt2,
-    st3,
-    setSt3,
-    st4,
-    setSt4,
-    numDrivers,
-    setNumDrivers,
-    lapSelect1,
-    lapSelect2,
-    lapSelect3,
-    lapSelect4,
-    resetDriverSelections,
-  };
+  const selectorSlots = useMemo(
+    () => slots.map((slotState, index) => ({ ...slotState, slot: index + 1, lapSelect: lapSelects[index] })),
+    [lapSelects, slots]
+  );
+
+  return useMemo(
+    () => ({
+      year,
+      setYear,
+      meetings: mts,
+      meeting: selMt,
+      sessions: sess,
+      session: selSe,
+      drivers: drvs,
+      slots: selectorSlots,
+      numDrivers,
+      setNumDrivers,
+      resetForUrlRestore,
+      applyPresetSelectorData,
+      selectMeeting,
+      selectSession,
+      selectDriverSlot,
+      selectLapSlot,
+      resetDriverSelections,
+    }),
+    [
+      applyPresetSelectorData,
+      drvs,
+      mts,
+      numDrivers,
+      resetDriverSelections,
+      resetForUrlRestore,
+      selMt,
+      selSe,
+      selectDriverSlot,
+      selectLapSlot,
+      selectMeeting,
+      selectSession,
+      selectorSlots,
+      sess,
+      year,
+    ]
+  );
 }

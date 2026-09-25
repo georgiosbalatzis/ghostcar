@@ -157,32 +157,39 @@
 - [src/main.jsx](src/main.jsx)
 - [src/F1PhantomCars.jsx](src/F1PhantomCars.jsx)
 
-Το `F1PhantomCars.jsx` είναι πλέον κυρίως composition container. Συνδέει τα hooks, τα view models και τα presentational components χωρίς να κρατά όλη τη λεπτομέρεια του UI inline.
+Το `F1PhantomCars.jsx` κάνει μόνο orchestration: data hooks, URL restore, κύκλο φόρτωσης και ποια επιφάνεια εμφανίζεται (builder, workspace ή embed). Η παρουσίαση ζει στα features. Η πλήρης αρχιτεκτονική, το state model και ο πίνακας μετακίνησης λειτουργιών βρίσκονται στο [docs/redesign-v2/architecture.md](docs/redesign-v2/architecture.md).
 
-Κύριες ευθύνες που έχουν εξαχθεί:
+Hooks δεδομένων και ροής:
 
-- selector state / URL restore / lap loading στο [src/hooks/useComparisonSelectors.js](src/hooks/useComparisonSelectors.js)
-- replay loading, progress, cancellation και replay data στο [src/hooks/useReplayLoader.js](src/hooks/useReplayLoader.js)
-- playback timeline, speed, loop, countdown και touch scrub στο [src/hooks/usePlaybackController.js](src/hooks/usePlaybackController.js)
-- auxiliary modal/tab state στο [src/hooks/useAuxiliaryViews.js](src/hooks/useAuxiliaryViews.js)
-- H2H / season dashboard data loading στο [src/hooks/useAuxiliaryData.js](src/hooks/useAuxiliaryData.js)
-- preset orchestration στο [src/hooks/usePresetLoader.js](src/hooks/usePresetLoader.js)
-- share, gallery και screenshot helpers στο [src/hooks/useShareAndGallery.js](src/hooks/useShareAndGallery.js)
+- selector state / URL restore / lap loading: [src/hooks/useComparisonSelectors.js](src/hooks/useComparisonSelectors.js)
+- replay loading, cancellation και load-time snapshot (`replay.meta`): [src/hooks/useReplayLoader.js](src/hooks/useReplayLoader.js)
+- playback timeline, speed, loop και touch scrub: [src/hooks/usePlaybackController.js](src/hooks/usePlaybackController.js)
+- σύγκριση κατατακτήριων σεζόν (πρώην H2H και season dashboard): [src/hooks/useSeasonComparison.js](src/hooks/useSeasonComparison.js)
+- preset orchestration: [src/hooks/usePresetLoader.js](src/hooks/usePresetLoader.js)
+- σύνδεσμος, αποθηκευμένες συγκρίσεις και εξαγωγή εικόνας: [src/hooks/useShareAndGallery.js](src/hooks/useShareAndGallery.js)
 
 ### Core modules
 
 - [src/api.js](src/api.js): wrappers προς OpenF1, retries, cancellation-aware backoff, response cache, development request telemetry
 - [src/helpers.js](src/helpers.js): normalization, interpolation, formatting και URL helpers
-- [src/constants.js](src/constants.js): F1 palette, ομάδες, presets, camera labels και compatibility re-exports
-- [src/theme.js](src/theme.js): light/dark palette μέσω React context
+- [src/constants.js](src/constants.js): ομάδες, presets, camera labels
 - [src/domain/](src/domain): pure helpers για laps, drivers, replay validation, circuit metadata και OpenF1 availability copy
 - [src/services/](src/services): OpenF1 replay stream και preset data orchestration
-- [src/ui/styles.js](src/ui/styles.js): shared UI tokens και style helpers
+
+### Παρουσίαση
+
+- [src/styles/](src/styles): design tokens (`data-theme` + CSS variables) και βασικά primitives
+- [src/components/ui/](src/components/ui): Dialog (native `<dialog>`), Menu (Popover API), Tabs, Icon
+- [src/app/](src/app): headers, keyboard shortcuts, showreel, document metadata
+- [src/features/comparison/](src/features/comparison): builder σύγκρισης και επιλεγμένες συγκρίσεις
+- [src/features/replay/](src/features/replay): stage (2D `TrackMap`, lazy 3D), legend, transport, replay model
+- [src/features/analysis/](src/features/analysis): rail με Ζωντανά, Τηλεμετρία, Τομείς, Γύροι
+- [src/features/insights/](src/features/insights), [src/features/sharing/](src/features/sharing): σεζόν, ενσωμάτωση, αποθηκευμένες συγκρίσεις
 
 ### 3D / rendering layer
 
-- [src/components/SceneStage3D.jsx](src/components/SceneStage3D.jsx)
-- [src/hooks/useScene.js](src/hooks/useScene.js)
+- [src/features/replay/SceneStage3D.jsx](src/features/replay/SceneStage3D.jsx)
+- [src/hooks/useScene.js](src/hooks/useScene.js) και [src/scene/](src/scene)
 
 Το rendering layer:
 
@@ -190,27 +197,6 @@
 - φορτώνει το `f1car.glb`
 - κρατάει το 3D playback συγχρονισμένο με το `progRef`
 - καθαρίζει resources όταν το scene ξαναχτίζεται ή αποσυνδέεται
-
-### 2D / telemetry layer
-
-- [src/components/TrackReplay2D.jsx](src/components/TrackReplay2D.jsx)
-- [src/components/TelemetryPanel.jsx](src/components/TelemetryPanel.jsx)
-- [src/components/TelChart.jsx](src/components/TelChart.jsx)
-- [src/components/MiniMap.jsx](src/components/MiniMap.jsx)
-- [src/components/SectorDelta.jsx](src/components/SectorDelta.jsx)
-
-### Modal / auxiliary views
-
-- [src/modals/PresetsModal.jsx](src/modals/PresetsModal.jsx)
-- [src/modals/StatsModal.jsx](src/modals/StatsModal.jsx)
-- [src/modals/LapsModal.jsx](src/modals/LapsModal.jsx)
-- [src/modals/H2HModal.jsx](src/modals/H2HModal.jsx)
-- [src/modals/DashModal.jsx](src/modals/DashModal.jsx)
-- [src/modals/EmbedModal.jsx](src/modals/EmbedModal.jsx)
-- [src/modals/GalleryModal.jsx](src/modals/GalleryModal.jsx)
-- [src/modals/TelemetryModal.jsx](src/modals/TelemetryModal.jsx)
-- [src/modals/KeysModal.jsx](src/modals/KeysModal.jsx)
-- [src/modals/TourOverlay.jsx](src/modals/TourOverlay.jsx)
 
 ## Ροή δεδομένων
 
@@ -353,7 +339,6 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 - `f1s-theme`: επιλογή light/dark
 - `f1s-track-view`: τελευταία επιλογή 2D/3D
 - `f1s-gallery`: αποθηκευμένες συγκρίσεις
-- `f1s-toured`: αν έχει εμφανιστεί το onboarding / tour
 
 Δεν αποθηκεύονται προσωπικά δεδομένα χρήστη.
 
@@ -363,7 +348,7 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 - `Space`: play / pause
 - `R`: reset στην αρχή
-- `T`: toggle telemetry
+- `T`: εναλλαγή Ζωντανά / Τηλεμετρία στο rail ανάλυσης
 - `V`: toggle 2D / 3D
 - `C`: cycle camera mode
 - `L`: loop on / off
@@ -377,7 +362,8 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 ### Public assets
 
 - [public/f1car.glb](public/f1car.glb): 3D μοντέλο μονοθεσίου
-- [public/logo.png](public/logo.png): logo στο header/footer και metadata icons
+- [public/logo.png](public/logo.png): εικόνα για social metadata (`og:image`) μόνο· η σελίδα δεν τη φορτώνει
+- [public/favicon-64.png](public/favicon-64.png), [public/apple-touch-icon.png](public/apple-touch-icon.png): μικρά εικονίδια που παράγονται από το logo
 - [public/f1-stories-logo.svg](public/f1-stories-logo.svg): local logo asset
 
 ### SEO / metadata

@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
-import { getThemeValue } from "../theme.js";
+import { useCallback, useEffect, useState } from "react";
 
 const THEME_STORAGE_KEY = "f1s-theme";
 
@@ -45,13 +44,12 @@ export default function useThemePreference(initialTheme) {
     });
   }, [persistTheme]);
 
-  const themeValue = useMemo(() => getThemeValue(isDark), [isDark]);
+  // React chooses the theme; CSS (tokens.css) styles it.
+  useEffect(() => {
+    const theme = isDark ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#0c0e0f" : "#f1efe9");
+  }, [isDark]);
 
-  return {
-    isDark,
-    setThemeMode,
-    themeValue,
-    F1: themeValue.palette,
-    toggleTheme,
-  };
+  return { isDark, setThemeMode, toggleTheme };
 }

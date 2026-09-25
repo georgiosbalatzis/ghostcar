@@ -10,7 +10,6 @@ export default function usePresetLoader({
   supportedSessionNames = [],
   presetActiveRef,
   showreelRef,
-  cancelCountdown,
   stopShowreelRuntime,
   setShowreel,
   beginCancelableLoad,
@@ -20,28 +19,20 @@ export default function usePresetLoader({
   loadReplayForActiveLoad,
   setErr,
   setLdPct,
-  cancelAuxLoading,
-  resetAuxiliaryData,
   resetDriverSelections,
   applyPresetSelectorData,
-  setShowH2H,
-  setShowDash,
-  setMobTab,
-  setShowPresets,
-  setShowMobMenu,
+  onStart,
 }) {
   return useCallback(
     async (preset, options = {}) => {
       const { preserveShowreel = false } = options;
-      cancelCountdown();
       if (!preserveShowreel && showreelRef.current) {
         stopShowreelRuntime(false);
         setShowreel(false);
       }
 
-      const controller = beginCancelableLoad("Φόρτωση preset...");
-      setShowPresets(false);
-      setShowMobMenu(false);
+      const controller = beginCancelableLoad("Φόρτωση επιλεγμένης σύγκρισης…");
+      onStart?.();
       presetActiveRef.current = true;
 
       try {
@@ -49,12 +40,7 @@ export default function usePresetLoader({
           throw new Error(`Τα δεδομένα preset για το ${preset.year} δεν είναι διαθέσιμα ακόμη.`);
         }
 
-        cancelAuxLoading();
         resetDriverSelections({ resetDriverCount: true });
-        setShowH2H(false);
-        setShowDash(false);
-        resetAuxiliaryData();
-        setMobTab("3d");
 
         const presetData = await loadPresetSelectorData(
           preset,
@@ -89,6 +75,25 @@ export default function usePresetLoader({
             { slot: 1, driverNumber: preset.d1, lap: presetData.fastestLap1 },
             { slot: 2, driverNumber: preset.d2, lap: presetData.fastestLap2 },
           ],
+          meta: {
+            year: preset.year,
+            meeting: presetData.meeting,
+            session: presetData.session,
+            slots: [
+              {
+                slot: 1,
+                driver: presetData.drivers.find((driver) => driver.driver_number === preset.d1),
+                lap: presetData.fastestLap1,
+                stints: presetData.stints1,
+              },
+              {
+                slot: 2,
+                driver: presetData.drivers.find((driver) => driver.driver_number === preset.d2),
+                lap: presetData.fastestLap2,
+                stints: presetData.stints2,
+              },
+            ],
+          },
           progress: { locations: 60, telemetry: 80 },
           insufficientDataMessage: "Δεν υπάρχουν αρκετά δεδομένα θέσης",
         });
@@ -109,22 +114,15 @@ export default function usePresetLoader({
     [
       applyPresetSelectorData,
       beginCancelableLoad,
-      cancelAuxLoading,
-      cancelCountdown,
       clearLoadIndicator,
       finishCancelableLoad,
       isActiveLoad,
       loadReplayForActiveLoad,
+      onStart,
       presetActiveRef,
-      resetAuxiliaryData,
       resetDriverSelections,
       setErr,
       setLdPct,
-      setMobTab,
-      setShowDash,
-      setShowH2H,
-      setShowMobMenu,
-      setShowPresets,
       setShowreel,
       showreelRef,
       stopShowreelRuntime,

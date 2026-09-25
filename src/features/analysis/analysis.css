@@ -1,0 +1,314 @@
+.rail {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--rule);
+  background: var(--page);
+}
+.rail__tabs .tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  gap: var(--space-5);
+  padding: 0 var(--space-5);
+  background: var(--page);
+}
+.rail__tabs .tabs__tab {
+  min-height: 48px;
+}
+.rail__tabs .tabs__panel {
+  padding: var(--space-4) var(--space-5) var(--space-7);
+}
+.rail__pending {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  font-size: var(--text-control);
+}
+
+/* ─── Shared data table ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-control);
+}
+.data-table th,
+.data-table td {
+  padding: 7px 0 7px var(--space-3);
+  border-bottom: 1px solid var(--rule);
+  font-weight: 400;
+  text-align: right;
+  vertical-align: baseline;
+}
+.data-table th:first-child,
+.data-table td:first-child {
+  padding-left: 0;
+}
+.data-table tbody th {
+  text-align: left;
+  color: var(--text-2);
+}
+.data-table thead th {
+  padding-top: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.data-table thead td {
+  border-bottom-color: var(--rule);
+}
+.data-table .swatch {
+  margin-right: 6px;
+}
+.table-caption {
+  padding-bottom: var(--space-3);
+  caption-side: top;
+  text-align: left;
+  font-size: var(--text-control);
+  font-weight: 600;
+}
+.unit {
+  margin-left: 2px;
+  font-size: var(--text-meta);
+  font-weight: 400;
+  color: var(--muted);
+}
+.is-best .num {
+  font-weight: 600;
+}
+.data-table .gap {
+  display: block;
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+
+/* ─── Live ─── */
+.live__speed td {
+  font-size: var(--text-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.live__on {
+  color: var(--text);
+  font-weight: 500;
+}
+.live__off {
+  color: var(--muted);
+}
+.meter {
+  display: inline-block;
+  width: 36px;
+  height: 4px;
+  margin-right: var(--space-2);
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--rule);
+  vertical-align: 2px;
+}
+.live--dense .meter {
+  display: none;
+}
+.live--dense .live__speed td {
+  font-size: var(--text-lead);
+}
+.meter__fill {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform-origin: left;
+}
+
+/* ─── Traces ─── */
+.traces {
+  display: grid;
+  gap: var(--space-5);
+}
+.trace__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.trace__title {
+  font-size: var(--text-control);
+  font-weight: 600;
+}
+.trace__readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-small);
+  color: var(--text-2);
+}
+.readout::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 1px;
+  background: var(--ink);
+  vertical-align: 1px;
+}
+.readout b {
+  font-weight: 600;
+  color: var(--text);
+}
+.trace__area {
+  position: relative;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+.trace__svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.trace__line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+.trace__grid {
+  stroke: var(--rule);
+  stroke-dasharray: 2 4;
+}
+.trace__base {
+  stroke: var(--rule-strong);
+}
+.trace__scale {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  padding-right: 4px;
+  background: var(--page);
+  font-size: var(--text-meta);
+  line-height: 1;
+  color: var(--muted);
+}
+.trace__playhead {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--text);
+  pointer-events: none;
+}
+.brake-lane {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: var(--space-2);
+  align-items: center;
+  height: 18px;
+}
+.brake-lane__label {
+  font-size: var(--text-meta);
+  color: var(--text-2);
+}
+.brake-lane__svg {
+  display: block;
+  width: 100%;
+  height: 8px;
+  background: var(--surface-2);
+}
+.brake-lane__svg rect {
+  fill: var(--ink);
+}
+.traces__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: calc(-1 * var(--space-3));
+  font-size: var(--text-meta);
+  color: var(--muted);
+}
+
+/* ─── Sectors ─── */
+.sectors {
+  display: grid;
+  gap: var(--space-6);
+}
+
+/* ─── Laps ─── */
+.laps__order {
+  margin-bottom: var(--space-4);
+}
+.laps__driver + .laps__driver {
+  margin-top: var(--space-5);
+}
+.laps__name {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-control);
+  font-weight: 600;
+}
+.laps__count {
+  margin-left: var(--space-1);
+  font-weight: 400;
+  color: var(--muted);
+}
+.laps__list {
+  list-style: none;
+}
+.lap-row {
+  display: grid;
+  grid-template-columns: 3rem 5.5rem minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-1);
+  background: none;
+  font-size: var(--text-control);
+  text-align: left;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.lap-row:hover {
+  background: var(--surface-2);
+}
+.lap-row[aria-pressed="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.lap-row__time {
+  color: var(--text);
+}
+.lap-row__gap {
+  color: var(--muted);
+}
+.lap-row__state {
+  font-size: var(--text-meta);
+  color: var(--accent-text);
+}
+
+@media (max-width: 1099px) {
+  .rail {
+    overflow: visible;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .rail__tabs .tabs {
+    position: static;
+    padding: 0 var(--gutter);
+  }
+  .rail__tabs .tabs__panel {
+    max-width: 720px;
+    padding: var(--space-4) var(--gutter) var(--space-7);
+  }
+}
+@media (max-width: 767px) {
+  .rail__tabs .tabs__tab {
+    min-height: var(--touch-target);
+  }
+  .lap-row {
+    min-height: var(--touch-target);
+  }
+}

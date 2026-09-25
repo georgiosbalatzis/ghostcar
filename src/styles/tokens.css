@@ -1,0 +1,102 @@
+/* Ghost Car design tokens. React sets data-theme on <html>; everything else is CSS. */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0c0e0f;
+  --surface: #121516;
+  --surface-2: #181b1d;
+  --surface-3: #202426;
+  --text: #f1efea;
+  --text-2: #b5b5b0;
+  --muted: #858a88;
+  --rule: #25292b;
+  --rule-strong: #3a3f41;
+  --accent: #e45a43;
+  --accent-ink: #0c0e0f;
+  --accent-text: #f07a66;
+  --positive: #7fbf95;
+  --negative: #e5836f;
+  --warning: #d6b36a;
+  --track: #3a3f41;
+  --track-edge: #1d2123;
+  --scrim: rgb(4 5 6 / 0.62);
+  --shadow-float: 0 18px 48px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.4);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23858a88' stroke-width='1.5'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --page: #f1efe9;
+  --surface: #f7f5ef;
+  --surface-2: #e8e5dc;
+  --surface-3: #dedad0;
+  --text: #1b1e1d;
+  --text-2: #4e5350;
+  --muted: #646a66;
+  --rule: #d6d2c8;
+  --rule-strong: #b6b1a6;
+  --accent: #a73b2a;
+  --accent-ink: #fbf9f4;
+  --accent-text: #a73b2a;
+  --positive: #2f6d47;
+  --negative: #a4402f;
+  --warning: #7d5a12;
+  --track: #b6b1a6;
+  --track-edge: #e8e5dc;
+  --scrim: rgb(40 36 30 / 0.36);
+  --shadow-float: 0 18px 48px rgb(40 36 30 / 0.18), 0 2px 6px rgb(40 36 30 / 0.12);
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23646a66' stroke-width='1.5'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+}
+
+:root {
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-brand: "Barlow Condensed", "IBM Plex Sans", sans-serif;
+
+  --text-meta: 11px;
+  --text-small: 12px;
+  --text-control: 13px;
+  --text-body: 14px;
+  --text-lead: 16px;
+  --text-title: 20px;
+  --text-display: 24px;
+  --text-delta: 32px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --radius-3: 8px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+
+  --header-height: 56px;
+  --control-height: 36px;
+  --touch-target: 44px;
+  --rail-width: clamp(320px, 28vw, 420px);
+  --gutter: var(--space-5);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --gutter: var(--space-4);
+    --control-height: 44px;
+  }
+}
+
+/* Driver/team colours are data. They arrive as --c on the element; light theme darkens them for contrast. */
+[style*="--c"] {
+  --ink: var(--c);
+}
+:root[data-theme="light"] [style*="--c"] {
+  --ink: color-mix(in oklab, var(--c) 72%, #000);
+}

@@ -1,22 +1,14 @@
 import {
   BufferGeometry,
   CatmullRomCurve3,
-  CanvasTexture,
-  CircleGeometry,
   Color,
-  DynamicDrawUsage,
   Float32BufferAttribute,
-  InstancedMesh,
   Line,
   LineSegments,
   Mesh,
-  Object3D,
-  Sprite,
   Vector3,
 } from "three";
 import {
-  createSectorMarkerMaterial,
-  createSpriteLabelMaterial,
   createStartLineMaterial,
   createTrackOverlayMaterial,
   createTrackRibbonMaterial,
@@ -51,7 +43,7 @@ function buildColoredLineSegments(groups, opacity = 1) {
   return new LineSegments(geometry, createVertexColorLineMaterial(opacity));
 }
 
-export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, theme, isLowDetail, circuitTurns }) {
+export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, theme }) {
   const curve = new CatmullRomCurve3(
     tp.map((p) => new Vector3(p.x, p.y, p.z)),
     true
@@ -161,128 +153,14 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
     scene.add(freezeObjectTransform(brakeMesh));
   }
 
-  const sColorHex = [0x00d26a, 0xffd700, 0xe10600];
-  const edgeLineGroups = [];
-  [leftEdgePts, rightEdgePts].forEach((edgePts) => {
-    const totalPts = edgePts.length;
-    for (let s = 0; s < 3; s++) {
-      const start = Math.floor((s / 3) * totalPts);
-      const end = Math.min(Math.floor(((s + 1) / 3) * totalPts) + 1, totalPts);
-      const sectorPts = edgePts.slice(start, end);
-      if (sectorPts.length > 1) edgeLineGroups.push({ points: sectorPts, color: sColorHex[s] });
-    }
-  });
-  const edgeLines = buildColoredLineSegments(edgeLineGroups, 0.6);
+  // Neutral track edges. Sector boundaries and turn numbers are not drawn: OpenF1 does not provide
+  // their positions, and equal-thirds sectors or curvature-detected "turns" would imply false data.
+  const edgeColor = isDark ? 0x5a6062 : 0x8f8a80;
+  const edgeLines = buildColoredLineSegments(
+    [leftEdgePts, rightEdgePts].map((points) => ({ points, color: edgeColor })),
+    0.8
+  );
   if (edgeLines) scene.add(freezeObjectTransform(edgeLines));
-
-  const sColors = [0x00d26a, 0xffd700, 0xe10600];
-  const sColorCSS = ["#00d26a", "#ffd700", "#e10600"];
-  const sectorDividerGroups = [];
-  const sectorMarkerDefs = [];
-  let sectorMarkers = null;
-  [0, 0.33, 0.66].forEach((t, i) => {
-    const sp = curve.getPointAt(t);
-    const tan2 = curve.getTangentAt(t);
-    const perp2 = new Vector3(-tan2.z, 0, tan2.x).normalize();
-    const L2 = sp.clone().add(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
-    const R2 = sp.clone().sub(perp2.clone().multiplyScalar(trackW / 2 + 0.3));
-    L2.y += 0.03;
-    R2.y += 0.03;
-    sectorDividerGroups.push({ points: [L2, R2], color: sColors[i] });
-    [-1, 1].forEach((side) => {
-      const off = perp2.clone().multiplyScalar(side * (trackW / 2 + 0.15));
-      sectorMarkerDefs.push({
-        position: new Vector3(sp.x + off.x, sp.y + 0.04, sp.z + off.z),
-        sector: i,
-        color: sColors[i],
-        baseScale: isLowDetail ? 0.18 : 0.25,
-      });
-    });
-    if (!isLowDetail) {
-      const cv = document.createElement("canvas");
-      cv.width = 64;
-      cv.height = 32;
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle = sColorCSS[i];
-      ctx.globalAlpha = 0.85;
-      ctx.beginPath();
-      ctx.roundRect(0, 0, 64, 32, 6);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 20px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`S${i + 1}`, 32, 17);
-      const tex = new CanvasTexture(cv);
-      const label = new Sprite(createSpriteLabelMaterial(tex));
-      const labelOff = perp2.clone().multiplyScalar(trackW / 2 + 1.8);
-      label.position.set(sp.x + labelOff.x, sp.y + 1.0, sp.z + labelOff.z);
-      label.scale.set(1.0, 0.5, 1);
-      scene.add(freezeObjectTransform(label));
-    }
-  });
-  const sectorDividers = buildColoredLineSegments(sectorDividerGroups, 0.7);
-  if (sectorDividers) scene.add(freezeObjectTransform(sectorDividers));
-  if (sectorMarkerDefs.length) {
-    const markerGeometry = new CircleGeometry(isLowDetail ? 0.18 : 0.25, isLowDetail ? 10 : 16);
-    const markerMaterial = createSectorMarkerMaterial(isLowDetail);
-    const markerMesh = new InstancedMesh(markerGeometry, markerMaterial, sectorMarkerDefs.length);
-    markerMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    const markerDummy = new Object3D();
-    sectorMarkerDefs.forEach((marker, index) => {
-      markerDummy.position.copy(marker.position);
-      markerDummy.rotation.set(-Math.PI / 2, 0, 0);
-      markerDummy.scale.setScalar(marker.baseScale);
-      markerDummy.updateMatrix();
-      markerMesh.setMatrixAt(index, markerDummy.matrix);
-      markerMesh.setColorAt(index, new Color(marker.color));
-    });
-    markerMesh.instanceMatrix.needsUpdate = true;
-    if (markerMesh.instanceColor) markerMesh.instanceColor.needsUpdate = true;
-    scene.add(markerMesh);
-    sectorMarkers = { mesh: markerMesh, defs: sectorMarkerDefs };
-  }
-
-  const corners = [];
-  const cSamp = 250;
-  for (let i = 0; i < cSamp - 2; i++) {
-    const t0 = i / cSamp;
-    const t1 = (i + 1) / cSamp;
-    const t2 = (i + 2) / cSamp;
-    const p0 = curve.getPointAt(t0);
-    const p1c = curve.getPointAt(t1);
-    const p2c = curve.getPointAt(t2);
-    const cross = Math.abs((p1c.x - p0.x) * (p2c.z - p1c.z) - (p1c.z - p0.z) * (p2c.x - p1c.x));
-    if (cross > 0.12 && (corners.length === 0 || Math.abs(t1 - corners[corners.length - 1].t) > 0.035)) {
-      corners.push({ t: t1, p: p1c });
-    }
-  }
-  if (!isLowDetail) {
-    corners.slice(0, circuitTurns).forEach((c, i) => {
-      const cv = document.createElement("canvas");
-      cv.width = 48;
-      cv.height = 48;
-      const ctx = cv.getContext("2d");
-      ctx.fillStyle = "rgba(225,6,0,0.75)";
-      ctx.beginPath();
-      ctx.arc(24, 24, 20, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 22px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(`${i + 1}`, 24, 25);
-      const tex = new CanvasTexture(cv);
-      const sp = new Sprite(createSpriteLabelMaterial(tex));
-      const tan3 = curve.getTangentAt(c.t);
-      const perp3 = new Vector3(-tan3.z, 0, tan3.x).normalize();
-      const off = perp3.clone().multiplyScalar(trackW / 2 + 1.5);
-      sp.position.set(c.p.x + off.x, c.p.y + 1.5, c.p.z + off.z);
-      sp.scale.set(1.3, 1.3, 1);
-      scene.add(freezeObjectTransform(sp));
-    });
-  }
 
   const sf = curve.getPointAt(0);
   const sfTan = curve.getTangentAt(0);
@@ -293,5 +171,5 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
   sfR.y += 0.03;
   scene.add(freezeObjectTransform(new Line(new BufferGeometry().setFromPoints([sfL, sfR]), createStartLineMaterial())));
 
-  return { curve, seg, sectorMarkers };
+  return { curve, seg, sectorMarkers: null };
 }

@@ -1,5 +1,10 @@
 import { ACESFilmicToneMapping, Color, Fog, FogExp2, PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { F1_DARK, F1_LIGHT } from "../constants.js";
+
+// Scene colours mirror the UI tokens (--page, --surface, --track) so the canvas reads as the page itself.
+export const SCENE_THEME = {
+  dark: { sceneBg: 0x0c0e0f, groundColor: 0x0f1213, trackColor: 0x2c3133 },
+  light: { sceneBg: 0xf1efe9, groundColor: 0xebe8e0, trackColor: 0xc9c4b8 },
+};
 
 export function getSceneSupportError() {
   if (typeof window === "undefined") return "";
@@ -76,7 +81,7 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
       window.devicePixelRatio || 1,
       isBandwidthSaving ? 1.25 : isMemoryConstrained ? 1.5 : 2
     );
-    const theme = isDark ? F1_DARK : F1_LIGHT;
+    const theme = isDark ? SCENE_THEME.dark : SCENE_THEME.light;
 
     scene = new Scene();
     if (isDark) {

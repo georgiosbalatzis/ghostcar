@@ -53,7 +53,7 @@ export default function useScene(
   visible = true
 ) {
   const R = useRef({});
-  const CS = useRef({ angle: 0, pitch: 0.6, dist: 55, drag: false, lx: 0, ly: 0, cinT: 0 });
+  const CS = useRef({ angle: 0, pitch: 0.85, dist: 50, drag: false, lx: 0, ly: 0, cinT: 0 });
   const cmRef = useRef(cam);
   const visibleRef = useRef(visible);
   const camTargetPos = useRef(new Vector3(40, 30, 40));
@@ -150,13 +150,7 @@ export default function useScene(
       } = rendererContext;
       onError?.("");
 
-      const { starMaterial } = buildEnvironment({
-        scene,
-        isDark,
-        theme: T,
-        isMob,
-        isLowDetail,
-      });
+      buildEnvironment({ scene, isDark, theme: T });
 
       const { curve, seg, sectorMarkers } = buildTrack({
         scene,
@@ -214,7 +208,6 @@ export default function useScene(
         sectorMarkers,
         fr: null,
         _dirty: true,
-        _starMat: starMaterial,
       };
 
       const cs = CS.current;

@@ -10,14 +10,12 @@ import {
   Group,
   Line,
   Mesh,
-  PointLight,
   Points,
   Sprite,
   Vector3,
 } from "three";
 import { disposeScene } from "./createRenderer.js";
 import {
-  createCarGlowMaterial,
   createCarPoleMaterial,
   createCarShadowMaterial,
   createFallbackCarMaterial,
@@ -32,28 +30,19 @@ function freezeObjectTransform(object) {
   return object;
 }
 
-function makeCarGroup({ color, label, isGhost, isLowDetail }) {
+function makeCarGroup({ color, label, isGhost, isLowDetail, tier = 0 }) {
   const group = new Group();
   const carColor = new Color(color);
+  // Each slot's label sits at its own height so labels of cars running together never overlap.
+  const labelHeight = 2.3 + tier * 1.8;
 
   const shadow = new Mesh(new CircleGeometry(1.0, 24), createCarShadowMaterial());
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.01;
   group.add(freezeObjectTransform(shadow));
 
-  const glow = new Mesh(new CircleGeometry(1.3, 16), createCarGlowMaterial({ color: carColor, isGhost }));
-  glow.rotation.x = -Math.PI / 2;
-  glow.position.y = 0.005;
-  group.add(freezeObjectTransform(glow));
-
-  if (!isLowDetail && !isGhost) {
-    const carLight = new PointLight(carColor, 0.4, 20);
-    carLight.position.set(0, 0.3, 0);
-    group.add(freezeObjectTransform(carLight));
-  }
-
   if (label && !isLowDetail) {
-    const poleGeo = new BufferGeometry().setFromPoints([new Vector3(0, 0.3, 0), new Vector3(0, 2.0, 0)]);
+    const poleGeo = new BufferGeometry().setFromPoints([new Vector3(0, 0.3, 0), new Vector3(0, labelHeight - 0.3, 0)]);
     const pole = new Line(poleGeo, createCarPoleMaterial(carColor));
     group.add(freezeObjectTransform(pole));
 
@@ -61,34 +50,20 @@ function makeCarGroup({ color, label, isGhost, isLowDetail }) {
     canvas.width = 200;
     canvas.height = 80;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#000";
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    const r2 = 10;
-    ctx.moveTo(r2, 0);
-    ctx.lineTo(200 - r2, 0);
-    ctx.quadraticCurveTo(200, 0, 200, r2);
-    ctx.lineTo(200, 80 - r2);
-    ctx.quadraticCurveTo(200, 80, 200 - r2, 80);
-    ctx.lineTo(r2, 80);
-    ctx.quadraticCurveTo(0, 80, 0, 80 - r2);
-    ctx.lineTo(0, r2);
-    ctx.quadraticCurveTo(0, 0, r2, 0);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    // Flat label plate: page colour, a narrow driver-colour key, the acronym in the UI face.
+    ctx.fillStyle = "rgba(12,14,15,0.88)";
+    ctx.fillRect(0, 0, 200, 80);
     ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 8, 80);
-    ctx.fillStyle = color;
-    ctx.fillRect(8, 0, 192, 4);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 42px sans-serif";
+    ctx.fillRect(0, 0, 10, 80);
+    ctx.fillStyle = "#f1efea";
+    ctx.font = '600 40px "IBM Plex Sans", system-ui, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, 104, 44);
+    ctx.fillText(label, 106, 42);
 
     const texture = new CanvasTexture(canvas);
     const sprite = new Sprite(createSpriteLabelMaterial(texture));
-    sprite.position.set(0, 2.3, 0);
+    sprite.position.set(0, labelHeight, 0);
     sprite.scale.set(2.8, 1.1, 1);
     group.add(freezeObjectTransform(sprite));
   }
@@ -230,12 +205,14 @@ export function buildCars({
   isContextLost = () => false,
 }) {
   const car1 = makeCarGroup({ color: c1, label: lab1, isGhost: false, isLowDetail });
-  const car2 = makeCarGroup({ color: c2, label: lab2, isGhost: true, isLowDetail });
+  const car2 = makeCarGroup({ color: c2, label: lab2, isGhost: true, isLowDetail, tier: 1 });
   scene.add(car1);
   scene.add(car2);
 
-  const car3 = l3?.length > 0 && lab3 ? makeCarGroup({ color: c3, label: lab3, isGhost: true, isLowDetail }) : null;
-  const car4 = l4?.length > 0 && lab4 ? makeCarGroup({ color: c4, label: lab4, isGhost: true, isLowDetail }) : null;
+  const car3 =
+    l3?.length > 0 && lab3 ? makeCarGroup({ color: c3, label: lab3, isGhost: true, isLowDetail, tier: 2 }) : null;
+  const car4 =
+    l4?.length > 0 && lab4 ? makeCarGroup({ color: c4, label: lab4, isGhost: true, isLowDetail, tier: 3 }) : null;
   if (car3) scene.add(car3);
   if (car4) scene.add(car4);
 

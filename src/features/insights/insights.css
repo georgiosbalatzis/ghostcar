@@ -1,0 +1,63 @@
+.season__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-control);
+  color: var(--text-2);
+}
+.season__score {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+  font-size: var(--text-lead);
+  font-weight: 600;
+}
+.season__score b {
+  font-size: var(--text-display);
+}
+.season__score .swatch:last-child {
+  margin: 0 0 0 var(--space-2);
+}
+.season__score-label {
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--text-2);
+  text-align: center;
+}
+.season__table thead th:first-child {
+  text-align: left;
+}
+.season__bar-cell {
+  width: 45%;
+}
+.season__bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+.diverging {
+  position: relative;
+  display: block;
+  height: 6px;
+  background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 1px 100% no-repeat;
+}
+.diverging__bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--ink, var(--muted));
+}
+.diverging__bar--left {
+  left: auto;
+  right: 50%;
+}
+.season__delta {
+  font-size: var(--text-small);
+  color: var(--text-2);
+}
