@@ -6,9 +6,9 @@
     <title>F1 Stories Ghost Car | Σύγκριση γύρων F1 με τηλεμετρία</title>
     <meta name="description" content="Σύγκρινε γύρους Formula 1 σε 3D και 2D με πραγματική τηλεμετρία από το OpenF1. Αναπαράσταση γύρων, στατιστικά, ανάλυση τομέων και κοινοποιήσιμες συγκρίσεις από το F1 Stories." />
     <meta name="application-name" content="F1 Stories Ghost Car" />
-    <meta name="theme-color" content="#181a1c" />
-    <link rel="icon" type="image/png" href="./logo.png" />
-    <link rel="apple-touch-icon" href="./logo.png" />
+    <meta name="theme-color" content="#0c0e0f" />
+    <link rel="icon" type="image/png" sizes="64x64" href="./favicon-64.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="canonical" href="https://f1stories.gr/ghostcar/" />
 
     <!-- Open Graph -->
@@ -49,22 +49,22 @@
     }
     </script>
 
-    <!-- Dynamic OG update from URL params -->
+    <!-- Theme before first paint (URL ?th= wins over the stored preference), so there is no flash. -->
     <script>
-      (function() {
-        var p = new URLSearchParams(window.location.search);
-        if (p.get('d1') && p.get('d2')) {
-          var title = 'F1 Stories Ghost Car | Οδηγός #' + p.get('d1') + ' εναντίον #' + p.get('d2');
-          document.title = title;
-          var ogTitle = document.querySelector('meta[property="og:title"]');
-          if (ogTitle) ogTitle.setAttribute('content', title);
-          var twitterTitle = document.querySelector('meta[name="twitter:title"]');
-          if (twitterTitle) twitterTitle.setAttribute('content', title);
+      (function () {
+        var theme = new URLSearchParams(window.location.search).get("th");
+        if (theme !== "light" && theme !== "dark") {
+          try {
+            theme = localStorage.getItem("f1s-theme") === "light" ? "light" : "dark";
+          } catch (e) {
+            theme = "dark";
+          }
         }
+        document.documentElement.dataset.theme = theme;
       })();
     </script>
   </head>
-  <body style="margin:0; background:#181a1c;">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

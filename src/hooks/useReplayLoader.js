@@ -20,17 +20,9 @@ function formatReplayDataIssue(issue, fallbackMessage) {
 }
 
 export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {}) {
-  const [loc1, setLoc1] = useState(null);
-  const [loc2, setLoc2] = useState(null);
-  const [loc3, setLoc3] = useState(null);
-  const [loc4, setLoc4] = useState(null);
-  const [tel1, setTel1] = useState(null);
-  const [tel2, setTel2] = useState(null);
-  const [tel3, setTel3] = useState(null);
-  const [tel4, setTel4] = useState(null);
-  const [tp, setTp] = useState(null);
-  const [circuitFlip, setCircuitFlip] = useState(false);
-  const [circuitTurns, setCircuitTurns] = useState(20);
+  // The loaded replay: geometry, per-slot streams and a snapshot of what was requested (meta).
+  // Everything that describes the replay reads meta, never the live selector state.
+  const [replay, setReplay] = useState(null);
   const [loading, setLoading] = useState("");
   const [ldPct, setLdPct] = useState(undefined);
   const [err, setErr] = useState("");
@@ -77,58 +69,33 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
   }, [clearLoadIndicator, onCancelLoad, setPlay]);
 
   const clearReplayData = useCallback(() => {
-    setTp(null);
-    setLoc1(null);
-    setLoc2(null);
-    setLoc3(null);
-    setLoc4(null);
-    setTel1(null);
-    setTel2(null);
-    setTel3(null);
-    setTel4(null);
+    setReplay(null);
     setProg?.(0);
     setPlay?.(false);
   }, [setPlay, setProg]);
 
   const clearReplaySlot = useCallback((slot) => {
-    if (slot === 1) {
-      setLoc1(null);
-      setTel1(null);
-    }
-    if (slot === 2) {
-      setLoc2(null);
-      setTel2(null);
-    }
-    if (slot === 3) {
-      setLoc3(null);
-      setTel3(null);
-    }
-    if (slot === 4) {
-      setLoc4(null);
-      setTel4(null);
-    }
+    setReplay((current) => {
+      if (!current?.streams[slot]) return current;
+      const streams = { ...current.streams };
+      delete streams[slot];
+      return { ...current, streams };
+    });
   }, []);
 
   const applyReplayStreams = useCallback(
-    (streams, meeting) => {
-      const bySlot = new Map(streams.map((stream) => [stream.slot, stream]));
-      const stream1 = bySlot.get(1);
-      const stream2 = bySlot.get(2);
-      const stream3 = bySlot.get(3);
-      const stream4 = bySlot.get(4);
-      const geometry = buildReplayGeometry(meeting, stream1.location);
-
-      setLoc1(stream1.location);
-      setLoc2(stream2.location);
-      setTel1(stream1.telemetry);
-      setTel2(stream2.telemetry);
-      setLoc3(stream3?.location || null);
-      setTel3(stream3?.telemetry || null);
-      setLoc4(stream4?.location || null);
-      setTel4(stream4?.telemetry || null);
-      setCircuitFlip(geometry.circuitFlip);
-      setCircuitTurns(geometry.circuitTurns);
-      setTp(geometry.trackPath);
+    (streams, meeting, meta) => {
+      const bySlot = Object.fromEntries(
+        streams.map((stream) => [stream.slot, { location: stream.location, telemetry: stream.telemetry }])
+      );
+      const geometry = buildReplayGeometry(meeting, bySlot[1].location);
+      setReplay({
+        trackPath: geometry.trackPath,
+        circuitFlip: geometry.circuitFlip,
+        circuitTurns: geometry.circuitTurns,
+        streams: bySlot,
+        meta,
+      });
       setProg?.(0);
       setPlay?.(false);
     },
@@ -141,8 +108,9 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
       sessionKey,
       meeting,
       drivers,
+      meta,
       progress = { locations: 20, telemetry: 55 },
-      loadingMessage = "Ανάκτηση τηλεμετρίας...",
+      loadingMessage = "Φόρτωση τηλεμετρίας…",
       insufficientDataMessage = "Τα δεδομένα δεν επαρκούν.",
     }) => {
       setLoading(loadingMessage);
@@ -158,7 +126,7 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
       if (!isActiveLoad(controller)) return streams;
       const replayDataIssue = getReplayDataIssue(streams);
       if (replayDataIssue) throw new Error(formatReplayDataIssue(replayDataIssue, insufficientDataMessage));
-      applyReplayStreams(streams, meeting);
+      applyReplayStreams(streams, meeting, meta);
       setLdPct(100);
       return streams;
     },
@@ -166,8 +134,8 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
   );
 
   const loadReplayComparison = useCallback(
-    async ({ sessionKey, meeting, drivers, preserveError = false }) => {
-      const controller = beginCancelableLoad("Ανάκτηση τηλεμετρίας...", { preserveError });
+    async ({ sessionKey, meeting, drivers, meta, preserveError = false }) => {
+      const controller = beginCancelableLoad("Φόρτωση τηλεμετρίας…", { preserveError });
       try {
         setLdPct(15);
         await loadReplayForActiveLoad({
@@ -175,6 +143,7 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
           sessionKey,
           meeting,
           drivers,
+          meta,
           progress: { locations: 20, telemetry: 55 },
           insufficientDataMessage: "Τα δεδομένα δεν επαρκούν.",
         });
@@ -202,17 +171,7 @@ export default function useReplayLoader({ setProg, setPlay, onCancelLoad } = {})
   );
 
   return {
-    loc1,
-    loc2,
-    loc3,
-    loc4,
-    tel1,
-    tel2,
-    tel3,
-    tel4,
-    tp,
-    circuitFlip,
-    circuitTurns,
+    replay,
     loading,
     ldPct,
     err,

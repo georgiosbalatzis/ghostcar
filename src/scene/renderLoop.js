@@ -134,7 +134,6 @@ export function startSceneRenderLoop({
         deltaTime: dt,
       }) || needsRender;
     if (!needsRender) return;
-    if (sceneState._starMat && !sceneState._starFrozen) sceneState._starMat.uniforms.uTime.value = now * 0.001;
     try {
       renderer.render(scene, camera);
       hasRendered = true;

@@ -30,7 +30,6 @@ export function createAdaptiveQualityController({
       renderer.setSize(container.clientWidth, container.clientHeight);
     }
     const sceneState = getSceneState();
-    sceneState._starFrozen = tier >= 2;
     sceneState._dirty = true;
   }
 

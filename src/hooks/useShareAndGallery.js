@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { fmt } from "../helpers.js";
 
 const GALLERY_STORAGE_KEY = "f1s-gallery";
@@ -6,239 +6,190 @@ const GALLERY_LIMIT = 20;
 
 function readStoredGallery() {
   try {
-    return JSON.parse(localStorage.getItem(GALLERY_STORAGE_KEY) || "[]");
+    const stored = JSON.parse(localStorage.getItem(GALLERY_STORAGE_KEY) || "[]");
+    return Array.isArray(stored) ? stored : [];
   } catch {
     return [];
   }
 }
 
+function writeStoredGallery(entries) {
+  try {
+    if (entries.length) localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(entries));
+    else localStorage.removeItem(GALLERY_STORAGE_KEY);
+  } catch {}
+}
+
+function download(href, filename) {
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = filename;
+  anchor.click();
+}
+
+// Publishing utilities: link, native share, saved comparisons (local only) and image exports.
+// `comparison` describes the loaded replay (not the live selector state).
 export default function useShareAndGallery({
   shareUrl,
   shareTitle,
-  canShare,
   canNativeShare,
   comparison,
   screenshotRef,
   is2DView,
   mob,
   pushToast,
+  onLinkFallback,
 }) {
   const [gallery, setGallery] = useState(readStoredGallery);
-  const [shareMsg, setShareMsg] = useState("");
-  const [shareDialogUrl, setShareDialogUrl] = useState("");
-  const [shareDialogNotice, setShareDialogNotice] = useState("");
-  const shareMsgTimerRef = useRef(null);
 
-  useEffect(
-    () => () => {
-      if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
-    },
-    []
-  );
-
-  const bumpShareMsg = useCallback((message) => {
-    if (shareMsgTimerRef.current) window.clearTimeout(shareMsgTimerRef.current);
-    setShareMsg(message);
-    shareMsgTimerRef.current = window.setTimeout(() => setShareMsg(""), 2200);
+  const updateGallery = useCallback((updater) => {
+    setGallery((current) => {
+      const next = updater(current);
+      writeStoredGallery(next);
+      return next;
+    });
   }, []);
 
-  const clearShareDialog = useCallback(() => {
-    setShareDialogUrl("");
-    setShareDialogNotice("");
+  const copyText = useCallback(async (text) => {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText(text);
   }, []);
 
-  const copyShareDialogUrl = useCallback(async () => {
-    if (!shareDialogUrl) return;
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(shareDialogUrl);
-      setShareDialogNotice("Ο σύνδεσμος αντιγράφηκε στο clipboard.");
-      bumpShareMsg("ΑΝΤΙΓΡ.");
-      pushToast("Ο σύνδεσμος αντιγράφηκε στο clipboard.", "success");
-    } catch {
-      pushToast("Το clipboard παραμένει μη διαθέσιμο σε αυτή τη συσκευή.", "info");
-    }
-  }, [bumpShareMsg, pushToast, shareDialogUrl]);
-
-  const share = useCallback(async () => {
-    if (!canShare || !shareUrl) return;
-    const url = shareUrl;
-    window.history.replaceState(null, "", url.split(window.location.origin)[1]);
+  const copyLink = useCallback(async () => {
+    if (!shareUrl) return;
+    window.history.replaceState(null, "", shareUrl.split(window.location.origin)[1]);
     if (navigator.share && canNativeShare) {
       try {
-        await navigator.share({ title: shareTitle, text: "Σύγκριση γύρων F1 με τηλεμετρία", url });
-        clearShareDialog();
-        bumpShareMsg("ΕΣΤΑΛΗ");
-        pushToast("Άνοιξε το παράθυρο κοινοποίησης.", "success");
+        await navigator.share({ title: shareTitle, text: "Σύγκριση γύρων F1 με τηλεμετρία", url: shareUrl });
         return;
       } catch (error) {
         if (error?.name === "AbortError") return;
       }
     }
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(url);
-      setShareDialogUrl(url);
-      setShareDialogNotice(
-        "Ο σύνδεσμος αντιγράφηκε στο clipboard. Μπορείς να τον κοινοποιήσεις άμεσα ή να τον ξανααντιγράψεις πιο κάτω."
-      );
-      bumpShareMsg("ΑΝΤΙΓΡ.");
-      pushToast("Ο σύνδεσμος αντιγράφηκε στο clipboard.", "success");
-    } catch (error) {
-      if (error?.name === "AbortError") return;
-      setShareDialogUrl(url);
-      setShareDialogNotice("Η πρόσβαση στο clipboard μπλοκαρίστηκε. Αντέγραψε τον σύνδεσμο από κάτω.");
-      bumpShareMsg("ΕΤΟΙΜΟ");
-      pushToast("Ο σύνδεσμος είναι έτοιμος για αντιγραφή.", "info");
+      await copyText(shareUrl);
+      pushToast("Ο σύνδεσμος αντιγράφηκε.");
+    } catch {
+      // Clipboard blocked: show the link so it can be copied by hand.
+      onLinkFallback?.(shareUrl);
     }
-  }, [bumpShareMsg, canNativeShare, canShare, clearShareDialog, pushToast, shareTitle, shareUrl]);
-
-  const clearGallery = useCallback(() => {
-    setGallery([]);
-    try {
-      localStorage.removeItem(GALLERY_STORAGE_KEY);
-    } catch {}
-  }, []);
+  }, [canNativeShare, copyText, onLinkFallback, pushToast, shareTitle, shareUrl]);
 
   const saveToGallery = useCallback(() => {
-    if (
-      !comparison?.driver1Label ||
-      !comparison?.driver2Label ||
-      !comparison?.meetingName ||
-      !comparison?.lap1Duration ||
-      !comparison?.lap2Duration ||
-      !shareUrl
-    ) {
-      return;
-    }
+    if (!comparison?.drivers?.length || !shareUrl) return;
+    const [first, second] = comparison.drivers;
     const entry = {
       id: Date.now(),
-      d1n: comparison.driver1Label,
-      d2n: comparison.driver2Label,
+      d1n: first?.label,
+      d2n: second?.label,
+      l1: first?.lapNumber,
+      l2: second?.lapNumber,
+      extra: comparison.drivers.slice(2).map((driver) => driver.label),
       gp: comparison.meetingName,
+      session: comparison.sessionLabel,
       year: comparison.year,
       delta: comparison.delta?.toFixed(3),
-      t1: fmt(comparison.lap1Duration),
-      t2: fmt(comparison.lap2Duration),
-      c1: comparison.color1,
-      c2: comparison.color2,
+      t1: fmt(first?.lapDuration),
+      t2: fmt(second?.lapDuration),
+      c1: first?.color,
+      c2: second?.color,
       url: shareUrl,
     };
-    const nextGallery = [entry, ...gallery].slice(0, GALLERY_LIMIT);
-    setGallery(nextGallery);
-    try {
-      localStorage.setItem(GALLERY_STORAGE_KEY, JSON.stringify(nextGallery));
-    } catch {}
-    pushToast("Η σύγκριση αποθηκεύτηκε στη συλλογή.", "success");
-  }, [comparison, gallery, pushToast, shareUrl]);
+    updateGallery((current) => [entry, ...current.filter((item) => item.url !== shareUrl)].slice(0, GALLERY_LIMIT));
+    pushToast("Η σύγκριση αποθηκεύτηκε.");
+  }, [comparison, pushToast, shareUrl, updateGallery]);
+
+  const removeFromGallery = useCallback(
+    (id) => updateGallery((current) => current.filter((item) => item.id !== id)),
+    [updateGallery]
+  );
+
+  const clearGallery = useCallback(() => updateGallery(() => []), [updateGallery]);
 
   const generateSocialCard = useCallback(() => {
+    if (!comparison?.drivers?.length) return;
     const canvas = document.createElement("canvas");
     canvas.width = 1200;
     canvas.height = 630;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#15151e";
+    const font = (weight, size) => `${weight} ${size}px "IBM Plex Sans", system-ui, sans-serif`;
+    ctx.fillStyle = "#0c0e0f";
     ctx.fillRect(0, 0, 1200, 630);
-    ctx.fillStyle = "#E10600";
-    ctx.fillRect(0, 0, 1200, 6);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 42px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("F1 STORIES GHOST CAR", 600, 80);
-    ctx.fillStyle = "#E10600";
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillText("Σύγκριση γύρων F1", 600, 115);
-    ctx.fillStyle = "#888";
-    ctx.font = "24px sans-serif";
-    ctx.fillText(comparison?.meetingLabel || "", 600, 160);
-    ctx.fillStyle = comparison?.color1 || "#4488ff";
-    ctx.font = "bold 72px sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText(comparison?.driver1Label || "Ο1", 530, 310);
-    ctx.fillStyle = "#E10600";
-    ctx.font = "bold 30px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("ΕΝΑΝΤ.", 600, 310);
-    ctx.fillStyle = comparison?.color2 || "#ff4488";
-    ctx.font = "bold 72px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(comparison?.driver2Label || "Ο2", 670, 310);
-    ctx.fillStyle = comparison?.color1 || "#4488ff";
-    ctx.font = "bold 32px sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText(fmt(comparison?.lap1Duration), 530, 380);
-    ctx.fillStyle = comparison?.color2 || "#ff4488";
-    ctx.font = "bold 32px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(fmt(comparison?.lap2Duration), 670, 380);
-    if (comparison?.delta !== null && comparison?.delta !== undefined) {
-      ctx.fillStyle = comparison.delta > 0 ? "#E10600" : "#00d26a";
-      ctx.font = "bold 48px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(`${comparison.delta > 0 ? "+" : ""}${comparison.delta.toFixed(3)}s`, 600, 470);
-    }
-    ctx.fillStyle = "#333";
-    ctx.fillRect(0, 570, 1200, 60);
-    ctx.fillStyle = "#888";
-    ctx.font = "16px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Δημιουργία F1 Stories • f1stories.gr/ghostcar", 600, 600);
-    const anchor = document.createElement("a");
-    anchor.href = canvas.toDataURL("image/png");
-    anchor.download = `f1stories-${comparison?.driver1Label}-vs-${comparison?.driver2Label}.png`;
-    anchor.click();
-    pushToast("Η social card κατέβηκε.", "success");
+    ctx.fillStyle = "#e45a43";
+    ctx.fillRect(80, 80, 40, 3);
+    ctx.fillStyle = "#b5b5b0";
+    ctx.font = font(500, 26);
+    ctx.fillText(`F1 STORIES  /  Ghost Car`, 80, 130);
+    ctx.fillStyle = "#f1efea";
+    ctx.font = font(600, 44);
+    ctx.fillText(`${comparison.meetingName || ""} ${comparison.year || ""}`, 80, 200);
+    ctx.fillStyle = "#858a88";
+    ctx.font = font(400, 28);
+    ctx.fillText(comparison.sessionLabel || "", 80, 244);
+    comparison.drivers.slice(0, 4).forEach((driver, index) => {
+      const y = 340 + index * 62;
+      ctx.fillStyle = driver.color;
+      ctx.fillRect(80, y - 30, 6, 38);
+      ctx.fillStyle = "#f1efea";
+      ctx.font = font(600, 40);
+      ctx.fillText(driver.label, 104, y);
+      ctx.font = font(400, 36);
+      ctx.fillText(fmt(driver.lapDuration), 260, y);
+      ctx.fillStyle = "#858a88";
+      ctx.fillText(driver.gap ? `+${driver.gap.toFixed(3)}` : "", 480, y);
+    });
+    ctx.fillStyle = "#858a88";
+    ctx.font = font(400, 22);
+    ctx.fillText("Δεδομένα OpenF1 · f1stories.gr/ghostcar", 80, 570);
+    download(
+      canvas.toDataURL("image/png"),
+      `f1stories-${comparison.drivers.map((driver) => driver.label).join("-")}.png`
+    );
+    pushToast("Η κάρτα κοινοποίησης κατέβηκε.");
   }, [comparison, pushToast]);
 
   const takeScreenshot = useCallback(() => {
     if (mob && !is2DView) {
-      pushToast(
-        "Τα 3D screenshots είναι απενεργοποιημένα στο mobile για πιο ομαλή αναπαραγωγή. Πέρασε σε 2D ή χρησιμοποίησε desktop.",
-        "info"
-      );
+      pushToast("Η λήψη εικόνας 3D δεν υποστηρίζεται στο κινητό. Πέρασε σε 2D.");
       return;
     }
     const el = screenshotRef.current;
     if (!el) return;
     const canvas = el.querySelector("canvas");
     if (canvas) {
-      const anchor = document.createElement("a");
-      anchor.href = canvas.toDataURL("image/png");
-      anchor.download = `f1stories-ghost-${Date.now()}.png`;
-      anchor.click();
-      pushToast("Το στιγμιότυπο της πίστας κατέβηκε.", "success");
+      download(canvas.toDataURL("image/png"), `f1stories-ghost-${Date.now()}.png`);
+      pushToast("Η εικόνα κατέβηκε.");
       return;
     }
-    const svg = el.querySelector("svg");
+    const svg = el.querySelector("svg.track-map");
     if (svg) {
-      const anchor = document.createElement("a");
       const clone = svg.cloneNode(true);
       clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      // Resolve CSS variables so the exported file renders outside the app.
+      const styles = getComputedStyle(svg);
+      clone.style.setProperty("--track", styles.getPropertyValue("--track"));
+      clone.style.setProperty("--track-edge", styles.getPropertyValue("--track-edge"));
+      clone.style.setProperty("--text", styles.getPropertyValue("--text"));
       const blob = new Blob([new XMLSerializer().serializeToString(clone)], {
         type: "image/svg+xml;charset=utf-8",
       });
       const url = URL.createObjectURL(blob);
-      anchor.href = url;
-      anchor.download = `f1stories-ghost-${Date.now()}.svg`;
-      anchor.click();
+      download(url, `f1stories-ghost-${Date.now()}.svg`);
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      pushToast("Η καταγραφή της πίστας κατέβηκε.", "success");
+      pushToast("Η εικόνα της πίστας κατέβηκε.");
       return;
     }
-    pushToast("Δεν υπάρχει ακόμη κάτι για λήψη.", "info");
+    pushToast("Δεν υπάρχει ακόμη κάτι για λήψη.");
   }, [is2DView, mob, pushToast, screenshotRef]);
 
   return {
     gallery,
-    shareMsg,
-    shareDialogUrl,
-    shareDialogNotice,
-    clearShareDialog,
-    copyShareDialogUrl,
-    share,
+    copyText,
+    copyLink,
     saveToGallery,
+    removeFromGallery,
+    clearGallery,
     generateSocialCard,
     takeScreenshot,
-    clearGallery,
   };
 }

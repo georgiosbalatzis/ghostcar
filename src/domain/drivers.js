@@ -26,3 +26,29 @@ export function formatDriverOption(driver) {
 export function getDriverColor(driver, fallback = "#888") {
   return driver ? getTeamColor(driver.team_name) : fallback;
 }
+
+function mixHex(hex, target, amount) {
+  const parse = (value) => {
+    const clean = String(value).replace("#", "");
+    const full = clean.length === 3 ? [...clean].map((c) => c + c).join("") : clean.slice(0, 6);
+    return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) || 0);
+  };
+  const from = parse(hex);
+  const to = parse(target);
+  return `#${from
+    .map((channel, i) => Math.round(channel + (to[i] - channel) * amount))
+    .map((channel) => channel.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+// Teammates share a team colour; later slots get a lighter/darker variant so traces stay distinguishable.
+export function getDistinctDriverColors(colors) {
+  const seen = new Map();
+  return colors.map((color) => {
+    const key = String(color).toLowerCase();
+    const count = seen.get(key) || 0;
+    seen.set(key, count + 1);
+    if (count === 0) return color;
+    return count % 2 === 1 ? mixHex(color, "#ffffff", 0.5) : mixHex(color, "#000000", 0.35);
+  });
+}

@@ -1,30 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PRESETS, CAM_MODES, formatSessionLabel } from "./constants.js";
-import { telAt, useIsMobile, ds, encodeURL, decodeURL } from "./helpers.js";
-
-// Components
-import AppShell from "./components/AppShell.jsx";
-import AppFooter from "./components/AppFooter.jsx";
-import AuxiliaryContentArea from "./components/AuxiliaryContentArea.jsx";
-import ComparisonSelectors from "./components/ComparisonSelectors.jsx";
-import CountdownOverlay from "./components/CountdownOverlay.jsx";
-import ErrorBanner from "./components/ErrorBanner.jsx";
-import HeaderToolbar from "./components/HeaderToolbar.jsx";
-import InlineTabBar from "./components/InlineTabBar.jsx";
-import LoadingStatusBar from "./components/LoadingStatusBar.jsx";
-import ModalLayer from "./components/ModalLayer.jsx";
-import MobileToolMenu from "./components/MobileToolMenu.jsx";
-import PlaybackBar from "./components/PlaybackBar.jsx";
-import ReplayStage from "./components/ReplayStage.jsx";
-import Toast from "./components/Toast.jsx";
-import { getDriverColor } from "./domain/drivers.js";
-import { findLapByNumber, getCompoundForLap } from "./domain/laps.js";
-import useAuxiliaryData from "./hooks/useAuxiliaryData.js";
-import useAuxiliaryViews from "./hooks/useAuxiliaryViews.js";
+import { CAM_MODES } from "./constants.js";
+import { findLapByNumber } from "./domain/laps.js";
+import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
+import Dialog from "./components/ui/Dialog.jsx";
+import Icon, { IconButton } from "./components/ui/Icon.jsx";
+import { BuilderHeader, WorkspaceHeader } from "./app/AppHeader.jsx";
+import useDocumentMeta from "./app/useDocumentMeta.js";
+import useKeyboardShortcuts from "./app/useKeyboardShortcuts.js";
+import useShowreel from "./app/useShowreel.js";
+import AnalysisRail from "./features/analysis/AnalysisRail.jsx";
+import { normalizeRailTab } from "./features/analysis/railTabs.js";
+import ComparisonBuilder from "./features/comparison/ComparisonBuilder.jsx";
+import { FeaturedComparisons, FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
+import SeasonDialog from "./features/insights/SeasonDialog.jsx";
+import PlaybackBar from "./features/replay/PlaybackBar.jsx";
+import ReplayStage from "./features/replay/ReplayStage.jsx";
+import { buildReplayModel } from "./features/replay/replayModel.js";
+import { EmbedDialog, LinkDialog, SavedDialog, ShortcutsDialog } from "./features/sharing/SharingDialogs.jsx";
 import useComparisonSelectors from "./hooks/useComparisonSelectors.js";
 import usePlaybackController, { PLAYBACK_SPEEDS } from "./hooks/usePlaybackController.js";
 import usePresetLoader from "./hooks/usePresetLoader.js";
 import useReplayLoader from "./hooks/useReplayLoader.js";
+import useSeasonComparison from "./hooks/useSeasonComparison.js";
 import useShareAndGallery from "./hooks/useShareAndGallery.js";
 import useThemePreference from "./hooks/useThemePreference.js";
 import useTrackViewPreference from "./hooks/useTrackViewPreference.js";
@@ -33,47 +30,62 @@ const AVAILABLE_YEARS = [2026, 2025, 2024, 2023];
 const UNAVAILABLE_PRESET_YEARS = [2026];
 const DEFAULT_YEAR = 2025;
 const VIZ_MODES = ["normal", "heatmap", "brake"];
-const SUPPORTED_SESSION_NAMES = ["Qualifying", "Race", "Sprint", "Sprint Qualifying", "Sprint Shootout", "Practice 1", "Practice 2", "Practice 3"];
-const LOGO_SRC = `${import.meta.env.BASE_URL}logo.png`;
-const APP_NAME = "F1 Stories Ghost Car";
-const APP_SUBTITLE = "Σύγκριση γύρων F1";
-const APP_DESCRIPTION = "Σύγκρινε γύρους Formula 1 σε 3D και 2D με πραγματική τηλεμετρία από το OpenF1.";
-
-function normalizeCamMode(value) {
-  return CAM_MODES.includes(value) ? value : null;
-}
-
-function normalizeVizMode(value) {
-  return VIZ_MODES.includes(value) ? value : null;
-}
+const SUPPORTED_SESSION_NAMES = [
+  "Qualifying",
+  "Race",
+  "Sprint",
+  "Sprint Qualifying",
+  "Sprint Shootout",
+  "Practice 1",
+  "Practice 2",
+  "Practice 3",
+];
+const PLAYABLE_PRESETS = getPlayablePresets(UNAVAILABLE_PRESET_YEARS);
 
 function createRestoreFlags() {
-  return {
-    meeting: false,
-    session: false,
-    drivers: false,
-    lap1: false,
-    lap2: false,
-    lap3: false,
-    lap4: false,
-  };
+  return { meeting: false, session: false, drivers: false, lap1: false, lap2: false, lap3: false, lap4: false };
 }
 
-function formatMeetingLabel(value) {
-  return String(value || "").replace(/Grand Prix/g, "Γκραν Πρι");
+function pick(list, value) {
+  return list.includes(value) ? value : null;
 }
 
-function formatMeetingShortLabel(value) {
-  return String(value || "").replace(/Grand Prix/g, "GP");
+function useToast() {
+  const [toast, setToast] = useState(null);
+  const timerRef = useRef(null);
+  const push = useCallback((message) => {
+    window.clearTimeout(timerRef.current);
+    setToast({ message, id: Date.now() });
+    timerRef.current = window.setTimeout(() => setToast(null), 2800);
+  }, []);
+  useEffect(() => () => window.clearTimeout(timerRef.current), []);
+  return [toast, push];
 }
 
+// Raw transport errors ("API 500", "Failed to fetch") become a sentence a reader can act on.
+function describeError(message) {
+  if (/^API \d+|fetch|network/i.test(message)) {
+    return "Το OpenF1 δεν απαντά αυτή τη στιγμή. Οι επιλογές σου παραμένουν· δοκίμασε ξανά σε λίγο.";
+  }
+  return message;
+}
+
+function Notice({ message, onClose }) {
+  return (
+    <div className="notice" role="alert">
+      <p>{describeError(message)}</p>
+      <IconButton icon="close" label="Απόκρυψη μηνύματος" onClick={onClose} />
+    </div>
+  );
+}
+
+// Orchestration only: data hooks, URL restore, load lifecycle and which surface is showing.
+// View state is two values: the open dialog (one at a time) and the analysis rail tab.
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
-  const { isDark, setThemeMode, themeValue, F1, toggleTheme } = useThemePreference(initialURL.theme);
-  const { trackView, setTrackViewMode, setTrackViewFromValue, is2DView } = useTrackViewPreference(
-    initialURL.trackView
-  );
+  const { isDark, setThemeMode, toggleTheme } = useThemePreference(initialURL.theme);
+  const { trackView, setTrackViewMode, setTrackViewFromValue, is2DView } = useTrackViewPreference(initialURL.trackView);
   const {
     prog,
     setProg,
@@ -86,85 +98,35 @@ export default function App({ embed }) {
     spdRef,
     loop,
     setLoop,
-    countdown,
-    cancelCountdown,
     setSpeedFromValue,
     setLoopFromValue,
     resetPlayback,
-    startWithCountdown,
+    togglePlay,
     handleReplayTouchStart,
     handleReplayTouchEnd,
     handleReplayTouchCancel,
-  } = usePlaybackController({ initialSpeed: initialURL.speed, initialLoop: initialURL.loop, embed, trackView });
-  const {
-    showDash,
-    setShowDash,
-    showKeys,
-    setShowKeys,
-    showH2H,
-    setShowH2H,
-    showGallery,
-    setShowGallery,
-    showEmbed,
-    setShowEmbed,
-    showTel,
-    setShowTel,
-    mobTab,
-    setMobTab,
-    showTelOverlay,
-    setShowTelOverlay,
-    showPresets,
-    setShowPresets,
-    showStats,
-    setShowStats,
-    showLaps,
-    setShowLaps,
-    showMobMenu,
-    setShowMobMenu,
-    anyAuxiliaryModal,
-    closeStatsModal,
-    closeLapsModal,
-    closeKeysModal,
-    closePresetsModal,
-    closeGalleryModal,
-    closeEmbedModal,
-    closeTelemetryOverlay,
-    closeAuxiliaryModals,
-    resetAuxiliaryViews,
-    restoreAuxiliaryTab,
-  } = useAuxiliaryViews({ initialTab: initialURL.tab, embed });
+  } = usePlaybackController({ initialSpeed: initialURL.speed, initialLoop: initialURL.loop, trackView });
 
-  // ─── State ───
-  const [cam, setCam] = useState(() => normalizeCamMode(initialURL.cam) ?? "orbit");
-  const [vizMode, setVizMode] = useState(() => normalizeVizMode(initialURL.vizMode) ?? "normal");
-  const [showTour, setShowTour] = useState(() => { if (embed) return false; try { return !localStorage.getItem("f1s-toured"); } catch { return true; } });
-  const [showreel, setShowreel] = useState(false); const showreelRef = useRef(false);
-  const [toast, setToast] = useState(null);
-  const [highlightConfig, setHighlightConfig] = useState(false);
-  const selectorsRef = useRef(null);
-  const yearSelectRef = useRef(null);
-  const cRef = useRef(null); const urlLoaded = useRef(Boolean(initialURL.year && initialURL.mk));
-  const autoLoadRef = useRef(false); const presetActiveRef = useRef(false);
+  const [cam, setCam] = useState(() => pick(CAM_MODES, initialURL.cam) ?? "orbit");
+  const [vizMode, setVizMode] = useState(() => pick(VIZ_MODES, initialURL.vizMode) ?? "normal");
+  const [railTab, setRailTab] = useState(() => normalizeRailTab(initialURL.tab));
+  const [dialog, setDialog] = useState(null);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [toast, pushToast] = useToast();
+  const stageRef = useRef(null);
+  const urlLoaded = useRef(Boolean(initialURL.year && initialURL.mk));
+  const autoLoadRef = useRef(false);
+  const presetActiveRef = useRef(false);
   const restoreStateRef = useRef(initialURL);
   const restoreFlagsRef = useRef(createRestoreFlags());
-  const toastTimerRef = useRef(null);
-  const highlightConfigTimerRef = useRef(null);
-  const showreelTimerRef = useRef(null);
+  const loadPresetRef = useRef(null);
+  const closeDialog = useCallback(() => setDialog(null), []);
+
   const handleCancelLoad = useCallback(() => {
     presetActiveRef.current = false;
   }, []);
   const {
-    loc1,
-    loc2,
-    loc3,
-    loc4,
-    tel1,
-    tel2,
-    tel3,
-    tel4,
-    tp,
-    circuitFlip,
-    circuitTurns,
+    replay,
     loading,
     ldPct,
     err,
@@ -184,45 +146,8 @@ export default function App({ embed }) {
     loadReplayComparison,
     loadReplayForActiveLoad,
   } = useReplayLoader({ setProg, setPlay, onCancelLoad: handleCancelLoad });
-  const {
-    year,
-    setYear,
-    mts,
-    selMt,
-    sess,
-    selSe,
-    drvs,
-    selectorSlots,
-    resetForUrlRestore,
-    applyPresetSelectorData,
-    selectMeeting,
-    selectSession,
-    selectDriverSlot,
-    selectLapSlot,
-    d1,
-    d2,
-    d3,
-    d4,
-    sl1,
-    sl2,
-    sl3,
-    sl4,
-    laps1,
-    laps2,
-    laps3,
-    laps4,
-    st1,
-    st2,
-    st3,
-    st4,
-    numDrivers,
-    setNumDrivers,
-    lapSelect1,
-    lapSelect2,
-    lapSelect3,
-    lapSelect4,
-    resetDriverSelections,
-  } = useComparisonSelectors({
+
+  const selection = useComparisonSelectors({
     initialURL,
     defaultYear: DEFAULT_YEAR,
     supportedSessionNames: SUPPORTED_SESSION_NAMES,
@@ -235,315 +160,90 @@ export default function App({ embed }) {
     setErr,
     setSceneErr,
   });
-  const {
-    h2hData,
-    h2hProgress,
-    dashData,
-    cancelAuxLoading,
-    resetAuxiliaryData,
-    loadH2H,
-    loadSeasonDash,
-  } = useAuxiliaryData({
-    year,
-    driver1Number: d1,
-    driver2Number: d2,
-    mob,
-    embed,
-    setShowH2H,
-    setShowDash,
+  const activeSlots = useMemo(
+    () => selection.slots.slice(0, selection.numDrivers),
+    [selection.slots, selection.numDrivers]
+  );
+
+  const model = useMemo(() => buildReplayModel(replay), [replay]);
+  const [driverA, driverB] = model?.drivers || [];
+  const season = useSeasonComparison({
+    year: model?.year,
+    driver1Number: driverA?.driverNumber,
+    driver2Number: driverB?.driverNumber,
   });
+  const showreel = useShowreel({ presets: PLAYABLE_PRESETS, loadPresetRef, setPlay, cancelLoading });
+
+  // 3D failure: continue in 2D (not persisted) instead of showing an error panel.
   useEffect(() => {
     if (is2DView) setSceneErr("");
   }, [is2DView, setSceneErr]);
-
-  // ─── Derived ───
-  const di1 = drvs.find((x) => x.driver_number === d1), di2 = drvs.find((x) => x.driver_number === d2);
-  const di3 = drvs.find((x) => x.driver_number === d3), di4 = drvs.find((x) => x.driver_number === d4);
-  const co1 = getDriverColor(di1, "#4488ff"), co2 = getDriverColor(di2, "#ff4488");
-  const co3 = getDriverColor(di3, "#44cc44"), co4 = getDriverColor(di4, "#ffaa00");
-  const li1 = laps1.find((l) => l.lap_number === sl1), li2 = laps2.find((l) => l.lap_number === sl2);
-  const li3 = laps3.find((l) => l.lap_number === sl3), li4 = laps4.find((l) => l.lap_number === sl4);
-  const delta = li1?.lap_duration && li2?.lap_duration ? li1.lap_duration - li2.lap_duration : null;
-  const tire1 = getCompoundForLap(st1, sl1);
-  const tire2 = getCompoundForLap(st2, sl2);
-  const tire3 = getCompoundForLap(st3, sl3);
-  const tire4 = getCompoundForLap(st4, sl4);
-  const ms = mob ? 200 : 400;
-  const s1 = useMemo(() => ds(tel1?.map((t) => t.speed || 0), ms), [tel1, ms]); const s2 = useMemo(() => ds(tel2?.map((t) => t.speed || 0), ms), [tel2, ms]);
-  const s3 = useMemo(() => ds(tel3?.map((t) => t.speed || 0), ms), [tel3, ms]); const s4 = useMemo(() => ds(tel4?.map((t) => t.speed || 0), ms), [tel4, ms]);
-  const t1 = useMemo(() => ds(tel1?.map((t) => t.throttle || 0), ms), [tel1, ms]); const t2 = useMemo(() => ds(tel2?.map((t) => t.throttle || 0), ms), [tel2, ms]);
-  const t3 = useMemo(() => ds(tel3?.map((t) => t.throttle || 0), ms), [tel3, ms]); const t4 = useMemo(() => ds(tel4?.map((t) => t.throttle || 0), ms), [tel4, ms]);
-  const b1 = useMemo(() => ds(tel1?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel1, ms]); const b2 = useMemo(() => ds(tel2?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel2, ms]);
-  const b3 = useMemo(() => ds(tel3?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel3, ms]); const b4 = useMemo(() => ds(tel4?.map((t) => (t.brake > 0 ? 100 : 0)), ms), [tel4, ms]);
-  const isSceneVisible = !is2DView && (!(mob || embed) || mobTab === "3d");
-  const effectiveSceneErr = is2DView ? "" : sceneErr;
-  const alertErr = effectiveSceneErr || err;
-  const noMeetings = !loading && !alertErr && mts.length === 0;
-  const playablePresets = useMemo(() => PRESETS.filter((preset) => !UNAVAILABLE_PRESET_YEARS.includes(preset.year)), []);
-  const replaySources = useMemo(() => ([
-    { label: di1?.name_acronym || "D1", color: co1, path: loc1, lapDuration: li1?.lap_duration, tire: tire1, tel: tel1 },
-    { label: di2?.name_acronym || "D2", color: co2, path: loc2, lapDuration: li2?.lap_duration, tire: tire2, tel: tel2 },
-    ...(numDrivers >= 3 && di3 && loc3 ? [{ label: di3?.name_acronym || "D3", color: co3, path: loc3, lapDuration: li3?.lap_duration, tire: tire3, tel: tel3 }] : []),
-    ...(numDrivers >= 4 && di4 && loc4 ? [{ label: di4?.name_acronym || "D4", color: co4, path: loc4, lapDuration: li4?.lap_duration, tire: tire4, tel: tel4 }] : []),
-  ]).filter((driver) => driver.path?.length >= 2), [di1, di2, di3, di4, co1, co2, co3, co4, loc1, loc2, loc3, loc4, li1, li2, li3, li4, tire1, tire2, tire3, tire4, tel1, tel2, tel3, tel4, numDrivers]);
-  const replayDrivers = useMemo(() => replaySources.map(({ label, color, path }) => ({ label, color, path })), [replaySources]);
-  const replayDriverCards = useMemo(() => replaySources.map((driver) => ({
-    label: driver.label,
-    color: driver.color,
-    lapDuration: driver.lapDuration,
-    tire: driver.tire,
-    current: telAt(driver.tel, prog),
-  })), [replaySources, prog]);
-  // Memoized — excludes live ct* so it stays stable between prog ticks
-  const allDrivers = useMemo(() => [
-    { di: di1, co: co1, li: li1, tire: tire1, tel: tel1, s: s1, t: t1, b: b1, st: st1, laps: laps1, sl: sl1 },
-    { di: di2, co: co2, li: li2, tire: tire2, tel: tel2, s: s2, t: t2, b: b2, st: st2, laps: laps2, sl: sl2 },
-    ...(numDrivers >= 3 && di3 ? [{ di: di3, co: co3, li: li3, tire: tire3, tel: tel3, s: s3, t: t3, b: b3, st: st3, laps: laps3, sl: sl3 }] : []),
-    ...(numDrivers >= 4 && di4 ? [{ di: di4, co: co4, li: li4, tire: tire4, tel: tel4, s: s4, t: t4, b: b4, st: st4, laps: laps4, sl: sl4 }] : []),
-  ].filter((d) => d.di), [di1, co1, li1, tire1, tel1, s1, t1, b1, st1, laps1, sl1, di2, co2, li2, tire2, tel2, s2, t2, b2, st2, laps2, sl2, numDrivers, di3, co3, li3, laps3, sl3, tire3, tel3, s3, t3, b3, st3, di4, co4, li4, laps4, sl4, tire4, tel4, s4, t4, b4, st4]);
-
-  const shareURLState = useMemo(() => ({
-    year,
-    mk: selMt?.meeting_key,
-    sk: selSe?.session_key,
-    d1,
-    d2,
-    d3: numDrivers >= 3 ? d3 : null,
-    d4: numDrivers >= 4 ? d4 : null,
-    l1: sl1,
-    l2: sl2,
-    l3: numDrivers >= 3 ? sl3 : null,
-    l4: numDrivers >= 4 ? sl4 : null,
-    numDrivers,
-    trackView,
-    cam,
-    vizMode,
-    theme: isDark ? "dark" : "light",
-    speed: spd,
-    loop,
-    tab: (mob || embed) ? mobTab : (showTel ? "telemetry" : "3d"),
-  }), [year, selMt, selSe, d1, d2, d3, d4, sl1, sl2, sl3, sl4, numDrivers, trackView, cam, vizMode, isDark, spd, loop, mob, embed, mobTab, showTel]);
-  const shareUrl = useMemo(() => (
-    selMt?.meeting_key && selSe?.session_key ? encodeURL(shareURLState) : ""
-  ), [selMt, selSe, shareURLState]);
-  const shareTitle = useMemo(
-    () => (selMt ? `${APP_NAME} | ${formatMeetingLabel(selMt.meeting_name)} ${year}` : APP_NAME),
-    [selMt, year]
-  );
-  const shareComparison = useMemo(
-    () => ({
-      driver1Label: di1?.name_acronym,
-      driver2Label: di2?.name_acronym,
-      meetingName: selMt?.meeting_name,
-      meetingLabel: formatMeetingLabel(selMt?.meeting_name || ""),
-      year,
-      delta,
-      lap1Duration: li1?.lap_duration,
-      lap2Duration: li2?.lap_duration,
-      color1: co1,
-      color2: co2,
-    }),
-    [di1, di2, selMt, year, delta, li1, li2, co1, co2]
-  );
-
   useEffect(() => {
-    const title = selMt && di1 && di2
-      ? `${APP_NAME} | ${di1.name_acronym} εναντίον ${di2.name_acronym} • ${formatMeetingLabel(selMt.meeting_name)} ${year}`
-      : `${APP_NAME} | ${APP_SUBTITLE}`;
-    const description = selMt && di1 && di2 && selSe
-      ? `Σύγκριση ${di1.name_acronym} εναντίον ${di2.name_acronym} στο ${formatMeetingLabel(selMt.meeting_name)} ${year}, με ${formatSessionLabel(selSe.session_name).toLowerCase()} και ζωντανή τηλεμετρία.`
-      : APP_DESCRIPTION;
-    const canonicalUrl = shareUrl || "https://f1stories.gr/ghostcar/";
-    document.title = title;
-    document.documentElement.lang = "el";
-    const setMeta = (selector, content) => {
-      const node = document.querySelector(selector);
-      if (node) node.setAttribute("content", content);
-    };
-    setMeta('meta[name="description"]', description);
-    setMeta('meta[property="og:title"]', title);
-    setMeta('meta[property="og:description"]', description);
-    setMeta('meta[property="og:url"]', canonicalUrl);
-    setMeta('meta[name="twitter:title"]', title);
-    setMeta('meta[name="twitter:description"]', description);
-  }, [year, selMt, selSe, di1, di2, shareUrl]);
+    if (!sceneErr || is2DView) return;
+    setTrackViewMode("2d", { persist: false });
+    pushToast("Το 3D δεν είναι διαθέσιμο σε αυτή τη συσκευή. Συνέχεια σε 2D.");
+  }, [is2DView, pushToast, sceneErr, setTrackViewMode]);
 
-  useEffect(() => () => {
-    cancelCountdown();
-    if (showreelTimerRef.current) window.clearTimeout(showreelTimerRef.current);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
-  }, [cancelCountdown]);
+  // ─── Loading a comparison ───
+  const loadData = useCallback(
+    async ({ preserveError = false } = {}) => {
+      const { session, meeting, drivers, year } = selection;
+      const requested = activeSlots.filter((slot, index) => index < 2 || (slot.driverNumber && slot.lapNumber));
+      if (!session || requested.slice(0, 2).some((slot) => !slot.driverNumber || !slot.lapNumber)) return;
+      if (showreel.activeRef.current) showreel.stop();
+      const withLaps = requested.map((slot) => ({ ...slot, lap: findLapByNumber(slot.laps, slot.lapNumber) }));
+      await loadReplayComparison({
+        sessionKey: session.session_key,
+        meeting,
+        drivers: withLaps.map((slot) => ({ slot: slot.slot, driverNumber: slot.driverNumber, lap: slot.lap })),
+        preserveError,
+        meta: {
+          year,
+          meeting,
+          session,
+          slots: withLaps.map((slot) => ({
+            slot: slot.slot,
+            driver: drivers.find((driver) => driver.driver_number === slot.driverNumber),
+            lap: slot.lap,
+            stints: slot.stints,
+          })),
+        },
+      });
+    },
+    [activeSlots, loadReplayComparison, selection, showreel]
+  );
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
 
-  const clearShowreelTimer = useCallback(() => {
-    if (!showreelTimerRef.current) return;
-    window.clearTimeout(showreelTimerRef.current);
-    showreelTimerRef.current = null;
-  }, []);
-
-  const stopShowreelRuntime = useCallback((abortLoad = false) => {
-    showreelRef.current = false;
-    clearShowreelTimer();
-    if (abortLoad) cancelLoading();
-    setPlay(false);
-  }, [cancelLoading, clearShowreelTimer, setPlay]);
-
-  const focusConfiguration = useCallback(() => {
-    const top = selectorsRef.current ? selectorsRef.current.getBoundingClientRect().top + window.scrollY - 12 : 0;
-    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    window.setTimeout(() => {
-      try { yearSelectRef.current?.focus({ preventScroll: true }); } catch { yearSelectRef.current?.focus?.(); }
-    }, 220);
-  }, []);
-
-  const pushToast = useCallback((message, tone = "info") => {
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    setToast({ message, tone });
-    toastTimerRef.current = window.setTimeout(() => setToast(null), 2800);
-  }, []);
-
-  const {
-    gallery,
-    shareMsg,
-    shareDialogUrl,
-    shareDialogNotice,
-    clearShareDialog,
-    copyShareDialogUrl,
-    share,
-    saveToGallery,
-    generateSocialCard,
-    takeScreenshot,
-    clearGallery,
-  } = useShareAndGallery({
-    shareUrl,
-    shareTitle,
-    canShare: Boolean(selMt && selSe && shareUrl),
-    canNativeShare: mob && !embed,
-    comparison: shareComparison,
-    screenshotRef: cRef,
-    is2DView,
-    mob,
-    pushToast,
-  });
-
-  const closeTour = useCallback(() => {
-    try { localStorage.setItem("f1s-toured", "1"); } catch {}
-    setShowTour(false);
-  }, []);
-
-  const restoreComparisonFromUrl = useCallback((rawUrl) => {
-    const nextState = decodeURL(rawUrl);
-    if (!nextState?.year || !nextState?.mk) {
-      pushToast("Αυτή η αποθηκευμένη σύγκριση δεν μπορεί να επανέλθει. Ο σύνδεσμος ίσως είναι παλιός.", "info");
-      return;
-    }
-    cancelLoading();
-    cancelAuxLoading();
-    cancelCountdown();
-    stopShowreelRuntime(false);
-    presetActiveRef.current = false;
-    autoLoadRef.current = false;
-    setShowreel(false);
-    setErr("");
-    setSceneErr("");
-    resetAuxiliaryViews();
-    resetAuxiliaryData();
-    clearShareDialog();
-    setThemeMode(nextState.theme);
-    setTrackViewFromValue(nextState.trackView);
-    const nextCam = normalizeCamMode(nextState.cam);
-    if (nextCam) setCam(nextCam);
-    const nextVizMode = normalizeVizMode(nextState.vizMode);
-    if (nextVizMode) setVizMode(nextVizMode);
-    setSpeedFromValue(nextState.speed);
-    if (nextState.loop != null) setLoopFromValue(nextState.loop);
-    restoreAuxiliaryTab(nextState.tab);
-    restoreStateRef.current = nextState;
-    restoreFlagsRef.current = createRestoreFlags();
-    urlLoaded.current = true;
-    resetForUrlRestore(nextState);
-    const nextUrl = encodeURL(nextState);
-    window.history.replaceState(null, "", nextUrl.split(window.location.origin)[1]);
-    pushToast("Η σύγκριση επανήλθε από τη συλλογή.", "success");
-  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearShareDialog, pushToast, resetAuxiliaryData, resetAuxiliaryViews, resetForUrlRestore, restoreAuxiliaryTab, setErr, setLoopFromValue, setSceneErr, setSpeedFromValue, setThemeMode, setTrackViewFromValue, stopShowreelRuntime]);
-
-  const changeMatchup = useCallback(() => {
-    cancelLoading();
-    cancelAuxLoading();
-    cancelCountdown();
-    stopShowreelRuntime(false);
-    setShowreel(false);
-    clearReplayData();
-    setSceneErr("");
-    setErr("");
-    resetAuxiliaryViews({ resetTelemetry: true, resetTab: mob || embed });
-    if (highlightConfigTimerRef.current) window.clearTimeout(highlightConfigTimerRef.current);
-    setHighlightConfig(true);
-    highlightConfigTimerRef.current = window.setTimeout(() => setHighlightConfig(false), 2200);
-    focusConfiguration();
-    pushToast("Η μπάρα επιλογών είναι έτοιμη. Διάλεξε νέα σεζόν, πίστα ή σύγκριση οδηγών.", "info");
-  }, [cancelAuxLoading, cancelCountdown, cancelLoading, clearReplayData, embed, mob, focusConfiguration, pushToast, resetAuxiliaryViews, setErr, setSceneErr, stopShowreelRuntime]);
-
-  const openAuxView = useCallback((mode) => {
-    if (mode === "telemetry" && !embed && !mob) {
-      setShowTel(true);
-      setShowTelOverlay(true);
-      pushToast("Άνοιξαν τα γραφήματα τηλεμετρίας.", "info");
-      return;
-    }
-    if (embed || mob) {
-      if (mode !== "h2h" && mode !== "season") cancelAuxLoading();
-      setMobTab(mode);
-      return;
-    }
-    if (mode === "stats") setShowStats(true);
-    if (mode === "laps") setShowLaps(true);
-  }, [cancelAuxLoading, embed, mob, pushToast, setMobTab, setShowLaps, setShowStats, setShowTel, setShowTelOverlay]);
-
-  // ─── Actions ───
-  const loadData = useCallback(async ({ preserveError = false } = {}) => {
-    if (!selSe || !d1 || !d2 || !sl1 || !sl2) return;
-    cancelCountdown();
-    if (showreelRef.current) {
-      stopShowreelRuntime(false);
-      setShowreel(false);
-    }
-    await loadReplayComparison({
-      sessionKey: selSe.session_key,
-      meeting: selMt,
-      drivers: [
-        { slot: 1, driverNumber: d1, lap: findLapByNumber(laps1, sl1) },
-        { slot: 2, driverNumber: d2, lap: findLapByNumber(laps2, sl2) },
-        ...(numDrivers >= 3 && d3 && sl3
-          ? [{ slot: 3, driverNumber: d3, lap: findLapByNumber(laps3, sl3) }]
-          : []),
-        ...(numDrivers >= 4 && d4 && sl4
-          ? [{ slot: 4, driverNumber: d4, lap: findLapByNumber(laps4, sl4) }]
-          : []),
-      ],
-      preserveError,
-    });
-  }, [cancelCountdown, selSe, selMt, d1, d2, d3, d4, sl1, sl2, sl3, sl4, laps1, laps2, laps3, laps4, numDrivers, stopShowreelRuntime, loadReplayComparison]);
-
-  // Auto-load when URL params are fully restored (shared links + embed)
+  // Shared links and embeds load automatically once the ordered restore has resolved every active slot.
+  const restoreReady =
+    Boolean(selection.session) &&
+    activeSlots.every(
+      (slot, index) =>
+        (slot.driverNumber && slot.lapNumber) ||
+        (index >= 2 && (!slot.driverNumber || (slot.lapsLoaded && !slot.lapSelect.options.length)))
+    );
   useEffect(() => {
-    if (!urlLoaded.current || autoLoadRef.current) return;
-    if (!selSe || !d1 || !d2 || !sl1 || !sl2) return;
-    autoLoadRef.current = true;
+    if (!urlLoaded.current || autoLoadRef.current || !restoreReady) return undefined;
     const timer = window.setTimeout(() => {
-      loadData({ preserveError: true });
+      autoLoadRef.current = true;
+      loadDataRef.current({ preserveError: true });
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [selSe, d1, d2, sl1, sl2, loadData]);
+  }, [restoreReady]);
 
+  const cancelSeason = season.cancel;
+  const onPresetStart = useCallback(() => {
+    setDialog(null);
+    cancelSeason();
+  }, [cancelSeason]);
   const loadPreset = usePresetLoader({
     unavailablePresetYears: UNAVAILABLE_PRESET_YEARS,
     supportedSessionNames: SUPPORTED_SESSION_NAMES,
     presetActiveRef,
-    showreelRef,
-    cancelCountdown,
-    stopShowreelRuntime,
-    setShowreel,
+    showreelRef: showreel.activeRef,
+    stopShowreelRuntime: showreel.stopRuntime,
+    setShowreel: showreel.setActive,
     beginCancelableLoad,
     clearLoadIndicator,
     finishCancelableLoad,
@@ -551,546 +251,367 @@ export default function App({ embed }) {
     loadReplayForActiveLoad,
     setErr,
     setLdPct,
-    cancelAuxLoading,
-    resetAuxiliaryData,
-    resetDriverSelections,
-    applyPresetSelectorData,
-    setShowH2H,
-    setShowDash,
-    setMobTab,
-    setShowPresets,
-    setShowMobMenu,
+    resetDriverSelections: selection.resetDriverSelections,
+    applyPresetSelectorData: selection.applyPresetSelectorData,
+    onStart: onPresetStart,
+  });
+  loadPresetRef.current = loadPreset;
+
+  // ─── Loaded vs. selected ───
+  const loadedLaps = useMemo(
+    () => Object.fromEntries((replay?.meta.slots || []).map((slot) => [slot.slot, slot.lap?.lap_number])),
+    [replay]
+  );
+  const isDirty =
+    Boolean(replay) &&
+    (selection.session?.session_key !== replay.meta.session?.session_key ||
+      activeSlots.length !== replay.meta.slots.length ||
+      activeSlots.some(
+        (slot, index) =>
+          slot.driverNumber !== replay.meta.slots[index]?.driver?.driver_number ||
+          slot.lapNumber !== replay.meta.slots[index]?.lap?.lap_number
+      ));
+
+  // If an edit clears the replay (new event or session), fall back to the page builder and keep focus.
+  useEffect(() => {
+    if (replay || dialog !== "edit") return;
+    const id = document.activeElement?.id?.replace(/^edit-/, "cb-");
+    setDialog(null);
+    requestAnimationFrame(() => id && document.getElementById(id)?.focus());
+  }, [dialog, replay]);
+
+  // ─── Sharing ───
+  const shareURLState = useMemo(() => {
+    const meta = replay?.meta;
+    const slots = meta
+      ? meta.slots.map((slot) => ({ d: slot.driver?.driver_number, l: slot.lap?.lap_number }))
+      : activeSlots.map((slot) => ({ d: slot.driverNumber, l: slot.lapNumber }));
+    return {
+      year: meta ? meta.year : selection.year,
+      mk: (meta ? meta.meeting : selection.meeting)?.meeting_key,
+      sk: (meta ? meta.session : selection.session)?.session_key,
+      d1: slots[0]?.d,
+      d2: slots[1]?.d,
+      d3: slots[2]?.d ?? null,
+      d4: slots[3]?.d ?? null,
+      l1: slots[0]?.l,
+      l2: slots[1]?.l,
+      l3: slots[2]?.l ?? null,
+      l4: slots[3]?.l ?? null,
+      numDrivers: slots.length,
+      trackView,
+      cam,
+      vizMode,
+      theme: isDark ? "dark" : "light",
+      speed: spd,
+      loop,
+      tab: railTab === "live" ? null : railTab,
+    };
+  }, [
+    activeSlots,
+    cam,
+    isDark,
+    loop,
+    railTab,
+    replay,
+    selection.meeting,
+    selection.session,
+    selection.year,
+    spd,
+    trackView,
+    vizMode,
+  ]);
+  const shareUrl = shareURLState.mk && shareURLState.sk ? encodeURL(shareURLState) : "";
+  useDocumentMeta(model, shareUrl);
+
+  const onLinkFallback = useCallback((url) => {
+    setLinkUrl(url);
+    setDialog("link");
+  }, []);
+  const comparison = useMemo(
+    () =>
+      model && {
+        drivers: model.drivers,
+        meetingName: model.meetingName,
+        sessionLabel: model.sessionLabel,
+        year: model.year,
+        delta: model.delta,
+      },
+    [model]
+  );
+  const {
+    gallery,
+    copyText,
+    copyLink,
+    saveToGallery,
+    removeFromGallery,
+    clearGallery,
+    generateSocialCard,
+    takeScreenshot,
+  } = useShareAndGallery({
+    shareUrl,
+    shareTitle: document.title,
+    canNativeShare: mob && !embed,
+    comparison,
+    screenshotRef: stageRef,
+    is2DView,
+    mob,
+    pushToast,
+    onLinkFallback,
   });
 
-  // ─── Scene — pass progRef for direct 60fps reads ───
-  const selectComparisonTab = useCallback((tabId) => {
-    if (tabId !== "h2h" && tabId !== "season") cancelAuxLoading();
-    setMobTab(tabId);
-    if (tabId === "h2h" && !h2hData) loadH2H();
-    if (tabId === "season" && !dashData) loadSeasonDash();
-    if (tabId === "3d") window.setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
-  }, [cancelAuxLoading, dashData, h2hData, loadH2H, loadSeasonDash, setMobTab]);
-  const closeH2HModal = useCallback(() => {
-    cancelAuxLoading();
-    setShowH2H(false);
-  }, [cancelAuxLoading, setShowH2H]);
-  const closeDashModal = useCallback(() => {
-    cancelAuxLoading();
-    setShowDash(false);
-  }, [cancelAuxLoading, setShowDash]);
-  const closeInlineTab = useCallback(() => selectComparisonTab("3d"), [selectComparisonTab]);
-  const toggleShowreel = useCallback(() => {
-    if (showreel) {
-      stopShowreelRuntime(true);
-      setShowreel(false);
-      return;
-    }
-    setShowreel(true);
-  }, [showreel, stopShowreelRuntime]);
-  const lapModalDrivers = useMemo(() => ([
-    { lab: di1?.name_acronym || "D1", col: co1, laps: laps1, sel: sl1, set: (lapNumber) => selectLapSlot(1, lapNumber) },
-    { lab: di2?.name_acronym || "D2", col: co2, laps: laps2, sel: sl2, set: (lapNumber) => selectLapSlot(2, lapNumber) },
-  ]), [di1, co1, laps1, sl1, selectLapSlot, di2, co2, laps2, sl2]);
-  const comparisonSelectorSlots = useMemo(
-    () => [
-      {
-        slot: 1,
-        label: "Οδηγός 1",
-        color: co1,
-        driver: di1,
-        driverNumber: d1,
-        lapNumber: sl1,
-        selectedLap: li1,
-        lapSelect: lapSelect1,
-        lapLoading: selectorSlots[0]?.lapLoading,
-        lapsLoaded: selectorSlots[0]?.lapsLoaded,
-      },
-      {
-        slot: 2,
-        label: "Οδηγός 2",
-        color: co2,
-        driver: di2,
-        driverNumber: d2,
-        lapNumber: sl2,
-        selectedLap: li2,
-        lapSelect: lapSelect2,
-        lapLoading: selectorSlots[1]?.lapLoading,
-        lapsLoaded: selectorSlots[1]?.lapsLoaded,
-      },
-      {
-        slot: 3,
-        label: "Οδηγός 3",
-        color: co3,
-        driver: di3,
-        driverNumber: d3,
-        lapNumber: sl3,
-        selectedLap: li3,
-        lapSelect: lapSelect3,
-        lapLoading: selectorSlots[2]?.lapLoading,
-        lapsLoaded: selectorSlots[2]?.lapsLoaded,
-      },
-      {
-        slot: 4,
-        label: "Οδηγός 4",
-        color: co4,
-        driver: di4,
-        driverNumber: d4,
-        lapNumber: sl4,
-        selectedLap: li4,
-        lapSelect: lapSelect4,
-        lapLoading: selectorSlots[3]?.lapLoading,
-        lapsLoaded: selectorSlots[3]?.lapsLoaded,
-      },
-    ],
+  const restoreComparisonFromUrl = useCallback(
+    (rawUrl) => {
+      const next = decodeURL(rawUrl);
+      if (!next?.year || !next?.mk) {
+        pushToast("Αυτή η σύγκριση δεν μπορεί να ανοίξει. Ο σύνδεσμος ίσως είναι παλιός.");
+        return;
+      }
+      cancelLoading();
+      season.cancel();
+      showreel.stop();
+      presetActiveRef.current = false;
+      autoLoadRef.current = false;
+      setErr("");
+      setSceneErr("");
+      setDialog(null);
+      setThemeMode(next.theme);
+      setTrackViewFromValue(next.trackView);
+      const nextCam = pick(CAM_MODES, next.cam);
+      if (nextCam) setCam(nextCam);
+      const nextViz = pick(VIZ_MODES, next.vizMode);
+      if (nextViz) setVizMode(nextViz);
+      setSpeedFromValue(next.speed);
+      if (next.loop != null) setLoopFromValue(next.loop);
+      setRailTab(normalizeRailTab(next.tab));
+      restoreStateRef.current = next;
+      restoreFlagsRef.current = createRestoreFlags();
+      urlLoaded.current = true;
+      selection.resetForUrlRestore(next);
+      window.history.replaceState(null, "", encodeURL(next).split(window.location.origin)[1]);
+    },
     [
-      co1,
-      di1,
-      d1,
-      sl1,
-      li1,
-      lapSelect1,
-      co2,
-      di2,
-      d2,
-      sl2,
-      li2,
-      lapSelect2,
-      co3,
-      di3,
-      d3,
-      sl3,
-      li3,
-      lapSelect3,
-      co4,
-      di4,
-      d4,
-      sl4,
-      li4,
-      lapSelect4,
-      selectorSlots,
+      cancelLoading,
+      pushToast,
+      season,
+      selection,
+      setErr,
+      setLoopFromValue,
+      setSceneErr,
+      setSpeedFromValue,
+      setThemeMode,
+      setTrackViewFromValue,
+      showreel,
     ]
   );
-  const canTouchScrubReplay = mob && Boolean(tp) && is2DView;
-  const startReplay = useCallback(() => startWithCountdown(Boolean(tp)), [startWithCountdown, tp]);
 
-  // ─── Modal backdrop ───
-  const anyModal = anyAuxiliaryModal || !!shareDialogUrl;
-  const closeAll = useCallback(() => {
-    cancelAuxLoading();
-    closeAuxiliaryModals();
-    clearShareDialog();
-  }, [cancelAuxLoading, clearShareDialog, closeAuxiliaryModals]);
+  // ─── Header actions and keyboard ───
+  const actions = useMemo(
+    () => ({
+      openDialog: setDialog,
+      editComparison: () => setDialog("edit"),
+      copyLink,
+      saveComparison: saveToGallery,
+      takeScreenshot,
+      generateSocialCard,
+      toggleTheme,
+      toggleShowreel: showreel.toggle,
+    }),
+    [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot, toggleTheme]
+  );
+  const seasonMenu = useMemo(
+    () => (driverA && driverB ? { year: model.year, pair: `${driverA.label}–${driverB.label}` } : null),
+    [driverA, driverB, model]
+  );
 
-  // ─── Keyboard ───
-  const lastLeftRef = useRef(0);
-  useEffect(() => {
-    const h = (e) => {
-      if (e.code === "Escape") {
-        if (showMobMenu) { setShowMobMenu(false); return; }
-        if (showTour) { closeTour(); return; }
-        if (anyModal) { closeAll(); return; }
-        if ((mob || embed) && mobTab !== "3d") { setMobTab("3d"); return; }
-        if (!mob && !embed && showTel) { setShowTel(false); return; }
-        return;
-      }
-      if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-      if (e.key === "?" || (e.shiftKey && e.code === "Slash")) { setShowKeys((k) => !k); return; }
-      if (e.code === "Space") { e.preventDefault(); if (tp) startReplay(); }
-      if (e.code === "KeyR") { resetPlayback(); }
-      if (e.code === "KeyD") { toggleTheme(); return; }
-      if (e.code === "KeyT") {
-        if (!mob && !embed) setShowTel((s) => !s);
-        return;
-      }
-      if (e.code === "KeyV") {
-        if (tp) setTrackViewMode(is2DView ? "3d" : "2d");
-        return;
-      }
-      if (e.code === "KeyC") setCam((m) => CAM_MODES[(CAM_MODES.indexOf(m) + 1) % CAM_MODES.length]);
-      if (e.code === "KeyL") setLoop((l) => !l);
-      if (e.code === "ArrowRight") setProg((p) => Math.min(1, p + 0.01));
-      if (e.code === "ArrowLeft") {
-        const now = Date.now();
-        if (now - lastLeftRef.current < 300) setProg((p) => Math.max(0, p - 0.05));
-        else setProg((p) => Math.max(0, p - 0.01));
-        lastLeftRef.current = now;
-      }
+  useKeyboardShortcuts({
+    enabled: !dialog,
+    handlers: {
+      help: () => setDialog("shortcuts"),
+      togglePlay: () => replay && togglePlay(),
+      reset: resetPlayback,
+      toggleTheme,
+      toggleTelemetry: () => setRailTab((tab) => (tab === "telemetry" ? "live" : "telemetry")),
+      toggleView: () => replay && setTrackViewMode(is2DView ? "3d" : "2d"),
+      nextCamera: () => setCam((mode) => CAM_MODES[(CAM_MODES.indexOf(mode) + 1) % CAM_MODES.length]),
+      toggleLoop: () => setLoop((value) => !value),
+      step: (delta) => setProg((value) => Math.max(0, Math.min(1, value + delta))),
+    },
+  });
+
+  const touch = useMemo(() => {
+    const enabled = mob && is2DView;
+    return {
+      onStart: (event) => handleReplayTouchStart(event, enabled),
+      onEnd: handleReplayTouchEnd,
+      onCancel: handleReplayTouchCancel,
     };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [
-    tp,
-    startReplay,
-    resetPlayback,
-    showMobMenu,
-    showTour,
-    closeTour,
-    anyModal,
-    closeAll,
-    mob,
-    embed,
-    mobTab,
-    showTel,
-    toggleTheme,
-    setTrackViewMode,
-    is2DView,
-    setLoop,
-    setProg,
-    setMobTab,
-    setShowKeys,
-    setShowMobMenu,
-    setShowTel,
-  ]);
+  }, [handleReplayTouchCancel, handleReplayTouchEnd, handleReplayTouchStart, is2DView, mob]);
 
-  // Showreel
-  useEffect(() => {
-    clearShowreelTimer();
-    if (!showreel) {
-      showreelRef.current = false;
-      return;
-    }
-    showreelRef.current = true;
-    let idx = 0;
-    async function next() {
-      if (!showreelRef.current || idx >= playablePresets.length) {
-        setShowreel(false);
-        return;
-      }
-      await loadPreset(playablePresets[idx], { preserveShowreel: true });
-      if (!showreelRef.current) return;
-      setPlay(true);
-      idx++;
-      showreelTimerRef.current = window.setTimeout(() => {
-        setPlay(false);
-        if (showreelRef.current) next();
-      }, 12000);
-    }
-    next();
-    return () => {
-      stopShowreelRuntime(true);
-    };
-  }, [clearShowreelTimer, loadPreset, playablePresets, setPlay, showreel, stopShowreelRuntime]);
+  const applySelection = useCallback(() => loadDataRef.current(), []);
+  const compareFromSheet = useCallback(() => {
+    setDialog(null);
+    loadDataRef.current();
+  }, []);
 
-  // ─── RENDER ───
-  return (
-    <AppShell themeValue={themeValue} F1={F1} embed={embed} mob={mob}>
-      <ModalLayer
-        mob={mob}
-        embed={embed}
-        F1={F1}
-        showBackdrop={anyModal}
-        onCloseAll={closeAll}
-        flags={{
-          showPresets,
-          showTelemetryOverlay: showTelOverlay,
-          showStats,
-          showLaps,
-          showKeys,
-          showH2H,
-          showDash,
-          showGallery,
-          showEmbed,
-          showTour,
-        }}
-        handlers={{
-          onClosePresets: closePresetsModal,
-          onLoadPreset: loadPreset,
-          onCloseTelemetryOverlay: closeTelemetryOverlay,
-          onCloseStats: closeStatsModal,
-          onCloseLaps: closeLapsModal,
-          onCloseKeys: closeKeysModal,
-          onCloseH2H: closeH2HModal,
-          onCloseDash: closeDashModal,
-          onCloseGallery: closeGalleryModal,
-          onClearGallery: clearGallery,
-          onSelectGallery: restoreComparisonFromUrl,
-          onCloseEmbed: closeEmbedModal,
-          onCloseTour: closeTour,
-        }}
-        data={{
-          unavailablePresetYears: UNAVAILABLE_PRESET_YEARS,
-          tp,
-          telemetryPanelProps: {
-            mob,
-            tp,
-            prog,
-            allDrivers,
-            numDrivers,
-            di1,
-            di2,
-            co1,
-            co2,
-            li1,
-            li2,
-            s1,
-            s2,
-            laps1,
-            st1,
-            sl1,
-          },
-          allDrivers,
-          lapModalDrivers,
-          year,
-          di1,
-          di2,
-          co1,
-          co2,
-          h2hData,
-          h2hProgress,
-          dashData,
-          gallery,
-          shareState: shareURLState,
-        }}
-        shareDialog={{
-          url: shareDialogUrl,
-          notice: shareDialogNotice,
-          onClose: clearShareDialog,
-          onCopy: copyShareDialogUrl,
-        }}
-      />
+  // ─── Surfaces ───
+  const replayLoading = loading && ldPct !== undefined ? loading : "";
+  const stage = model && (
+    <ReplayStage
+      model={model}
+      stageRef={stageRef}
+      prog={prog}
+      progRef={progRef}
+      playRef={playRef}
+      speedRef={spdRef}
+      trackView={trackView}
+      onTrackView={setTrackViewMode}
+      cam={cam}
+      onCam={setCam}
+      vizMode={vizMode}
+      onVizMode={setVizMode}
+      isDark={isDark}
+      onSceneError={setSceneErr}
+      touch={touch}
+      loading={replayLoading}
+      loadProgress={ldPct}
+      canCancelLoad={canCancelLoad}
+      onCancelLoad={cancelLoading}
+      embed={embed}
+    />
+  );
+  const transport = model && (
+    <PlaybackBar
+      play={play}
+      loop={loop}
+      progress={prog}
+      speed={spd}
+      speeds={PLAYBACK_SPEEDS}
+      onToggle={togglePlay}
+      onReset={resetPlayback}
+      onLoop={() => setLoop((value) => !value)}
+      onSeek={setProg}
+      onSpeed={setSpd}
+      compact={embed}
+    />
+  );
+  const builderProps = {
+    availableYears: AVAILABLE_YEARS,
+    selection,
+    loading,
+    loadProgress: ldPct,
+    canCancelLoad,
+    onCancelLoad: cancelLoading,
+  };
+  const notice = err && <Notice message={err} onClose={() => setErr("")} />;
 
-      {/* Countdown */}
-      <CountdownOverlay F1={F1} countdown={countdown} />
-
-      {/* Header */}
-      {!embed && (
-        <HeaderToolbar
-          mob={mob}
-          F1={F1}
-          isDark={isDark}
-          logoSrc={LOGO_SRC}
-          meetingShortLabel={selMt ? formatMeetingShortLabel(selMt.meeting_name) : ""}
-          year={year}
-          comparisonContext={
-            selMt && selSe && di1 && di2 && li1 && li2
-              ? `${di1.name_acronym} · ${di2.name_acronym} / ${formatMeetingShortLabel(selMt.meeting_name)} ${year} · ${formatSessionLabel(selSe.session_name)} · L${li1.lap_number} / L${li2.lap_number}`
-              : ""
-          }
-          hasSession={Boolean(selSe)}
-          hasReplay={Boolean(tp)}
-          hasPrimaryDrivers={Boolean(d1 && d2)}
-          shareMsg={shareMsg}
-          showMobileMenu={showMobMenu}
-          showreel={showreel}
-          onOpenPresets={() => setShowPresets(true)}
-          onShare={share}
-          onSaveToGallery={saveToGallery}
-          onToggleTheme={toggleTheme}
-          onToggleMobileMenu={() => setShowMobMenu((value) => !value)}
-          onOpenStats={() => setShowStats(true)}
-          onOpenLaps={() => setShowLaps(true)}
-          onLoadH2H={loadH2H}
-          onLoadSeasonDash={loadSeasonDash}
-          onOpenGallery={() => setShowGallery(true)}
-          onGenerateSocialCard={generateSocialCard}
-          onOpenEmbed={() => setShowEmbed(true)}
-          onTakeScreenshot={takeScreenshot}
-          onToggleShowreel={toggleShowreel}
-          onOpenKeys={() => setShowKeys(true)}
-        />
-      )}
-
-      {/* Mobile menu panel */}
-      {mob && showMobMenu && !embed && (
-        <MobileToolMenu
-          F1={F1}
-          isDark={isDark}
-          hasReplay={Boolean(tp)}
-          hasPrimaryDrivers={Boolean(d1 && d2)}
-          hasSession={Boolean(selSe)}
-          onClose={() => setShowMobMenu(false)}
-          onSelectTab={selectComparisonTab}
-          onOpenGallery={() => setShowGallery(true)}
-          onGenerateSocialCard={generateSocialCard}
-          onOpenEmbed={() => setShowEmbed(true)}
-          onTakeScreenshot={takeScreenshot}
-        />
-      )}
-
-      {/* Selectors */}
-      {!embed && (
-        <ComparisonSelectors
-          containerRef={selectorsRef}
-          yearSelectRef={yearSelectRef}
-          mob={mob}
-          F1={F1}
-          highlightConfig={highlightConfig}
-          hasReplay={Boolean(tp)}
-          availableYears={AVAILABLE_YEARS}
-          year={year}
-          meetings={mts}
-          selectedMeeting={selMt}
-          sessions={sess}
-          selectedSession={selSe}
-          drivers={drvs}
-          slots={comparisonSelectorSlots}
-          numDrivers={numDrivers}
-          loading={loading}
-          noMeetings={noMeetings}
-          formatMeetingLabel={formatMeetingLabel}
-          onYearChange={setYear}
-          onSelectMeeting={selectMeeting}
-          onSelectSession={selectSession}
-          onSelectDriver={selectDriverSlot}
-          onSelectLap={selectLapSlot}
-          onAddDriver={() => setNumDrivers((count) => Math.min(4, count + 1))}
-          onRemoveDriver={() => setNumDrivers((count) => Math.max(2, count - 1))}
-          onLoadData={loadData}
-        />
-      )}
-
-      {!embed && (
-        <ErrorBanner
-          F1={F1}
-          message={alertErr}
-          onClose={() => {
-            setErr("");
-            setSceneErr("");
-          }}
-        />
-      )}
-      {!embed && (
-        <LoadingStatusBar F1={F1} message={loading} progress={ldPct} canCancel={canCancelLoad} onCancel={cancelLoading} />
-      )}
-      {tp && ((mob && !embed) || embed) && (
-        <InlineTabBar F1={F1} mob={mob} embed={embed} activeTab={mobTab} onSelectTab={selectComparisonTab} />
-      )}
-
-      {/* Main area */}
-      <div className="analysis-workspace" style={{ display: "flex", flexDirection: mob || embed ? "column" : "row", flex: (embed || mob) ? 1 : undefined, minHeight: (embed || mob) ? 0 : undefined, height: (embed || mob) ? undefined : `calc(100vh - ${tp ? 175 : 130}px)`, overflow: "hidden" }}>
-        <ReplayStage
-          mob={mob}
-          embed={embed}
-          F1={F1}
-          logoSrc={LOGO_SRC}
-          appName={APP_NAME}
-          appSubtitle={APP_SUBTITLE}
-          containerRef={cRef}
-          tp={tp}
-          mobTab={mobTab}
-          is2DView={is2DView}
-          isSceneVisible={isSceneVisible}
-          sceneError={effectiveSceneErr}
-          trackView={trackView}
-          onTrackViewMode={setTrackViewMode}
-          cam={cam}
-          onCameraModeChange={setCam}
-          vizMode={vizMode}
-          onVizModeChange={setVizMode}
-          loc1={loc1}
-          loc2={loc2}
-          loc3={loc3}
-          loc4={loc4}
-          prog={prog}
-          progRef={progRef}
-          playRef={playRef}
-          speedRef={spdRef}
-          co1={co1}
-          co2={co2}
-          co3={co3}
-          co4={co4}
-          di1={di1}
-          di2={di2}
-          di3={di3}
-          di4={di4}
-          li1={li1}
-          li2={li2}
-          tel1={tel1}
-          replayDrivers={replayDrivers}
-          replayDriverCards={replayDriverCards}
-          delta={delta}
-          circuitFlip={circuitFlip}
-          circuitTurns={circuitTurns}
-          isDark={isDark}
-          loading={loading}
-          loadingProgress={ldPct}
-          canCancelLoad={canCancelLoad}
-          alertErr={alertErr}
-          onCancelLoad={cancelLoading}
-          onSceneError={setSceneErr}
-          onReplayTouchStart={handleReplayTouchStart}
-          onReplayTouchEnd={handleReplayTouchEnd}
-          onReplayTouchCancel={handleReplayTouchCancel}
-          canTouchScrubReplay={canTouchScrubReplay}
-          onOpenAuxView={openAuxView}
-          onChangeMatchup={changeMatchup}
-          onOpenPresets={() => setShowPresets(true)}
-        />
-
-        <AuxiliaryContentArea
-          mob={mob}
-          embed={embed}
-          F1={F1}
-          tp={tp}
-          activeTab={mobTab}
-          showTelemetry={showTel}
-          sceneError={effectiveSceneErr}
-          telemetryProps={{
-            tp,
-            prog,
-            allDrivers,
-            numDrivers,
-            di1,
-            di2,
-            co1,
-            co2,
-            li1,
-            li2,
-            s1,
-            s2,
-            laps1,
-            st1,
-            sl1,
-          }}
-          inlineTabProps={{
-            allDrivers,
-            lapModalDrivers,
-            year,
-            di1,
-            di2,
-            co1,
-            co2,
-            h2hData,
-            h2hProgress,
-            dashData,
-            onClose: closeInlineTab,
-          }}
-        />
+  let surface;
+  if (embed) {
+    const openUrl = shareUrl.replace(/[?&]embed=1/, "");
+    surface = model ? (
+      <div className="embed">
+        {stage}
+        <div className="embed__bar">
+          {transport}
+          <a className="embed__open" href={openUrl} target="_blank" rel="noopener noreferrer">
+            <span>Άνοιγμα στο F1 Stories Ghost Car</span>
+            <Icon name="external" size={16} />
+          </a>
+        </div>
       </div>
+    ) : (
+      <div className="embed embed--empty" role="status">
+        {err ? <p className="embed__error">{err}</p> : <p>{loading || "Φόρτωση σύγκρισης…"}</p>}
+      </div>
+    );
+  } else if (model) {
+    surface = (
+      <div className="workspace">
+        <WorkspaceHeader
+          actions={actions}
+          isDark={isDark}
+          showreel={showreel.active}
+          eventLabel={`${model.meetingName} ${model.year}`}
+          sessionLabel={model.sessionLabel}
+          season={seasonMenu}
+        />
+        {notice}
+        <main className="workspace__main">
+          <div className="workspace__player">
+            {stage}
+            {transport}
+          </div>
+          <AnalysisRail
+            tab={railTab}
+            onTab={setRailTab}
+            model={model}
+            prog={prog}
+            onSeek={setProg}
+            selection={selection}
+            loadedLaps={loadedLaps}
+            isDirty={isDirty && !loading}
+            onApply={applySelection}
+            compact={mob}
+          />
+        </main>
+      </div>
+    );
+  } else {
+    surface = (
+      <div className="builder-page">
+        <BuilderHeader actions={actions} isDark={isDark} showreel={showreel.active} />
+        {notice}
+        <main className="builder-page__main">
+          <div className="builder-page__intro">
+            <h1>Σύγκριση γύρων Formula 1</h1>
+            <p>Διάλεξε αγώνα, οδηγούς και γύρους. Η αναπαράσταση δείχνει πού κερδίζεται και πού χάνεται ο χρόνος.</p>
+          </div>
+          <ComparisonBuilder idPrefix="cb" onCompare={loadData} {...builderProps} />
+          <FeaturedComparisons presets={PLAYABLE_PRESETS} onLoad={loadPreset} onShowAll={() => setDialog("featured")} />
+        </main>
+        <footer className="builder-page__footer">
+          Δεδομένα από το OpenF1 · <a href="https://f1stories.gr/">f1stories.gr</a>
+        </footer>
+      </div>
+    );
+  }
 
-      {/* Playback bar */}
-      {tp && (
-        <PlaybackBar
-          mob={mob}
-          embed={embed}
-          F1={F1}
-          play={play}
-          loop={loop}
-          progress={prog}
-          speed={spd}
-          playbackSpeeds={PLAYBACK_SPEEDS}
-          drivers={allDrivers}
-          showTelemetry={showTel}
-          shareMsg={shareMsg}
-          shareUrl={shareUrl}
-          onReset={resetPlayback}
-          onStart={startReplay}
-          onToggleLoop={() => setLoop((value) => !value)}
-          onProgressChange={(value) => {
-            progRef.current = value;
-            setProg(value);
-          }}
-          onSetup={changeMatchup}
-          onSpeedChange={setSpd}
-          onToggleTelemetry={() => setShowTel((value) => !value)}
-          onShare={share}
-          auxiliary={mob && mobTab !== "3d" && mobTab !== "telemetry"}
+  return (
+    <div className={embed ? "app app--embed" : "app"}>
+      {surface}
+      {dialog === "edit" && model && (
+        <Dialog title="Αλλαγή σύγκρισης" variant="sheet" onClose={closeDialog}>
+          <ComparisonBuilder
+            idPrefix="edit"
+            onCompare={compareFromSheet}
+            submitLabel="Φόρτωση σύγκρισης"
+            {...builderProps}
+          />
+        </Dialog>
+      )}
+      {dialog === "featured" && <FeaturedDialog presets={PLAYABLE_PRESETS} onLoad={loadPreset} onClose={closeDialog} />}
+      {dialog === "saved" && (
+        <SavedDialog
+          gallery={gallery}
+          onSelect={restoreComparisonFromUrl}
+          onRemove={removeFromGallery}
+          onClear={clearGallery}
+          onClose={closeDialog}
         />
       )}
-
-      {/* Footer */}
-      {!embed && <AppFooter mob={mob} F1={F1} logoSrc={LOGO_SRC} />}
-      <Toast mob={mob} F1={F1} toast={toast} hasPlaybackBar={Boolean(tp)} />
-    </AppShell>
+      {dialog === "season" && driverA && driverB && (
+        <SeasonDialog year={model.year} drivers={model.drivers} season={season} onClose={closeDialog} />
+      )}
+      {dialog === "embed" && <EmbedDialog shareState={shareURLState} onCopy={copyText} onClose={closeDialog} />}
+      {dialog === "link" && <LinkDialog url={linkUrl} onCopy={copyText} onClose={closeDialog} />}
+      {dialog === "shortcuts" && <ShortcutsDialog onClose={closeDialog} />}
+      <div className="toast-region" role="status" aria-live="polite">
+        {toast && (
+          <div key={toast.id} className="toast">
+            {toast.message}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

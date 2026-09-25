@@ -1,11 +1,9 @@
 import {
-  BackSide,
   Color,
   DoubleSide,
   LineBasicMaterial,
   MeshBasicMaterial,
   MeshPhongMaterial,
-  MeshStandardMaterial,
   ShaderMaterial,
   SpriteMaterial,
 } from "three";
@@ -14,35 +12,13 @@ export function createVertexColorLineMaterial(opacity = 1) {
   return new LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity });
 }
 
-export function createGroundMaterial({ isDark, theme }) {
-  return isDark
-    ? new MeshStandardMaterial({ color: theme.groundColor, roughness: 0.95, metalness: 0.05 })
-    : new MeshBasicMaterial({ color: theme.groundColor });
+// Ground and road are flat, unlit and not tone-mapped, so the canvas matches the page tokens exactly.
+export function createGroundMaterial({ theme }) {
+  return new MeshBasicMaterial({ color: theme.groundColor, toneMapped: false });
 }
 
-export function createTexturePlaneMaterial(map) {
-  return new MeshBasicMaterial({ map, transparent: true, depthWrite: false });
-}
-
-export function createSkyMaterial() {
-  return new MeshBasicMaterial({ vertexColors: true, side: BackSide, fog: false });
-}
-
-export function createStarMaterial() {
-  return new ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    fog: false,
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `attribute float alpha; varying float vAlpha; uniform float uTime; void main() { vAlpha = alpha * (0.6 + 0.4 * sin(uTime * 0.5 + position.x * 0.1)); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = alpha * 2.5; }`,
-    fragmentShader: `varying float vAlpha; void main() { float d = length(gl_PointCoord - 0.5) * 2.0; if (d > 1.0) discard; gl_FragColor = vec4(0.8, 0.85, 1.0, vAlpha * (1.0 - d * d)); }`,
-  });
-}
-
-export function createTrackRibbonMaterial({ isDark, theme }) {
-  return isDark
-    ? new MeshStandardMaterial({ color: theme.trackColor, roughness: 0.8, metalness: 0.1, side: DoubleSide })
-    : new MeshBasicMaterial({ color: theme.trackColor, side: DoubleSide });
+export function createTrackRibbonMaterial({ theme }) {
+  return new MeshBasicMaterial({ color: theme.trackColor, side: DoubleSide, toneMapped: false });
 }
 
 export function createTrackOverlayMaterial(opacity) {
@@ -59,16 +35,6 @@ export function createSpriteLabelMaterial(map) {
   return new SpriteMaterial({ map, transparent: true, depthWrite: false });
 }
 
-export function createSectorMarkerMaterial(isLowDetail) {
-  return new MeshBasicMaterial({
-    color: 0xffffff,
-    transparent: true,
-    opacity: isLowDetail ? 0.72 : 0.82,
-    side: DoubleSide,
-    depthWrite: false,
-  });
-}
-
 export function createStartLineMaterial() {
   return new LineBasicMaterial({ color: 0xffffff });
 }
@@ -78,16 +44,6 @@ export function createCarShadowMaterial() {
     color: 0x000000,
     transparent: true,
     opacity: 0.2,
-    side: DoubleSide,
-    depthWrite: false,
-  });
-}
-
-export function createCarGlowMaterial({ color, isGhost }) {
-  return new MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity: isGhost ? 0.05 : 0.025,
     side: DoubleSide,
     depthWrite: false,
   });

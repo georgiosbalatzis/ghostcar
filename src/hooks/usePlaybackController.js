@@ -11,12 +11,11 @@ export function parseLoopFlag(value) {
   return value === "1" || value === "true";
 }
 
-export default function usePlaybackController({ initialSpeed, initialLoop, embed = false, trackView = "3d" } = {}) {
+export default function usePlaybackController({ initialSpeed, initialLoop, trackView = "3d" } = {}) {
   const [prog, setProgState] = useState(0);
   const [play, setPlayState] = useState(false);
   const [spd, setSpdState] = useState(() => normalizePlaybackSpeed(initialSpeed) ?? 1);
   const [loop, setLoopState] = useState(() => parseLoopFlag(initialLoop));
-  const [countdown, setCountdown] = useState(null);
   const progRef = useRef(0);
   const playRef = useRef(false);
   const spdRef = useRef(spd);
@@ -25,7 +24,6 @@ export default function usePlaybackController({ initialSpeed, initialLoop, embed
   const rafRef = useRef(null);
   const ltRef = useRef(null);
   const uiSyncRef = useRef(0);
-  const countdownIntervalRef = useRef(null);
   const touchScrubRef = useRef({ active: false, x: 0, y: 0 });
 
   progRef.current = prog;
@@ -66,14 +64,6 @@ export default function usePlaybackController({ initialSpeed, initialLoop, embed
     });
   }, []);
 
-  const cancelCountdown = useCallback(() => {
-    if (countdownIntervalRef.current) {
-      window.clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    setCountdown(null);
-  }, []);
-
   const setSpeedFromValue = useCallback(
     (value) => {
       const next = normalizePlaybackSpeed(value);
@@ -96,31 +86,11 @@ export default function usePlaybackController({ initialSpeed, initialLoop, embed
     setPlay(false);
   }, [setPlay, setProg]);
 
-  const startWithCountdown = useCallback(
-    (hasReplay = false) => {
-      if (countdownIntervalRef.current) return;
-      if (progRef.current < 0.01 && hasReplay && !playRef.current) {
-        if (embed) {
-          setPlay(true);
-          return;
-        }
-        let c = 5;
-        setCountdown(c);
-        countdownIntervalRef.current = window.setInterval(() => {
-          c -= 1;
-          if (c <= 0) {
-            cancelCountdown();
-            setPlay(true);
-            return;
-          }
-          setCountdown(c);
-        }, 1000);
-        return;
-      }
-      setPlay((current) => !current);
-    },
-    [cancelCountdown, embed, setPlay]
-  );
+  // Play/pause. Pressing play on a finished lap starts it again from the beginning.
+  const togglePlay = useCallback(() => {
+    if (!playRef.current && progRef.current >= 1) setProg(0);
+    setPlay((current) => !current);
+  }, [setPlay, setProg]);
 
   const handleReplayTouchStart = useCallback((event, enabled) => {
     if (!enabled) return;
@@ -191,7 +161,6 @@ export default function usePlaybackController({ initialSpeed, initialLoop, embed
 
   useEffect(
     () => () => {
-      if (countdownIntervalRef.current) window.clearInterval(countdownIntervalRef.current);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     },
     []
@@ -209,12 +178,10 @@ export default function usePlaybackController({ initialSpeed, initialLoop, embed
     spdRef,
     loop,
     setLoop,
-    countdown,
-    cancelCountdown,
     setSpeedFromValue,
     setLoopFromValue,
     resetPlayback,
-    startWithCountdown,
+    togglePlay,
     handleReplayTouchStart,
     handleReplayTouchEnd,
     handleReplayTouchCancel,
