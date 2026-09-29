@@ -6,7 +6,6 @@ import {
   MeshPhongMaterial,
   MeshStandardMaterial,
   NearestFilter,
-  SpriteMaterial,
   SRGBColorSpace,
 } from "three";
 
@@ -61,11 +60,6 @@ export function createStartStripMaterial() {
     texture.needsUpdate = true;
   };
   return material;
-}
-
-export function createSpriteLabelMaterial(map) {
-  // Not tone-mapped: the plate shows the exact driver colour and page-white text, like the 2D labels.
-  return new SpriteMaterial({ map, transparent: true, depthWrite: false, sizeAttenuation: false, toneMapped: false });
 }
 
 // A soft car-shaped shadow: black with a gradient alpha (shadowTexture), on the road under the car.

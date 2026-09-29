@@ -355,29 +355,29 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 - Steps: the focus is the focus driver if one was chosen explicitly, otherwise the car furthest along by distance. Use `surfaceAt` indices, and handle the start/finish wrap: while a car is still in the lap, its distance is its progress. Place the camera at the station position, look at the focus car + 0.8 m up, with the dynamic FOV from T4.2. Cut (no tween) when `pickTvCamera` changes station. Add slight damping (τ 120 ms) on the look target only.
 - Acceptance: over a full Suzuka lap at 1×, the TV camera always has the focus car on screen and not smaller than 4% of the stage height, and it never cuts more often than every 2.5 s.
 
-### Phase 5: Overlays
+### ✅ Phase 5: Overlays
 
-**T5.1: DOM labels.**
+**✅ T5.1: DOM labels.**
 - Files: `labels.js` (new), `SceneStage3D.jsx`, `replay.css`, delete the sprite code in `buildCars.js`.
 - Steps: `SceneStage3D` renders `<div className="scene-labels" aria-hidden="true">` with one chip per driver, reusing the 2D chip styles (`.car__label` from 2D; extract shared rules rather than copying). Each rendered frame, the render loop calls `labels.update(camera, cars)`. This projects the anchor (car position + 1.6 m) to screen and writes `transform: translate3d(x, y, 0)`, `opacity` and `--stack`. Stacking is the same rank-by-screen-y logic as `TrackMap.jsx:74`, so extract it to a tiny shared function. Hide a chip when its anchor is behind the camera. Off-screen cars get an edge chip with an arrow, clamped 12 px inside the stage. In Chase/Onboard, hide the focused driver's chip.
 - Acceptance: e2e (T9.2 #2): in Overview at 1440 and 390, every label is inside the stage and none overlap, the same check as the 2D test at `scene.smoke.spec.js:183`. In the Top view the labels no longer merge into one block.
 
-**T5.2: HUD.**
+**✅ T5.2: HUD.**
 - Files: `SceneHud.jsx` (new), `SceneStage3D.jsx`, `ReplayStage.jsx`, `replay.css`.
 - Steps: render in Chase/Onboard/TV for the focus driver. Values: `telAt(driver.tel, fractionAtTime(driver.telTimes, time))`, exactly as `LiveTelemetry.jsx:11`. The own lap time is `min(time, driver.lapDuration)`, formatted with `fmt`. Gap at the same point, only when `trace.reliable`: compute it the same way the gap chart does (`TelemetryTraces.jsx:195-200`, `distanceAtTimeOnGrid`/`timeAtDistanceOnGrid`) against `trace.reference`. When the focus driver *is* the reference, compare against the next fastest. Type: numerals in the tabular figures already used by `LiveTelemetry`. Styling: a translucent `--surface` plate with the driver's 3 px team-colour left rule, like the brief rows. Throttle and brake are 10-segment bars. No animation.
 - Acceptance: at a paused `prog`, the HUD speed and gear equal the "Αγωνιστικό δελτίο" panel values for that driver (e2e, T9.2 #6). The gap row is absent on the unreliable fixture lap (`l1=5`).
 
-**T5.3: Minimap.**
+**✅ T5.3: Minimap.** _(Done. The box is a fixed 180 × 128 px, because the 2D map sizes itself from its container. It is the 2D component reading the same `time`, so its cars are the 2D map's; no separate position check.)_
 - Files: `SceneStage3D.jsx`, `replay.css`.
 - Steps: in Chase/Onboard/TV render `<TrackMap trackPath drivers time flip showCars />` (the existing component, memoised) in a 180 × auto box top-right, below the tools, on a `--surface` plate with a 1 px rule. Hide it on stages narrower than 480 px.
 - Acceptance: the minimap cars match the 3D cars' positions at the same `time`.
 
-**T5.4: Fullscreen.**
+**✅ T5.4: Fullscreen.** _(Done and tested in Chromium. Firefox and Safari were not checked.)_
 - Files: `ReplayStage.jsx`, `Workspace.jsx` (only to put a ref/id on `player`), `replay.css`.
 - Steps: add a stage-tools button (icon `expand`/`collapse`; add the icons to `Icon.jsx` if they are missing) that calls `requestFullscreen()` on the player wrapper (stage + transport). Hide the button when `document.fullscreenEnabled` is false (iOS Safari on iPhone). In fullscreen the stage fills the viewport minus the transport, and wheel/touch gating switches as described in T4.4.
 - Acceptance: fullscreen works in Chromium, Firefox and Safari macOS. Esc exits. The canvas resizes, and the Overview refits unless the user had moved the camera.
 
-**T5.5: Loading and empty states.**
+**✅ T5.5: Loading and empty states.**
 - Files: `SceneStage3D.jsx`.
 - Steps: until `ready`, show a centred quiet "Φόρτωση 3D…" line over the stage colour (not a spinner). The placeholder cars (T1.3) are visible as soon as the track is. Canvas a11y: `role="img"` and `aria-label` like "Τρισδιάστατη αναπαράσταση: {meeting}, {drivers}, κάμερα {label}".
 - Acceptance: no frame shows an empty stage for more than one frame after the replay loads.

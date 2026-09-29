@@ -89,9 +89,18 @@ export function startSceneRenderLoop({
       }) || needsRender;
     if (!needsRender) return;
     try {
+      // The name chips are DOM: put them where the cars are in this very frame.
+      sceneState.labels?.update({
+        hiddenIndex: rig.hiddenLabelIndex(),
+        width: renderer.domElement.clientWidth,
+        height: renderer.domElement.clientHeight,
+      });
       renderer.render(scene, camera);
       hasRendered = true;
-      sceneState._rendered = true;
+      if (!sceneState._rendered) {
+        sceneState._rendered = true;
+        sceneState.onFirstFrame?.();
+      }
       sceneState._dirty = false;
     } catch (error) {
       onRenderError(error);

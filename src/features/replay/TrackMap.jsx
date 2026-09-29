@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { fractionAtTime } from "../../domain/timing.js";
 import { norm } from "../../helpers.js";
+import { rankByY } from "../../scene/stacking.js";
 
 const VIEW_WIDTH = 1000;
 
@@ -71,7 +72,7 @@ function TrackMap({ trackPath, drivers, time, flip, dominance = [], showCars = t
     return { driver, x: (point.x + box.pad) / box.width, y: (point.y + box.pad) / box.height };
   });
   // Labels stack in on-screen order, top car's label highest, so bunched cars never cover each other's names.
-  const rank = cars.map((car) => cars.filter((other) => other.y < car.y).length);
+  const rank = rankByY(cars);
 
   return (
     <div className="track-map-frame" style={{ "--ratio": box.width / box.height }}>

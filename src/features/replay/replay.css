@@ -79,6 +79,191 @@
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* ─── 3D overlays: name chips, readout, minimap ─── */
+.scene-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* The chips are the 2D map's own .car / .car__label, placed each frame by the render loop. */
+.scene-label {
+  top: 0;
+  left: 0;
+  transform: translate3d(-9999px, 0, 0);
+}
+.scene-label__leader {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 1px;
+  background: var(--ink);
+}
+.car--flip .scene-label__leader {
+  left: auto;
+  right: 0;
+}
+.scene-label__arrow {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: rotate(var(--angle, 0deg));
+}
+.scene-label__arrow::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  border-left: 8px solid var(--ink);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+.scene-label--edge .scene-label__leader {
+  display: none;
+}
+.scene-label--edge .scene-label__arrow {
+  display: block;
+}
+.scene-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-small);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+.scene-hud {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  display: grid;
+  gap: 4px;
+  max-width: calc(100% - 2 * var(--space-3));
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--ink);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+.scene-hud__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+.scene-hud__who {
+  font-family: var(--font-brand);
+  font-size: 18px;
+  letter-spacing: 0.03em;
+}
+.scene-hud__name {
+  flex: 1 1 auto;
+  color: var(--text-2);
+}
+.scene-hud__speed {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+.scene-hud__speed small {
+  margin-left: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+.scene-hud__gear {
+  font-size: 20px;
+  font-weight: 600;
+}
+.scene-hud__drs {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.scene-hud__drs.is-on {
+  color: var(--text);
+  font-weight: 700;
+}
+.scene-hud__bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.scene-hud__bar-name {
+  margin-right: 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.scene-hud__bar i {
+  width: 5px;
+  height: 12px;
+  background: var(--rule);
+}
+.scene-hud__bar i.is-on {
+  background: var(--ink);
+}
+.scene-hud__gap {
+  color: var(--text-2);
+}
+.scene-hud__gap .num {
+  color: var(--text);
+  font-weight: 600;
+}
+.scene-minimap {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 180px;
+  height: 128px;
+  padding: 10px;
+  container-type: size;
+  border: 1px solid var(--rule);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  pointer-events: none;
+}
+.scene-minimap .car__label {
+  display: none;
+}
+.scene-minimap .car__dot {
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 0 1.5px var(--surface);
+}
+.scene-minimap .track-map__edge {
+  stroke-width: 9px;
+}
+.scene-minimap .track-map__road {
+  stroke-width: 5px;
+}
+
+/* Full screen: the stage takes what the transport leaves. */
+#replay-player:fullscreen {
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+}
+#replay-player:fullscreen .stage {
+  flex: 1;
+  min-height: 0;
+}
+#replay-player:fullscreen .stage-panel .stage__body {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
 .stage__canvas--3d:active {
   cursor: grabbing;
 }

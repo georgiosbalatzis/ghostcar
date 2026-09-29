@@ -35,6 +35,7 @@ export function createCameraRig({
   onFovChange,
   onHint,
   onPick,
+  onFocusSlot,
 }) {
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -63,6 +64,7 @@ export function createCameraRig({
   const desired = new Vector3();
 
   let familyKey = null;
+  let focusSlot = 0; // the driver the chase, onboard or TV camera is on (0: none)
   let family = "orbit";
   let userMoved = false;
   let interacting = false;
@@ -185,6 +187,7 @@ export function createCameraRig({
         }
       });
     }
+    setFocus(slot);
     const state = frame.carStates[slot - 1];
     const s = state.index * centreline.spacing;
     const pick = pickTvCamera(stations, s, tv.current, tv.held, centreline.length);
@@ -234,6 +237,12 @@ export function createCameraRig({
       userMoved = !!saved[name];
       handOver(name, orbitalPose(name, pose));
     }
+  }
+
+  function setFocus(slot) {
+    if (slot === focusSlot) return;
+    focusSlot = slot;
+    onFocusSlot?.(slot);
   }
 
   function setFov(value) {
@@ -289,6 +298,8 @@ export function createCameraRig({
       else tween = { t: 0, fromPos: camera.position.clone(), fromLook: look.clone(), fromFov: camera.fov };
     }
 
+    if (name === "follow" || name === "onboard") setFocus(slot);
+    else if (name !== "tv") setFocus(0);
     let changed = false;
     if (isOrbital(name)) {
       if (tween) {
@@ -425,6 +436,8 @@ export function createCameraRig({
       handOver(family, orbitalPose(family, pose));
     },
     isActive: () => interacting || settling || !!tween,
+    // 0-based index of the car whose own chip is hidden (the camera is on it), or -1.
+    hiddenLabelIndex: () => (family === "follow" || family === "onboard" ? focusSlot - 1 : -1),
     dispose: () => {
       canvas.removeEventListener("wheel", onWheel, { capture: true });
       canvas.removeEventListener("touchstart", onTouchStart);

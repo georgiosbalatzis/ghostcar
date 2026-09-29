@@ -34,6 +34,8 @@ const PATHS = {
   film: <path d="M3.5 4.5h13v11h-13zM3.5 8h13M3.5 12h13M7 4.5v3.5M13 4.5v3.5M7 12v3.5M13 12v3.5" />,
   arrow: <path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5" />,
   external: <path d="M8.5 4.5h-4v11h11v-4M11.5 3.5h5v5M16.5 3.5l-7 7" />,
+  expand: <path d="M4 8V4h4M16 8V4h-4M4 12v4h4M16 12v4h-4" />,
+  collapse: <path d="M8 4v4H4M12 4v4h4M8 16v-4H4M12 16v-4h4" />,
   trash: <path d="M4 6h12M8 6V4h4v2M5.5 6l.8 10h7.4l.8-10" />,
 };
 

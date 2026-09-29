@@ -1,7 +1,6 @@
 import {
   Box3,
   BoxGeometry,
-  CanvasTexture,
   Color,
   Group,
   LessEqualDepth,
@@ -9,8 +8,6 @@ import {
   MeshPhysicalMaterial,
   MeshStandardMaterial,
   PlaneGeometry,
-  Sprite,
-  SRGBColorSpace,
   Vector3,
 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
@@ -24,7 +21,6 @@ import {
   createFallbackCarMaterial,
   createGhostPrepassMaterial,
   createShadowTexture,
-  createSpriteLabelMaterial,
 } from "./materials.js";
 import { SCENE_THEME } from "./sceneTheme.js";
 import { surfaceAt } from "./trackGeometry.js";
@@ -39,74 +35,8 @@ function freezeObjectTransform(object) {
 }
 
 const CAR_LENGTH = 5.63; // metres
-const LABEL_PX = 24;
-const LABEL_ASPECT = 200 / 80;
-
-// Labels keep one on-screen size at any camera distance (sizeAttenuation is off), so they stay legible
-// on a phone-sized stage and do not balloon in the follow camera. Called on every stage resize.
-export function sizeCarLabels(cars, viewportHeight, fov) {
-  const height = (2 * LABEL_PX * Math.tan((fov * Math.PI) / 360)) / (viewportHeight || 1);
-  for (const car of cars) {
-    const sprite = car?.userData.label;
-    if (!sprite) continue;
-    sprite.scale.set(height * LABEL_ASPECT, height, 1);
-    sprite.updateMatrix();
-  }
-}
-
-// Name chips as in 2D: an ink plate with a team-colour edge and the acronym in Barlow Condensed.
-const LABEL_FONT = '700 46px "Barlow Condensed", "IBM Plex Sans", sans-serif';
-const LABEL_INK = { dark: { plate: "#eee8db", text: "#1b1a19" }, light: { plate: "#20251f", text: "#f2eee4" } };
-
-function drawLabel(ctx, { label, color, isDark }) {
-  const ink = LABEL_INK[isDark ? "dark" : "light"];
-  ctx.clearRect(0, 0, 200, 80);
-  ctx.fillStyle = ink.plate;
-  ctx.fillRect(0, 0, 200, 80);
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, 14, 80);
-  ctx.fillStyle = ink.text;
-  ctx.font = LABEL_FONT;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(label, 107, 43);
-}
-
-// One label plate per car: the canvas is redrawn in place when the theme, colour or name change.
-function createLabel({ label, color, isDark }) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 200;
-  canvas.height = 80;
-  const ctx = canvas.getContext("2d");
-  const texture = new CanvasTexture(canvas);
-  // Canvas pixels are sRGB; untagged, three treats them as linear and the colours wash out.
-  texture.colorSpace = SRGBColorSpace;
-  const state = { args: { label, color, isDark } };
-  const draw = () => {
-    drawLabel(ctx, state.args);
-    texture.needsUpdate = true;
-  };
-  draw();
-  // Barlow may still be loading when the scene is built; redraw once it has, and the next frame uploads it.
-  if (!document.fonts.check(LABEL_FONT)) {
-    document.fonts
-      .load(LABEL_FONT)
-      .then(draw)
-      .catch(() => {});
-  }
-  return {
-    texture,
-    update(args) {
-      state.args = args;
-      draw();
-    },
-  };
-}
-
-function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0, shadowTexture }) {
+function makeCarGroup({ color, isGhost, tier = 0, shadowTexture }) {
   const group = new Group();
-  let sprite = null;
-  let labelPlate = null;
 
   // 2.6 × 6.4 m, a little larger than the car so the soft edge shows.
   const shadow = new Mesh(new PlaneGeometry(2.6, 6.4), createCarShadowMaterial(shadowTexture));
@@ -121,17 +51,7 @@ function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0, sh
   placeholder.position.y = 0.35;
   group.add(freezeObjectTransform(placeholder));
 
-  if (label && !isLowDetail) {
-    labelPlate = createLabel({ label, color, isDark });
-    sprite = new Sprite(createSpriteLabelMaterial(labelPlate.texture));
-    sprite.position.set(0, 1.6, 0);
-    // Anchored at the plate's bottom edge and lifted one plate per slot, in screen space, so the labels
-    // of cars running together stack instead of overlapping at any zoom.
-    sprite.center.set(0.5, -tier * 1.2);
-    group.add(freezeObjectTransform(sprite));
-  }
-
-  group.userData = { color, isGhost, tier, modelLoaded: false, label: sprite, labelPlate, placeholder, shadow };
+  group.userData = { color, isGhost, tier, modelLoaded: false, placeholder, shadow };
   return group;
 }
 
@@ -224,13 +144,12 @@ function applyModelToCar(template, carGroup, shared) {
   carGroup.userData.modelLoaded = true;
 }
 
-// Recolour and relabel a car in place (theme, colour or acronym changed; the paths did not).
-function restyleCar(carGroup, { color, label, isDark }) {
+// Recolour a car in place (theme or colour changed; the paths did not).
+function restyleCar(carGroup, { color, isDark }) {
   if (!carGroup) return;
   const paint = new Color(color);
-  const { isGhost, labelPlate, placeholder, shadow } = carGroup.userData;
+  const { isGhost, placeholder, shadow } = carGroup.userData;
   carGroup.userData.color = color;
-  labelPlate?.update({ label, color, isDark });
   shadow.material.opacity = SHADOW_OPACITY[isDark ? "dark" : "light"];
   if (placeholder) {
     placeholder.material.color.copy(paint);
@@ -321,7 +240,6 @@ function updateTail(tail, { path, times, time, centreline, carIndex }) {
 export function buildCars({
   scene,
   drivers,
-  isLowDetail,
   isDark,
   isMob,
   resolution,
@@ -333,15 +251,7 @@ export function buildCars({
   const shadowTexture = createShadowTexture();
   const cars = drivers.map((driver, index) =>
     index < 2 || driver?.path?.length > 0
-      ? makeCarGroup({
-          color: driver.color,
-          label: driver.label,
-          isGhost: index > 0,
-          isLowDetail,
-          isDark,
-          tier: index,
-          shadowTexture,
-        })
+      ? makeCarGroup({ color: driver.color, isGhost: index > 0, tier: index, shadowTexture })
       : null
   );
   cars.forEach((car) => car && scene.add(car));
@@ -363,7 +273,7 @@ export function buildCars({
     shared.isDark = dark;
     cars.forEach((car, index) => {
       if (!car) return;
-      restyleCar(car, { color: next[index].color, label: next[index].label, isDark: dark });
+      restyleCar(car, { color: next[index].color, isDark: dark });
       tails[index].color.set(next[index].color);
       tails[index].fade.set(roadColor(dark));
     });

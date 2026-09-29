@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { CAM_LABELS } from "../../constants.js";
 import { camFor, parseCam } from "../../scene/cameraModes.js";
 import Icon from "../../components/ui/Icon.jsx";
@@ -28,7 +28,33 @@ function useRelief() {
   return [relief, choose];
 }
 
+// Full screen for the player (stage and transport), where the browser allows it (not on an iPhone).
+function useFullscreen() {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const sync = () => setActive(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const toggle = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.getElementById("replay-player")?.requestFullscreen?.();
+  };
+  return { supported: !!document.fullscreenEnabled, active, toggle };
+}
+
 const VIZ_LABELS = { normal: "Χωρίς χρωματισμό", heatmap: "Ταχύτητα", brake: "Φρενάρισμα" };
+
+function FullscreenButton() {
+  const { supported, active, toggle } = useFullscreen();
+  if (!supported) return null;
+  const label = active ? "Έξοδος από πλήρη οθόνη" : "Πλήρης οθόνη";
+  return (
+    <button type="button" className="icon-btn" aria-label={label} title={label} onClick={toggle}>
+      <Icon name={active ? "collapse" : "expand"} size={18} />
+    </button>
+  );
+}
 
 function ViewControls({
   trackView,
@@ -55,6 +81,7 @@ function ViewControls({
           </button>
         ))}
       </div>
+      <FullscreenButton />
       {trackView === "3d" && (
         <Menu
           label="Επιλογές προβολής"
@@ -104,6 +131,7 @@ function ViewControls({
 
 export default function ReplayStage({
   model,
+  trace,
   stageRef,
   time,
   progRef,
@@ -179,10 +207,12 @@ export default function ReplayStage({
               dominance={dominance}
             />
           ) : (
-            <Suspense fallback={null}>
+            <Suspense fallback={<p className="scene-loading">Φόρτωση 3D…</p>}>
               <SceneStage3D
                 containerRef={stageRef}
                 model={model}
+                trace={trace}
+                time={time}
                 progRef={progRef}
                 playRef={playRef}
                 speedRef={speedRef}

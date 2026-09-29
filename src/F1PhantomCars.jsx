@@ -504,6 +504,7 @@ export default function App({ embed }) {
   const stage = model && (
     <ReplayStage
       model={analysis.stageModel}
+      trace={embed ? null : analysis.trace}
       stageRef={stageRef}
       time={time}
       progRef={progRef}

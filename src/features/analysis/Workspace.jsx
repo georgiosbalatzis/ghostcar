@@ -65,7 +65,9 @@ function Workspace({
       {tab === "replay" && (
         <div className="desk__replay">
           <KeyFacts facts={facts} />
-          <div className="desk__player workspace__player">{player}</div>
+          <div id="replay-player" className="desk__player workspace__player">
+            {player}
+          </div>
           <RaceBrief drivers={model.drivers} time={time} />
           <section id="telemetry" className="desk__traces" aria-labelledby="traces-title">
             <div className="crumb">

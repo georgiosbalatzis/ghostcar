@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo } from "react";
 import { getSmoothPathPointCount, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
-import { buildCars, createCarState, sizeCarLabels } from "../scene/buildCars.js";
+import { buildCars, createCarState } from "../scene/buildCars.js";
 import { createDriverPath } from "../scene/carPose.js";
 import { buildEnvironment } from "../scene/buildEnvironment.js";
 import { buildTrack } from "../scene/buildTrack.js";
@@ -12,6 +12,7 @@ import {
   getSceneSupportError,
 } from "../scene/createRenderer.js";
 import { createCameraRig } from "../scene/cameraRig.js";
+import { createLabels } from "../scene/labels.js";
 import { startSceneRenderLoop } from "../scene/renderLoop.js";
 import { createWorldFrame } from "../scene/world.js";
 
@@ -42,6 +43,10 @@ export default function useScene(
     onError,
     onHint,
     onPickDriver,
+    onFocusSlot,
+    onReady,
+    labelsRef,
+    ariaLabel,
   }
 ) {
   const R = useRef({});
@@ -55,7 +60,7 @@ export default function useScene(
   const focusRef = useRef(focus);
   focusRef.current = focus;
   const callbacksRef = useRef({});
-  callbacksRef.current = { onHint, onPick: onPickDriver };
+  callbacksRef.current = { onHint, onPick: onPickDriver, onFocusSlot, onReady };
   const smoothPointCount = useMemo(
     () => getSmoothPathPointCount(typeof window !== "undefined" ? window.innerWidth < 768 : false),
     []
@@ -87,6 +92,7 @@ export default function useScene(
     referenceTimes: drivers[0].pathTimes,
     style,
     slots: model.drivers.map((driver) => driver.slot),
+    ariaLabel,
   };
 
   useEffect(() => {
@@ -187,7 +193,6 @@ export default function useScene(
         isContextLost: () => contextLost,
       });
       const { cars, tails } = carSet;
-      sizeCarLabels(cars, el.clientHeight, camera.fov);
 
       // Everything the frame loop and the in-place effects touch.
       R.current = {
@@ -235,13 +240,19 @@ export default function useScene(
         centreline: track.centreline,
         cars,
         onFovChange: () => {
-          sizeCarLabels(cars, el.clientHeight, camera.fov);
           R.current._dirty = true;
         },
         onHint: (kind) => callbacksRef.current.onHint?.(kind),
         onPick: (slot) => callbacksRef.current.onPick?.(slot),
+        onFocusSlot: (slot) => callbacksRef.current.onFocusSlot?.(slot),
+        onFocusSlot: (slot) => callbacksRef.current.onFocusSlot?.(slot),
       });
       R.current.api.fit = rig.fit;
+      // Name chips (DOM, in the layer the stage renders) and the canvas' description for assistive technology.
+      R.current.labels = createLabels({ layer: labelsRef?.current, camera, cars });
+      R.current.onFirstFrame = () => callbacksRef.current.onReady?.();
+      de.setAttribute("role", "img");
+      de.setAttribute("aria-label", live.ariaLabel || "");
 
       // Store progRef for render loop access
       R.current._progRef = progRef;
@@ -309,7 +320,6 @@ export default function useScene(
         isContextLost: () => contextLost,
         onResize: () => {
           rig.resize();
-          sizeCarLabels(cars, el.clientHeight, camera.fov);
           carSet.setResolution(el.clientWidth, el.clientHeight);
           R.current._dirty = true;
         },
@@ -344,6 +354,9 @@ export default function useScene(
     R.current.api?.setViz(vizMode, { speedArr, brakeArr });
     R.current._dirty = true;
   }, [vizMode, speedArr, brakeArr]);
+  useEffect(() => {
+    R.current.ren?.domElement.setAttribute("aria-label", ariaLabel || "");
+  }, [ariaLabel]);
   // "F": refit the camera to the circuit.
   useEffect(() => {
     R.current.api?.fit?.();
