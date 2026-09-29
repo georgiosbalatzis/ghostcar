@@ -49,7 +49,7 @@ src/
   3. Estimate each driver's clock offset from the official S1 and S1+S2 times and remove it.
   4. Require complete data, an offset of at most 0.5 s, and every sector line within 0.1 s. Otherwise `reliable: false` with a Greek `reason`.
 
-  It outputs a 400-point distance grid, each driver's time at each point, and the smoothed gap to the fastest driver. `dominanceSegments` gives a stretch to a driver only when they are at least 5 ms faster there. `sectorTicks` places S1/S2 on the time axis. Validated on 8 real sessions (REWORK_TASKS.md, Phase 5).
+  It outputs a 400-point distance grid, each driver's time at each point, and the smoothed gap to the fastest driver. `dominanceSegments` gives a stretch to a driver only when they are at least 5 ms faster there. `sectorTicks` places S1/S2 on the time axis. `applyClockOffsets` gives the stage the same corrected clock when the trace is reliable. Validated on 8 real sessions (REWORK_TASKS.md, Phase 5).
 
 ## Styling
 
@@ -65,7 +65,9 @@ src/
 
 ## Known issues
 
-- Two tiny coloured dots near the 3D cars (pre-existing since redesign-v2; source not yet traced).
-- The replay places cars by raw timestamps; the clock offsets that `gap.js` estimates (up to about 0.17 s on real data) could be reused there.
-- On phones the four page tabs scroll horizontally; only the first two are visible at 390 px.
-- Ghost Car copies the site's nav, tokens and fonts, so it can drift; re-check `SiteMasthead.jsx` (`NAV_LINKS`) and `tokens.css` when f1stories.gr changes.
+None open. Fixed after the rework (details in REWORK_TASKS.md, "After Phase 10"):
+
+- **3D stray dots:** a trail point recorded mid-glide on a paused seek. Trails now grow only during playback and are cleared on any jump.
+- **Replay clock:** when the gap trace is reliable, the stage plays `applyClockOffsets(model, trace)`, so the cars use the same corrected clock as the gap chart.
+- **Phone tabs:** all four fit at 320–430 px. On phones the actions sit in the one-line opening, and the Season tab shows "Σεζόν" while keeping its full accessible name.
+- **Drift from f1stories.gr:** Ghost Car still copies the nav, palette and logo (hosting decision), but `npm run check:site` compares them with the live f1StoriesPage source and fails on any change. The nav list lives in `src/app/siteNav.js`.

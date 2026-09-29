@@ -384,3 +384,20 @@ test("the track image download is a self-contained SVG", async ({ page }) => {
   expect(svg).toMatch(/<path[^>]+stroke="rgb\(/);
   expect(svg).not.toMatch(/class="track-map__/);
 });
+
+test("on a phone all four tabs fit, and share sits in the one-line opening", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expect(trackMap(page)).toBeVisible();
+  const tabs = page.getByRole("tab");
+  await expect(tabs).toHaveCount(4);
+  for (const box of await tabs.evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().right))) {
+    expect(box).toBeLessThanOrEqual(390);
+  }
+  // The short label is what shows; the full label is still the tab's name.
+  await expect(page.getByRole("tab", { name: "Κατατακτήριες σεζόν" })).toContainText("Σεζόν");
+  await page.getByRole("button", { name: "Κοινοποίηση" }).click();
+  await expect(page.getByRole("menuitem", { name: "Αντιγραφή συνδέσμου" })).toBeVisible();
+});

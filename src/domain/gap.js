@@ -209,6 +209,10 @@ export function buildGapTrace(model, { points = 400 } = {}) {
     gaps: smooth(grid.map((_, k) => times[driver.slot][k] - times[fastest.slot][k])),
   }));
 
+  // Driver A's samples on the same (offset-corrected) clock as `times`, so segments land where they belong.
+  const firstTimes = offsets[first.slot]
+    ? first.pathTimes.map((seconds) => seconds - offsets[first.slot])
+    : first.pathTimes;
   const trace = {
     reliable: !tooFar && !failed,
     reason: tooFar
@@ -223,9 +227,26 @@ export function buildGapTrace(model, { points = 400 } = {}) {
     checks,
     offsets,
     // Where each grid point falls on the replay's track geometry (driver A's samples), as a fraction.
-    trackFractions: grid.map((_, k) => fractionAtTime(first.pathTimes, times[first.slot][k])),
+    trackFractions: grid.map((_, k) => fractionAtTime(firstTimes, times[first.slot][k])),
   };
   return trace;
+}
+
+/**
+ * The replay model with each driver's position timestamps corrected by the clock offset the trace measured, so
+ * the cars on the stage line up with the official timing too. Only for a reliable trace; otherwise unchanged.
+ */
+export function applyClockOffsets(model, trace) {
+  const offsets = trace?.reliable ? trace.offsets : null;
+  if (!model || !offsets || !Object.values(offsets).some(Boolean)) return model;
+  return {
+    ...model,
+    drivers: model.drivers.map((driver) =>
+      offsets[driver.slot]
+        ? { ...driver, pathTimes: driver.pathTimes.map((seconds) => seconds - offsets[driver.slot]) }
+        : driver
+    ),
+  };
 }
 
 // On a trace's grid: where (0–1 of the lap distance) a driver is at `time`, and when they pass `distance`.

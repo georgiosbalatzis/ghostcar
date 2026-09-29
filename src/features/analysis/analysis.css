@@ -70,6 +70,17 @@
   }
 }
 @media (max-width: 767px) {
+  /* Phones: the actions live in the one-line opening; the four tabs share the row. */
+  .desk .tabs-row > .tab-actions {
+    display: none;
+  }
+  .desk.page-tabs .tabs {
+    gap: 0;
+  }
+  .desk.page-tabs .tabs__tab {
+    padding: 0 10px;
+    font-size: var(--text-body);
+  }
   .tab-actions .btn {
     width: var(--touch-target);
     min-height: var(--touch-target);

@@ -221,6 +221,14 @@ main:focus {
 .hero__lap {
   color: var(--text-2);
 }
+.hero__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.hero__tools {
+  display: none;
+}
 .hero__edit {
   justify-content: space-between;
   gap: var(--space-4);
@@ -293,6 +301,12 @@ main:focus {
   }
   .hero--loaded .hero__edit .icon:last-child {
     display: none;
+  }
+  .hero--loaded .hero__tools {
+    display: block;
+  }
+  .hero--loaded .hero__tools .tab-actions {
+    padding: 0;
   }
   .hero__action-label {
     position: absolute;

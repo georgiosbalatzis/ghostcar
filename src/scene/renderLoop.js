@@ -63,6 +63,8 @@ export function startSceneRenderLoop({
     noiseFrame = (noiseFrame + 1) & 255;
     const prog = sceneState._progRef?.current ?? 0;
     const progChanged = prog !== lastProg;
+    // A seek while paused, a scrub or the loop restarting moves the cars in one step: their trails must start over.
+    const jumped = progChanged && (!sceneState._playRef?.current || Math.abs(prog - lastProg) > 0.01);
     if (progChanged) lastProg = prog;
     // prog is the shared clock (share of the slowest lap); each car's position comes from its own timestamps.
     const timing = sceneState._timingRef?.current;
@@ -93,7 +95,7 @@ export function startSceneRenderLoop({
       sceneState,
       trackPath,
       carProgress,
-      progressChanged: progChanged,
+      jumped,
       isPlaying,
       deltaTime: dt,
       playbackSpeed,

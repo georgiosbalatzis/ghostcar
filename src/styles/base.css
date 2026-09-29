@@ -502,6 +502,22 @@ textarea.input {
   height: 2px;
   background: var(--accent);
 }
+.tabs__short {
+  display: none;
+}
+@media (max-width: 767px) {
+  .tabs__long:has(+ .tabs__short) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tabs__short {
+    display: inline;
+  }
+}
 /* A tablist with actions at the end of the same row (Tabs `aside`). */
 .tabs-row {
   display: flex;

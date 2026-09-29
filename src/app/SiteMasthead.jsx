@@ -1,19 +1,7 @@
 import { memo, useEffect, useId, useState } from "react";
 import { fetchJSON } from "../api.js";
 import Icon from "../components/ui/Icon.jsx";
-
-// Mirrors f1StoriesPage/partials/nav.html (29 Sep 2026) plus Ghost Car itself. Re-check when the site nav changes.
-const SITE = "https://f1stories.gr";
-const NAV_LINKS = [
-  { label: "Αρχική", href: `${SITE}/` },
-  { label: "Άρθρα", href: `${SITE}/blog-module/blog/index.html` },
-  { label: "YouTube", href: "https://www.youtube.com/@f1_stories_original", external: true },
-  { label: "Βαθμολογία", href: `${SITE}/standings/` },
-  { label: "Δεδομένα", href: `${SITE}/standings/?tab=tyre-pace` },
-  { label: "Ghost Car", href: "./", current: true },
-  { label: "Συντάκτες", href: `${SITE}/authors/` },
-  { label: "BetCast", href: "https://georgiosbalatzis.github.io/BetCastVisualisation/", external: true },
-];
+import { NAV_LINKS, SITE } from "./siteNav.js";
 
 // Next race from the OpenF1 calendar (it lists the whole season, including cancellations). Hidden on any failure.
 function useNextRace() {

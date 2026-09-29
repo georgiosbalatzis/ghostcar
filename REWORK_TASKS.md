@@ -1,6 +1,6 @@
 # Ghost Car → F1 Stories "Data Desk" rework
 
-Plan written 29 Sep 2026. **Status: Phases 0–10 complete** on branch `rework/data-desk`, one commit per phase (not merged or pushed). Still open: the optional f1StoriesPage follow-ups in §8, which need your OK, and the known issues in `docs/rework/architecture.md`.
+Plan written 29 Sep 2026. **Status: Phases 0–10 complete** on branch `rework/data-desk`, one commit per phase (not merged or pushed). The known issues found along the way have since been fixed (see "After Phase 10"). Still open: the optional f1StoriesPage follow-ups in §8, which need your OK.
 
 Goal: Ghost Car should look and behave like a page of f1stories.gr, not a separate dark tool that happens to share a font.
 
@@ -415,6 +415,21 @@ The loaded page now follows `a-desk-loaded.png`. Checked on the fixtures at 390,
   - **`docs/redesign-v2/` and `docs/visual-rework/`:** marked historical.
   - **`docs/deployment-checklist.md`:** the manual smoke steps rewritten for the current UI (they still named redesign-v2's removed modals).
 
+### After Phase 10: known issues fixed ✅
+
+- **3D stray dots (pre-existing since redesign-v2).**
+  - *Cause:* trails recorded a point only on frames where the clock changed. A paused seek changes it for one frame, while the car is still gliding to its new position, so one point in each car's colour stayed behind, often in the infield. Trails only fade while advancing, so it never went away.
+  - *Fix* (`scene/renderLoop.js`, `updateCars.js`): trails grow only during playback and are cleared on any jump (a paused seek, a scrub over 1 % of the lap, or the loop restarting). Checked by re-capturing the same paused seek, which is now clean, and playback, where trails still draw.
+- **Replay clock.** `applyClockOffsets(model, trace)` in `gap.js` shifts each driver's position timestamps by the measured offset, only for a reliable trace. The stage (2D and 3D) plays it. Unit-tested: the reference is untouched, the shift equals the offset, and an unreliable trace changes nothing.
+  - While doing this I found and fixed a related inconsistency: `trackFractions` mapped driver A's corrected times through A's uncorrected timestamps, which misplaced dominance segments by a few metres whenever A wasn't the fastest driver.
+- **Phone tabs.**
+  - The Share and `⋯` actions move into the one-line opening on phones.
+  - The Season tab shows "Σεζόν" on phones; its accessible name stays "Κατατακτήριες σεζόν", which contains the visible word (WCAG 2.5.3).
+  - Tighter tab spacing.
+  - All four tabs now fit at 320, 390 and 430 px. New e2e test: all tabs inside 390 px, the name kept, Share reachable from the hero.
+- **Drift from f1stories.gr.** Copying stays (hosting decision), but it's now checked. `npm run check:site` fetches `partials/nav.html` and `styles/editorial.css` from f1StoriesPage plus the live nav logo, compares them with `src/app/siteNav.js`, a palette snapshot and `public/logo-nav.webp`, and exits 1 with a diff on any change. It passes today; a planted change is caught.
+- **Checks:** 43 unit and 30 e2e tests; lint, format and build green; full capture run with no overflow at any width; live Monza 2025 Q (corrected clock) with no errors. Initial JS 41.86 kB gz.
+
 ---
 
 ## 6. Suggested order and slices
@@ -435,7 +450,7 @@ Ship in reviewable PRs. Each one should leave the app working:
 
 - **Gap accuracy.** ✅ Checked in Phase 5: with reference-line projection and sector-time clock calibration, 8/8 real sessions pass, with the sector error at most 0.068 s (see Phase 5). The gate still hides the views for data that fails.
 - **Lap start alignment.** ✅ Handled in `domain/timing.js`: `date_start` is used when it is within 2 s of the first sample; otherwise the first sample is time zero, and undated samples are spread evenly over the lap. This fallback is silent (no console noise), and a unit test covers it. On real data, samples start 0.02–0.28 s after `date_start` (Phase 4).
-- **Drift from the site.** Open and ongoing by design: hosting stays separate and the markup is copied. `NAV_LINKS` in `SiteMasthead.jsx` and the header of `tokens.css` carry their source and date; re-check them whenever f1stories changes its nav or palette.
+- **Drift from the site.** ✅ Now detectable: hosting stays separate and the markup is copied, but `npm run check:site` compares the copies with the live f1StoriesPage source and fails on any change.
 - **Barlow has no Greek.** ✅ Respected: Barlow is used only for `GHOST CAR.`, `EVERY TENTH COUNTS.`, `F1 STORIES.` and driver acronyms (2D, 3D, share card). Greek headings use Plex 600.
 - **Team colours on paper.** ✅ Measured in Phase 1: `--ink` is only used for marks, and every team colour is ≥ 3:1 in both themes. Names and acronyms stay in text colour.
 - **Theme key.** `f1s-theme` is per-origin, so it can't sync with f1stories.gr while hosting stays separate. This is accepted per the hosting decision.

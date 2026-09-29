@@ -2,7 +2,7 @@ export const PAGE_TABS = [
   { id: "replay", label: "Αναπαράσταση" },
   { id: "sectors", label: "Τομείς" },
   { id: "laps", label: "Γύροι" },
-  { id: "season", label: "Κατατακτήριες σεζόν" },
+  { id: "season", label: "Κατατακτήριες σεζόν", short: "Σεζόν" },
 ];
 
 // Older share links used the analysis-rail and mobile tab names; map them onto the page tabs.

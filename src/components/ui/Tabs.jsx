@@ -30,7 +30,17 @@ export default function Tabs({ label, tabs, active, onChange, className = "", as
               tabIndex={tab.id === active ? 0 : -1}
               onClick={() => onChange(tab.id)}
             >
-              {tab.label}
+              {tab.short ? (
+                // Phones show the short label; the full one stays the accessible name.
+                <>
+                  <span className="tabs__long">{tab.label}</span>
+                  <span className="tabs__short" aria-hidden="true">
+                    {tab.short}
+                  </span>
+                </>
+              ) : (
+                tab.label
+              )}
             </button>
           ))}
         </div>

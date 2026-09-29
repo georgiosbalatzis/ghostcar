@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyClockOffsets,
   buildGapTrace,
   distanceAtTimeOnGrid,
   dominanceSegments,
@@ -78,9 +79,16 @@ test("a location clock that runs behind the lap timing is measured from the sect
   assert.ok(Math.abs(trace.offsets[2] - 0.15) < 0.02, `offset ${trace.offsets[2]}`);
   const k = 200;
   assert.ok(Math.abs(trace.series[0].gaps[k] - 0.5 * trace.d[k]) < 0.03, `gap ${trace.series[0].gaps[k]}`);
+  // The replay reuses the correction: NOR's position clock moves back by the measured offset; VER is the reference.
+  const replay = applyClockOffsets(model(a, b), trace);
+  assert.equal(replay.drivers[0].pathTimes, a.pathTimes);
+  assert.ok(Math.abs(b.pathTimes[10] - replay.drivers[1].pathTimes[10] - trace.offsets[2]) < 1e-9);
   // Far beyond any plausible clock skew, the data is refused.
-  const late = buildGapTrace(model(a, driver({ slot: 2, label: "NOR", lap: 80.5, clock: 0.9, offset: 0.05 })));
+  const lateModel = model(a, driver({ slot: 2, label: "NOR", lap: 80.5, clock: 0.9, offset: 0.05 }));
+  const late = buildGapTrace(lateModel);
   assert.equal(late.reliable, false);
+  // An unreliable trace never touches the replay.
+  assert.equal(applyClockOffsets(lateModel, late), lateModel);
 });
 
 test("incomplete position data is refused before any calculation", () => {

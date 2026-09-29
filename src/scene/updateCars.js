@@ -117,7 +117,7 @@ export function updateCarsAndMarkers({
   sceneState,
   trackPath,
   carProgress,
-  progressChanged,
+  jumped,
   isPlaying,
   deltaTime,
   playbackSpeed,
@@ -142,7 +142,17 @@ export function updateCarsAndMarkers({
   const maxOffset = 0.7;
   const proximity = Math.max(0, 1 - dist / closeThreshold);
   const lateralOffset = proximity * maxOffset;
-  const shouldAdvanceTrail = isPlaying || progressChanged;
+  // Trails are the path just driven, so they only grow during playback. After a jump they are cleared: otherwise a
+  // single point recorded mid-glide stays behind as a stray dot (the "two coloured dots" of earlier versions).
+  if (jumped) {
+    for (const trail of [tr1, tr2, sceneState.tr3, sceneState.tr4]) {
+      if (!trail?.count) continue;
+      trail.count = 0;
+      trail.mesh.geometry.setDrawRange(0, 0);
+      needsRender = true;
+    }
+  }
+  const shouldAdvanceTrail = isPlaying && !jumped;
 
   const updateOptions = {
     fallbackPath: trackPath,

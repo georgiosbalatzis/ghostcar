@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAM_MODES } from "./constants.js";
-import { buildGapTrace, dominanceSegments, sectorTicks } from "./domain/gap.js";
+import { applyClockOffsets, buildGapTrace, dominanceSegments, sectorTicks } from "./domain/gap.js";
 import { findLapByNumber } from "./domain/laps.js";
 import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
 import Dialog from "./components/ui/Dialog.jsx";
 import Icon, { IconButton } from "./components/ui/Icon.jsx";
-import { BuilderUtilities } from "./app/ComparisonActions.jsx";
+import { BuilderUtilities, TabActions } from "./app/ComparisonActions.jsx";
 import DeskHero from "./app/DeskHero.jsx";
 import { Colophon, SignalBand, describeResult } from "./app/SignalBand.jsx";
 import SiteMasthead from "./app/SiteMasthead.jsx";
@@ -45,7 +45,7 @@ const SUPPORTED_SESSION_NAMES = [
   "Practice 3",
 ];
 const PLAYABLE_PRESETS = getPlayablePresets(UNAVAILABLE_PRESET_YEARS);
-const NO_ANALYSIS = { trace: null, dominance: [], ticks: [] };
+const NO_ANALYSIS = { trace: null, dominance: [], ticks: [], stageModel: null };
 
 function createRestoreFlags() {
   return { meeting: false, session: false, drivers: false, lap1: false, lap2: false, lap3: false, lap4: false };
@@ -178,12 +178,17 @@ export default function App({ embed }) {
   // The playback clock runs in real seconds of the loaded replay; prog is time / duration.
   durationRef.current = model?.duration || durationRef.current;
   const time = prog * (model?.duration || 0);
-  // Derived once per replay: gap at the same point on track (with its reliability), who is faster where,
-  // and the sector lines on the time axis.
+  // Derived once per replay: gap at the same point on track (with its reliability), who is faster where, the
+  // sector lines on the time axis, and the model the stage plays (position clocks corrected when the trace holds).
   const analysis = useMemo(() => {
     if (!model) return NO_ANALYSIS;
     const trace = buildGapTrace(model);
-    return { trace, dominance: dominanceSegments(trace), ticks: sectorTicks(model) };
+    return {
+      trace,
+      dominance: dominanceSegments(trace),
+      ticks: sectorTicks(model),
+      stageModel: applyClockOffsets(model, trace),
+    };
   }, [model]);
   const [driverA, driverB] = model?.drivers || [];
   const season = useSeasonComparison({
@@ -475,7 +480,7 @@ export default function App({ embed }) {
   const replayLoading = loading && ldPct !== undefined ? loading : "";
   const stage = model && (
     <ReplayStage
-      model={model}
+      model={analysis.stageModel}
       stageRef={stageRef}
       time={time}
       progRef={progRef}
@@ -548,7 +553,11 @@ export default function App({ embed }) {
   } else if (model) {
     surface = (
       <div className="workspace">
-        <DeskHero model={model} onEdit={actions.editComparison} />
+        <DeskHero
+          model={model}
+          onEdit={actions.editComparison}
+          tools={<TabActions actions={actions} showreel={showreel.active} />}
+        />
         <SignalBand load={loadStatus}>
           <span className="band__minor num">● Αναπαράσταση · {Math.round(prog * 100)}%</span>
           <span className="band__sep" />

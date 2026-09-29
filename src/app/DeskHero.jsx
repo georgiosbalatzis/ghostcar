@@ -4,7 +4,7 @@ import Icon from "../components/ui/Icon.jsx";
 
 // Page opening, as on f1stories.gr /standings/: crumb, "GHOST CAR." display title, and an aside.
 // Builder: tagline and a short explanation. Loaded: the event, the drivers and laps, and "change comparison".
-function DeskHero({ model, onEdit }) {
+function DeskHero({ model, onEdit, tools }) {
   return (
     <section className={model ? "hero hero--loaded" : "hero"} aria-labelledby="hero-title">
       <div className="crumb">
@@ -36,11 +36,15 @@ function DeskHero({ model, onEdit }) {
                   </li>
                 ))}
               </ul>
-              <button type="button" className="btn btn--ink hero__edit" onClick={onEdit}>
-                <Icon name="edit" size={18} />
-                <span className="hero__action-label">Αλλαγή σύγκρισης</span>
-                <Icon name="arrow" size={18} />
-              </button>
+              <div className="hero__actions">
+                <button type="button" className="btn btn--ink hero__edit" onClick={onEdit}>
+                  <Icon name="edit" size={18} />
+                  <span className="hero__action-label">Αλλαγή σύγκρισης</span>
+                  <Icon name="arrow" size={18} />
+                </button>
+                {/* On phones the tab row's actions sit here, so the four tabs keep the full width. */}
+                {tools && <div className="hero__tools">{tools}</div>}
+              </div>
             </>
           ) : (
             <>

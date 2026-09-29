@@ -24,6 +24,7 @@ Expected results:
 - `npm run test:e2e` passes the Chromium smoke tests.
 - Playwright may print Node `DEP0205` and `NO_COLOR` / `FORCE_COLOR` warnings; these are expected unless the tests fail.
 - `npm audit --audit-level=moderate` reports zero moderate-or-higher vulnerabilities.
+- Optional, needs network: `npm run check:site` reports whether f1stories.gr changed its nav, palette or logo since Ghost Car copied them.
 
 ## Manual Desktop Smoke
 

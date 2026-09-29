@@ -238,6 +238,7 @@ npm run preview
 - `npm run format:check`: scoped Prettier check
 - `npm test`: Node unit tests
 - `npm run test:e2e`: Playwright smoke tests
+- `npm run check:site`: ελέγχει αν το f1stories.gr άλλαξε τη μπάρα πλοήγησης, την παλέτα ή το λογότυπο που αντιγράφει το Ghost Car (χρειάζεται δίκτυο)
 - `npm run build`: production build στο `dist/`
 - `npm run preview`: preview του production build
 - `npm audit --audit-level=moderate`: dependency audit gate για release
