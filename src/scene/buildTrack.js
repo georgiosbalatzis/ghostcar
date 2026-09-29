@@ -15,8 +15,8 @@ import {
   createStartStripMaterial,
   createTrackOverlayMaterial,
 } from "./materials.js";
-import { brakeBand, dominanceBand, speedBand } from "./trackColouring.js";
-import { buildCentreline, offsetEdge, overpassMask, startLine } from "./trackGeometry.js";
+import { arcAtFraction, brakeBand, dominanceBand, speedBand } from "./trackColouring.js";
+import { buildCentreline, offsetEdge, overpassMask, pointAtArc, startLine } from "./trackGeometry.js";
 
 // Schematic widths in metres (OpenF1 has no track width): the road is 12 m, with 4 m of run-off each side and
 // a 0.25 m paint line just inside each road edge. These are drawn choices, not measurements.
@@ -168,6 +168,31 @@ export function buildTrack({ scene, reference, groundY, theme, isMob }) {
     paintBand();
   }
 
+  // Sector lines, where the fastest driver crosses the official sector 1 and 2 lines (only given for a trusted gap
+  // trace, like the dominance colours: OpenF1 has no sector positions of its own, and equal thirds would be false).
+  // A thin neutral bar across the road per line; setSectors returns each line's centre for the chips.
+  const sectorMaterial = createPaintMaterial(theme.ink);
+  const sectorBars = [0, 1].map(() => {
+    const bar = new Mesh(new PlaneGeometry(2 * (ROAD_HALF + 0.5), 0.5), sectorMaterial);
+    bar.rotation.order = "YXZ";
+    bar.rotation.x = -Math.PI / 2;
+    bar.visible = false;
+    scene.add(bar);
+    return bar;
+  });
+  const sectorPoint = {};
+  function setSectors(fractions) {
+    return sectorBars.map((bar, index) => {
+      const fraction = fractions[index];
+      bar.visible = fraction !== undefined;
+      if (!bar.visible) return null;
+      pointAtArc(c, arcAtFraction(c, fraction), sectorPoint);
+      bar.position.set(sectorPoint.x, sectorPoint.y + 0.03, sectorPoint.z);
+      bar.rotation.y = Math.atan2(sectorPoint.tx, sectorPoint.tz);
+      return { x: sectorPoint.x, y: sectorPoint.y, z: sectorPoint.z };
+    });
+  }
+
   // Theme change in place: recolour everything the palette touches.
   function applyTheme(next) {
     road.material.color.set(next.road);
@@ -176,10 +201,11 @@ export function buildTrack({ scene, reference, groundY, theme, isMob }) {
     paint.material.color.set(next.paint);
     gantryMaterial.color.set(next.ink);
     stripMaterial.userData.draw(next.checkA, next.checkB);
+    sectorMaterial.color.set(next.ink);
     palette = next;
     paintBand();
   }
   applyTheme(theme);
 
-  return { centreline: c, curve: c.curve, start, band, setViz, applyTheme };
+  return { centreline: c, curve: c.curve, start, band, setViz, setSectors, applyTheme };
 }

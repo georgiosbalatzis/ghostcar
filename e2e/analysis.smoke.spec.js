@@ -59,3 +59,18 @@ test("racing lines are off until asked for, remembered, and say what they are", 
   await expect(page.locator(".scene-caption")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("sector lines and their chips appear only where the gap can be trusted", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await openScene(page, `${comparisonUrl}&cam=top`);
+  await expect(page.locator(".scene-sector")).toHaveCount(2);
+  await expect(page.locator('.scene-sector[data-sector="0"]')).toHaveText("S1 | S2");
+  // In the top view both lines are on screen, so both chips are shown, inside the stage.
+  await expect
+    .poll(() => page.locator('.scene-sector[data-sector="1"]').evaluate((node) => getComputedStyle(node).opacity))
+    .toBe("1");
+  await page.goto(`${comparisonUrl.replace("l1=7", "l1=5")}&cam=top`);
+  await expect(page.locator(".stage canvas").first()).toBeVisible();
+  await expect(page.locator(".scene-sector")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

@@ -382,7 +382,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 - Steps: until `ready`, show a centred quiet "Φόρτωση 3D…" line over the stage colour (not a spinner). The placeholder cars (T1.3) are visible as soon as the track is. Canvas a11y: `role="img"` and `aria-label` like "Τρισδιάστατη αναπαράσταση: {meeting}, {drivers}, κάμερα {label}".
 - Acceptance: no frame shows an empty stage for more than one frame after the replay loads.
 
-### Phase 6: Analysis on the track
+### ✅ Phase 6: Analysis on the track
 
 **✅ T6.1: Dominance in 3D.** _(Done. Fractions of the reference driver's samples map straight to arc length on the centreline, which was built from those samples, so no time lookup is needed.)_
 - Files: `ReplayStage.jsx` (pass `dominance` to 3D and show the same legend/caption when in 3D), `buildTrack.js`, `trackGeometry.js`.
@@ -399,7 +399,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 - Steps: add the menu checkbox "Γραμμές οδηγών" (default off, `localStorage` `f1s-3d-lines`). Draw each driver's full dense world path with `Line2` (0.4 m, `worldUnits`), team colour at 90%, 0.05 m above the surface (height from `surfaceAt`). Show the caption from §4.5 while it is on.
 - Acceptance: lines follow each car exactly (the car centre stays on its own line throughout the lap).
 
-**T6.4 (DECISION REQUIRED before implementing): Sector boundaries.**
+**✅ T6.4: Sector boundaries.** _(Decision: yes, draw them. Done. The comment in `buildTrack.js` now says why they are drawn only for a trusted gap trace.)_
 - Proposal: when `trace.reliable`, draw thin neutral lines across the road, with "S1 | S2" chips, at the fastest driver's position at `sector1` and `sector1 + sector2` seconds (`fractionAtTime` on their corrected `pathTimes`). This is derived from official sector times and position data and is gated like dominance. However, `buildTrack.js:156-157` records a deliberate decision *not* to draw sectors. **Ask the owner.** Implement only on a yes, and then also update that comment.
 
 ### Phase 7: Look and feel pass

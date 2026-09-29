@@ -17,6 +17,10 @@ export function createLabels({ layer, camera, cars }) {
   const chips = cars.map((_, index) => layer?.querySelector(`[data-index="${index}"]`) ?? null);
   const shown = chips.map(() => ({ transform: "", opacity: "", stack: "", flip: false, edge: false, angle: "" }));
   const points = [];
+  // Sector-line chips: world points set by setSectors, one `[data-sector]` element each.
+  const sectorChips = [0, 1].map((index) => layer?.querySelector(`[data-sector="${index}"]`) ?? null);
+  let sectorPoints = [];
+  const sectorAnchor = new Vector3();
 
   function write(index, next) {
     const chip = chips[index];
@@ -29,7 +33,26 @@ export function createLabels({ layer, camera, cars }) {
     if (next.angle !== last.angle) chip.style.setProperty("--angle", (last.angle = next.angle));
   }
 
+  function updateSectors(width, height) {
+    sectorChips.forEach((chip, index) => {
+      if (!chip) return;
+      const point = sectorPoints[index];
+      let visible = false;
+      if (point) {
+        sectorAnchor.set(point.x, point.y + 1, point.z);
+        const behind = sectorAnchor.clone().applyMatrix4(camera.matrixWorldInverse).z > 0;
+        sectorAnchor.project(camera);
+        const x = (sectorAnchor.x * 0.5 + 0.5) * width;
+        const y = (-sectorAnchor.y * 0.5 + 0.5) * height;
+        visible = !behind && x > 0 && x < width && y > 0 && y < height;
+        if (visible) chip.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0)`;
+      }
+      chip.style.opacity = visible ? "1" : "0";
+    });
+  }
+
   function update({ hiddenIndex = -1, width, height }) {
+    updateSectors(width, height);
     points.length = 0;
     cars.forEach((car, index) => {
       if (!chips[index]) return;
@@ -85,5 +108,11 @@ export function createLabels({ layer, camera, cars }) {
     });
   }
 
-  return { update, dispose: () => {} };
+  return {
+    update,
+    setSectors: (next) => {
+      sectorPoints = next;
+    },
+    dispose: () => {},
+  };
 }

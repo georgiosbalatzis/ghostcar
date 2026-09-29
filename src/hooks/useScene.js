@@ -40,6 +40,7 @@ export default function useScene(
     fitSignal,
     vizMode,
     dominance,
+    sectors = [],
     lines = false,
     isDark,
     relief = 1,
@@ -88,6 +89,7 @@ export default function useScene(
     isDark,
     vizMode,
     lines,
+    sectors,
     // What the centre band draws from: who is faster where, and the reference driver's telemetry.
     vizData: {
       dominance,
@@ -230,6 +232,9 @@ export default function useScene(
             R.current.lineSet?.restyle(liveRef.current.style.map((driver) => driver.color));
           },
           setViz: track.setViz,
+          setSectors(fractions) {
+            R.current.labels?.setSectors(track.setSectors(fractions));
+          },
           // Racing lines are built the first time they are switched on.
           setLines(on) {
             const state = R.current;
@@ -272,6 +277,7 @@ export default function useScene(
       // Name chips (DOM, in the layer the stage renders) and the canvas' description for assistive technology.
       if (live.lines) R.current.api.setLines(true);
       R.current.labels = createLabels({ layer: labelsRef?.current, camera, cars });
+      R.current.api.setSectors(live.sectors);
       R.current.onFirstFrame = () => callbacksRef.current.onReady?.();
       de.setAttribute("role", "img");
       de.setAttribute("aria-label", live.ariaLabel || "");
@@ -378,6 +384,10 @@ export default function useScene(
     R.current.api?.setViz(vizMode, liveRef.current.vizData);
     R.current._dirty = true;
   }, [vizMode, dominance, telData1, telTimes1, styleKey]);
+  useEffect(() => {
+    R.current.api?.setSectors(sectors);
+    R.current._dirty = true;
+  }, [sectors]);
   useEffect(() => {
     R.current.api?.setLines(lines);
     R.current._dirty = true;

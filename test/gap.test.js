@@ -6,6 +6,7 @@ import {
   distanceAtTimeOnGrid,
   dominanceSegments,
   sectorTicks,
+  sectorTrackFractions,
   timeAtDistanceOnGrid,
 } from "../src/domain/gap.js";
 import { buildTimeIndex } from "../src/domain/timing.js";
@@ -134,4 +135,18 @@ test("sector ticks sit at the fastest driver's sector ends on the time axis", ()
   const b = driver({ slot: 2, label: "NOR", lap: 80.5 });
   assert.deepEqual(sectorTicks(model(a, b)), [26 / 80.5, 54 / 80.5]);
   assert.deepEqual(sectorTicks(model({ ...a, sectors: [null, 28, 26] }, b)), []);
+});
+
+test("sector lines sit where the fastest driver crosses them, and only for a trusted trace", () => {
+  const a = driver({ slot: 1, label: "VER", lap: 80, sectors: [20, 30, 30] });
+  const b = driver({ slot: 2, label: "NOR", lap: 80.5, sectors: [20.2, 30.1, 30.2] });
+  const drivers = model(a, b);
+  const trace = buildGapTrace(drivers);
+  assert.equal(trace.reliable, true, trace.reason);
+  const [first, second] = sectorTrackFractions(trace, drivers);
+  // A constant-speed lap: 20 s of 80 is a quarter of the samples, 50 s is five eighths.
+  assert.ok(Math.abs(first - 0.25) < 0.02, `${first}`);
+  assert.ok(Math.abs(second - 0.625) < 0.02, `${second}`);
+  assert.deepEqual(sectorTrackFractions({ ...trace, reliable: false }, drivers), []);
+  assert.deepEqual(sectorTrackFractions(null, drivers), []);
 });

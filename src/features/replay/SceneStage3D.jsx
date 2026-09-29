@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAM_LABELS } from "../../constants.js";
+import { sectorTrackFractions } from "../../domain/gap.js";
 import { SCENE_THEME } from "../../scene/sceneTheme.js";
 import { speedRange } from "../../scene/trackColouring.js";
 import useScene from "../../hooks/useScene.js";
@@ -80,6 +81,8 @@ export default function SceneStage3D({
     return () => observer.disconnect();
   }, [containerRef]);
 
+  // Sector lines, only where the gap can be trusted (the fastest driver's crossings of the official sector lines).
+  const sectors = useMemo(() => sectorTrackFractions(trace, model), [trace, model]);
   const { family, slot } = parseCam(cam);
   const camLabel = slot ? `${CAM_LABELS[family]} ${model.drivers[slot - 1]?.label || ""}`.trim() : CAM_LABELS[family];
   const ariaLabel = [
@@ -99,6 +102,7 @@ export default function SceneStage3D({
     fitSignal,
     vizMode,
     dominance,
+    sectors,
     lines,
     isDark,
     relief,
@@ -123,6 +127,12 @@ export default function SceneStage3D({
             <span className="car__label">{driver.label}</span>
           </div>
         ))}
+        {sectors.length > 0 &&
+          ["S1 | S2", "S2 | S3"].map((text, index) => (
+            <span key={text} className="scene-sector" data-sector={index}>
+              {text}
+            </span>
+          ))}
       </div>
       {!ready && (
         <p className="scene-loading" role="status">
