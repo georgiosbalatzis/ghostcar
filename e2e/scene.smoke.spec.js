@@ -367,3 +367,20 @@ test("a first visit opens in 2D; choosing 3D is remembered", async ({ page }) =>
   await page.reload();
   await expectSceneRendered(page);
 });
+
+test("the track image download is a self-contained SVG", async ({ page }) => {
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expect(trackMap(page)).toBeVisible();
+  await page.getByRole("button", { name: "Κοινοποίηση" }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "Εικόνα πίστας" }).click(),
+  ]);
+  const svg = await (await download.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString());
+  // Styles are written onto each path (the app stylesheet is not in the file), over the stage colour.
+  expect(svg).toMatch(/<rect[^>]+fill="rgb\(/);
+  expect(svg).toMatch(/<path[^>]+stroke="rgb\(/);
+  expect(svg).not.toMatch(/class="track-map__/);
+});

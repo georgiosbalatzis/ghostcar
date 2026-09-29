@@ -365,6 +365,11 @@
 .embed__open:hover {
   color: var(--text);
 }
+.embed__open span {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 4px;
+}
 .embed--empty {
   display: grid;
   place-items: center;

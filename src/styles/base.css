@@ -335,24 +335,6 @@ a {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-.btn--primary:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--accent) 88%, var(--text));
-}
-.btn--primary:active:not(:disabled) {
-  background: color-mix(in oklab, var(--accent) 80%, var(--page));
-}
-.btn--primary:disabled {
-  opacity: 1;
-  border-color: var(--rule-strong);
-  background: var(--surface-2);
-  color: var(--muted);
-}
 /* Site primary: ink fill, paper text. */
 .btn--ink {
   border-color: var(--text);
@@ -598,15 +580,16 @@ textarea.input {
   color: var(--text);
 }
 
-/* ─── Dialog / sheet ─── */
+/* ─── Dialog / sheet: a paper panel under an ink rule, as the site's panels ─── */
 .dialog {
   width: min(560px, calc(100vw - 32px));
   max-height: min(84dvh, 760px);
   margin: auto;
   padding: 0;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-3);
-  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--text);
+  border-radius: var(--radius-1);
+  background: var(--page);
   color: var(--text);
   box-shadow: var(--shadow-float);
   overflow: hidden;
@@ -627,7 +610,8 @@ textarea.input {
   height: 100dvh;
   max-height: none;
   margin: 0 0 0 auto;
-  border-width: 0 0 0 1px;
+  border-width: 0 0 0 2px;
+  border-color: var(--text);
   border-radius: 0;
 }
 .dialog--sheet[open] {
@@ -643,12 +627,15 @@ textarea.input {
 }
 .dialog__title {
   flex: 1;
-  font-size: var(--text-lead);
+  font-size: 22px;
   font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
 }
 .dialog__subtitle {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-1);
+  letter-spacing: 0;
   font-size: var(--text-small);
   font-weight: 400;
   color: var(--text-2);
@@ -681,8 +668,9 @@ textarea.input {
     height: auto;
     max-height: 92dvh;
     margin: auto 0 0;
-    border-width: 1px 0 0;
-    border-radius: var(--radius-3) var(--radius-3) 0 0;
+    border-width: 2px 0 0;
+    border-color: var(--text);
+    border-radius: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .dialog[open],
@@ -709,9 +697,10 @@ textarea.input {
   min-width: 232px;
   margin: 0;
   padding: var(--space-1);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-2);
-  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-top: 2px solid var(--text);
+  border-radius: var(--radius-1);
+  background: var(--page);
   color: var(--text);
   box-shadow: var(--shadow-float);
 }
@@ -742,7 +731,7 @@ textarea.input {
 }
 .menu__item:hover,
 .menu__item:focus-visible {
-  background: var(--surface-3);
+  background: var(--surface);
   outline: none;
 }
 .menu__item:disabled {
@@ -768,25 +757,28 @@ textarea.input {
   z-index: 50;
   transform: translateX(-50%);
 }
+/* Ink slip with paper text, like the site's buttons. */
 .toast {
   max-width: min(420px, calc(100vw - 32px));
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--radius-2);
-  background: var(--surface-3);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--signal);
+  border-radius: var(--radius-1);
+  background: var(--text);
+  color: var(--page);
   box-shadow: var(--shadow-float);
   font-size: var(--text-control);
   animation: dialog-in var(--dur-base) var(--ease-out);
 }
 
+/* Page-level error as a margin note (as on /standings/): signal rule, plain text, one action. */
 .notice {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--rule);
-  background: color-mix(in oklab, var(--negative) 10%, var(--page));
-  font-size: var(--text-control);
+  margin: var(--space-5) var(--edge) 0;
+  padding: var(--space-1) 0 var(--space-1) 20px;
+  border-left: 2px solid var(--signal);
+  font-size: var(--text-body);
 }
 .notice p {
   flex: 1;

@@ -29,7 +29,7 @@ function CopyField({ value, multiline, onCopy, label }) {
         onFocus={(event) => event.target.select()}
       />
       <div className="copy-field__actions">
-        <button type="button" className="btn btn--primary" onClick={copy}>
+        <button type="button" className="btn btn--ink" onClick={copy}>
           Αντιγραφή
         </button>
         <span className="copy-field__state" role="status">
@@ -56,7 +56,9 @@ const isLocalHost = () => /^(localhost|127\.|\[::1\]$)/.test(window.location.hos
 
 export function EmbedDialog({ shareState, onCopy, onClose }) {
   const src = encodeURL({ ...shareState, embed: 1 }, isLocalHost() ? { baseURL: PUBLIC_APP_URL } : {});
-  const code = `<iframe src="${src}" width="100%" height="560" style="border:0" loading="lazy" allowfullscreen title="F1 Stories Ghost Car"></iframe>`;
+  // The frame's own background matches the embed's theme, so there is no flash of another colour while it loads.
+  const background = shareState.theme === "dark" ? "#1b1a19" : "#f2eee4";
+  const code = `<iframe src="${src}" width="100%" height="560" style="border:0;background:${background}" loading="lazy" allowfullscreen title="F1 Stories Ghost Car"></iframe>`;
   return (
     <Dialog
       title="Ενσωμάτωση σε σελίδα"

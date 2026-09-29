@@ -348,12 +348,26 @@ The loaded page now follows `a-desk-loaded.png`. Checked on the fixtures at 390,
 - **Still open (pre-existing, documented in redesign-v2):** two tiny coloured dots near the 3D scene. The trail buffers start empty and follow the cars, so they aren't the obvious source. I left this for a separate investigation.
 - **Size:** initial JS unchanged; 3D chunk +0.13 kB gz.
 
-### Phase 8: Secondary surfaces
+### Phase 8: Secondary surfaces ✅
 
-- **T8.1** `components/ui/Dialog.jsx` styles: paper surface, 2 px radius, crumb-style header (kicker + title in Plex 600), ink/outline buttons, and bottom sheet on mobile as today. Apply to the Featured, Saved, Embed, Link, Shortcuts and Edit dialogs.
-- **T8.2** Errors and warnings use `.margin-note` (signal left rule, plain heading, reason, one action), as on the standings page. Toasts use an ink background with paper text.
-- **T8.3** Embed (`F1PhantomCars.jsx` embed surface and `app.css`): paper by default (`th` respected); stage, chips and transport as in Phase 6; `Άνοιγμα στο Ghost Car ↗` as an underlined link. Update the snippet in `SharingDialogs.jsx` so the iframe background matches.
-- **T8.4** Share and social card (if it renders colours): switch to the new palette.
+- **T8.1 ✅ Dialogs and menus** (`base.css`)
+  - Dialogs: paper panel, 1 px rule with a **2 px ink top rule**, 2 px corners, 22 px Plex 600 titles. On phones the bottom sheet is square with the ink rule; the edit sheet's left edge is an ink rule.
+  - Popover menus match (paper, ink top rule, surface hover).
+  - The copy action uses the ink button; the now-unused `.btn--primary` was deleted.
+  - Applies to the Featured, Saved, Embed, Link, Shortcuts and Edit dialogs.
+- **T8.2 ✅ Notices and toasts**
+  - The page-level error is a margin note: 2 px signal rule, plain sentence, one close action, no tinted box.
+  - Toasts are ink slips with paper text and a signal left edge.
+- **T8.3 ✅ Embed**
+  - Paper by default, following `th`. It uses the Phase 6 stage, chips and transport, and keeps the driver legend (no hero or brief in embeds).
+  - The "Άνοιγμα στο F1 Stories Ghost Car ↗" link has a signal underline; its accessible name is unchanged.
+  - The embed snippet sets the iframe background to the theme's page colour (`#f2eee4` / `#1b1a19`), so there's no flash while it loads.
+- **T8.4 ✅ Exports**
+  - **Share card:** redrawn as a 1200×630 Data Desk card (crumb, `GHOST CAR.`, event, ruled driver rows, signal band with the result and `EVERY TENTH COUNTS.`). It waits for Barlow and the Greek Plex subset to load, so the canvas text renders in the right fonts.
+  - **Εικόνα πίστας (pre-existing bug):** the exported SVG kept only CSS classes, so outside the app the road and lines had no stroke and the file looked empty. Each path's computed stroke is now written onto it, over a rectangle in the stage colour; dominance colours included.
+  - New e2e test: the downloaded SVG has inline strokes and a background, and no app classes.
+- **Tests:** 43 unit and 28 e2e.
+- **Size:** initial JS 41.62 kB gz (+0.67 kB, the share card); CSS 9.00 kB gz.
 
 ### Phase 9: QA
 
