@@ -10,21 +10,21 @@
 - embed χρήση σε άρθρα ή landing pages
 - αξιοπρεπή εμπειρία σε desktop, mobile και low-power συσκευές
 
-Το visual system, η χρωματική λογική και ο συνολικός χαρακτήρας του UI ακολουθούν τη γλώσσα του **f1stories.gr**.
+Το Ghost Car είναι μια σελίδα του **f1stories.gr** σε ύφος «Data Desk», όπως οι Βαθμολογίες: η μπάρα πλοήγησης του site, τίτλος `GHOST CAR.`, κόκκινη λωρίδα, χαρτί ως προεπιλογή (και σκούρο θέμα), IBM Plex Sans και Barlow Condensed. Το σχέδιο και η πορεία της αναδιάταξης βρίσκονται στο [REWORK_TASKS.md](REWORK_TASKS.md).
 
 ## Τι προσφέρει
 
-- **3D Ghost Car σύγκριση** με πραγματικά location και car telemetry δεδομένα
-- **2D low-power replay mode** για συσκευές ή περιβάλλοντα όπου το WebGL δεν είναι ιδανικό
-- **Telemetry panel** με speed, throttle, brake, sector progression, speed traps και tire-related ενδείξεις
-- **Head-to-head ιστορικό** μεταξύ δύο οδηγών για μια σεζόν
-- **Season dashboard** με συνολική εικόνα από qualifying head-to-head γύρους
-- **Preset battles** για γρήγορη φόρτωση εμβληματικών στιγμών
-- **Shareable URLs** ώστε κάθε comparison να ανοίγει με συγκεκριμένο session, οδηγούς και laps
-- **Embed mode** για ενσωμάτωση σε iframe
-- **Gallery** αποθηκευμένων συγκρίσεων στο browser
-- **Showreel mode** για autoplay preset παρουσιάσεις
-- **Light / Dark theme**
+- **Αναπαράσταση σε πραγματικό χρόνο**: κάθε μονοθέσιο κινείται με τα δικά του timestamps, οπότε ο ταχύτερος γύρος προηγείται και τερματίζει πρώτος
+- **2D χάρτης κυριαρχίας** (προεπιλογή): η πίστα χρωματίζεται με τον οδηγό που κερδίζει χρόνο σε κάθε σημείο
+- **3D Ghost Car** με κάμερες τροχιάς, παρακολούθησης, από ψηλά και κινηματογραφική
+- **Διαφορά χρόνου στο ίδιο σημείο της πίστας**, ελεγμένη απέναντι στους επίσημους χρόνους τομέων
+- **Τηλεμετρία** (ταχύτητα, γκάζι, φρένο) στον άξονα απόστασης του γύρου, με σύρσιμο για μετακίνηση
+- **Αγωνιστικό δελτίο**: κατάταξη, ζωντανές τιμές, διαφορές ανά τομέα
+- **Κατατακτήριες σεζόν**: οι δύο οδηγοί σε κάθε Γκραν Πρι της χρονιάς
+- **Επιλεγμένες συγκρίσεις** για γρήγορη φόρτωση εμβληματικών στιγμών
+- **Κοινοποιήσιμα URLs**, **ενσωμάτωση σε iframe**, **αποθηκευμένες συγκρίσεις**, **κάρτα κοινοποίησης** και **εικόνα πίστας**
+- **Αυτόματη προβολή** (showreel) των επιλεγμένων συγκρίσεων
+- **Χαρτί / σκούρο θέμα**, όπως στο f1stories.gr
 
 ## Τι ακριβώς κάνει ο χρήστης
 
@@ -42,8 +42,9 @@
 2. βρίσκει τα σωστά timestamps έναρξης και λήξης για κάθε γύρο
 3. φορτώνει location + car telemetry streams
 4. κανονικοποιεί τη γεωμετρία της πίστας
-5. αποδίδει το replay σε 3D ή 2D
-6. συγχρονίζει το timeline όλων των οδηγών στο ίδιο progress bar
+5. αποδίδει το replay σε 2D ή 3D
+6. τρέχει όλους τους οδηγούς σε ένα κοινό ρολόι (από 0 έως τον πιο αργό γύρο), τον καθένα με τα δικά του timestamps
+7. υπολογίζει τη διαφορά χρόνου στο ίδιο σημείο της πίστας και ποιος κερδίζει πού, εφόσον τα δεδομένα συμφωνούν με τους επίσημους χρόνους τομέων
 
 Το αποτέλεσμα δεν είναι απλώς ένα chart. Είναι ένα synchronized replay layer με data overlays.
 
@@ -59,74 +60,35 @@
 
 ## Βασικά features
 
-### 1. 3D scene replay
+### 1. Η σελίδα
 
-Η 3D προβολή δίνει την πιο εντυπωσιακή εμπειρία:
+Χωρίς φορτωμένη σύγκριση, η σελίδα δείχνει τον τίτλο, τη φόρμα (σεζόν → Γκραν Πρι → σκέλος → οδηγοί και γύροι, 2 έως 4 οδηγοί) και έναν σύνδεσμο προς τις επιλεγμένες συγκρίσεις. Με φορτωμένη σύγκριση, έχει τέσσερις καρτέλες όπως οι Βαθμολογίες του site: **Αναπαράσταση**, **Τομείς**, **Γύροι**, **Κατατακτήριες σεζόν**. Η κόκκινη λωρίδα δείχνει την κατάσταση: φόρτωση (με ακύρωση), θέση αναπαραγωγής και τελική διαφορά.
 
-- ghost cars πάνω σε εξομαλυμένη χάραξη πίστας
-- διαφορετικά camera modes
-- live progress
-- color-coded οδηγοί και teams
-- overlay delta και sector comparison
+### 2. Αναπαράσταση
 
-Το 3D stage φορτώνεται lazy ώστε να μη βαραίνει άσκοπα το initial load.
+- βασικά στοιχεία: ταχύτερος, τελική διαφορά, μεγαλύτερο κέρδος τομέα, μέγιστη ταχύτητα
+- η πίστα σε 2D (προεπιλογή) ή 3D, με ετικέτες οδηγών στο ύφος του site
+- αναπαραγωγή σε πραγματικό χρόνο, με S1/S2/S3 στη μπάρα από τους επίσημους χρόνους του ταχύτερου
+- το Αγωνιστικό δελτίο με ζωντανές τιμές και διαφορές ανά τομέα
+- `02 / Τηλεμετρία`: ταχύτητα, γκάζι, φρένο και διαφορά χρόνου στον άξονα απόστασης
 
-### 2. 2D replay fallback
+### 3. Διαφορά ανά σημείο και κυριαρχία πίστας
 
-Για mobile, battery saver ή αδύναμα GPUs, υπάρχει **2D SVG replay**:
+Τα δείγματα θέσης όλων των οδηγών προβάλλονται στη γραμμή του οδηγού Α, ώστε η ίδια απόσταση να είναι το ίδιο σημείο της πίστας. Οι επίσημοι χρόνοι τομέων είναι το μέτρο: η μετατόπιση ρολογιού κάθε οδηγού υπολογίζεται από αυτούς, και τα γραφήματα εμφανίζονται μόνο όταν τα δεδομένα συμφωνούν (±0,1 s σε κάθε γραμμή τομέα). Όταν δεν συμφωνούν, ο άξονας γίνεται χρόνος, το γράφημα διαφοράς κρύβεται και η σελίδα λέει γιατί. Λεπτομέρειες: [src/domain/gap.js](src/domain/gap.js) και [REWORK_TASKS.md](REWORK_TASKS.md) (Φάση 5).
 
-- χωρίς WebGL κόστος
-- με ίδιο timeline
-- με live progress dots
-- με πρόσβαση στα ίδια telemetry / stats / laps εργαλεία
+### 4. 3D
 
-Η 2D λειτουργία δεν είναι secondary hack. Είναι κανονικό playback mode.
+Το 3D φορτώνεται lazy, στα χρώματα του θέματος, με κάμερες τροχιάς, παρακολούθησης, από ψηλά και κινηματογραφική. Αν το WebGL δεν είναι διαθέσιμο, η σελίδα συνεχίζει σε 2D με ένα σύντομο μήνυμα.
 
-### 3. Telemetry panel
+### 5. Τομείς, Γύροι, Κατατακτήριες σεζόν
 
-Το δεξί panel ή το mobile tab προβάλει:
+- **Τομείς**: επίσημοι χρόνοι τομέων, σύνοψη γύρου και μεγάλος χάρτης κυριαρχίας
+- **Γύροι**: όλοι οι έγκυροι γύροι κάθε οδηγού· η αλλαγή φορτώνεται μόνο όταν την εφαρμόσεις
+- **Κατατακτήριες σεζόν**: ο καλύτερος γύρος των Α και Β σε κάθε Γκραν Πρι, σταδιακά, με cache και ακύρωση
 
-- ταχύτητα
-- throttle
-- brake
-- gear / DRS indicators
-- elevation summary
-- cumulative sector delta
-- speed traps
-- tire degradation proxy
+### 6. Κοινοποίηση και ενσωμάτωση
 
-Ο στόχος είναι γρήγορη ανάγνωση, όχι raw engineering overload.
-
-### 4. Presets
-
-Τα presets δίνουν ένα editorial layer πάνω από τα δεδομένα:
-
-- iconic μάχες
-- qualifying laps
-- sprint στιγμές
-- race highlights
-
-Έτσι ο χρήστης δεν χρειάζεται να χτίσει comparison από το μηδέν για να δει κάτι ενδιαφέρον.
-
-### 5. H2H και Season views
-
-Για δύο οδηγούς μπορείς να ζητήσεις:
-
-- **H2H view**: σε ποια GP βρέθηκε μπροστά ο καθένας
-- **Season dashboard**: συνολικό qualifying delta ανά meeting
-
-Αυτές οι προβολές γίνονται incremental, cache-άρονται και ακυρώνονται αν ο χρήστης αλλάξει tab ή setup.
-
-### 6. Share, gallery και embed
-
-Το app υποστηρίζει:
-
-- shareable deep links
-- local gallery αποθηκευμένων συγκρίσεων
-- social card export
-- embed iframe code
-
-Αυτό επιτρέπει χρήση του εργαλείου και ως internal newsroom utility και ως public-facing content component.
+Σύνδεσμος, ενσωμάτωση σε iframe, αποθήκευση στον browser, κάρτα κοινοποίησης (1200×630, στο ύφος του site) και εικόνα πίστας (αυτόνομο SVG).
 
 ## Υποστηριζόμενα χρόνια και sessions
 
@@ -157,13 +119,13 @@
 - [src/main.jsx](src/main.jsx)
 - [src/F1PhantomCars.jsx](src/F1PhantomCars.jsx)
 
-Το `F1PhantomCars.jsx` κάνει μόνο orchestration: data hooks, URL restore, κύκλο φόρτωσης και ποια επιφάνεια εμφανίζεται (builder, workspace ή embed). Η παρουσίαση ζει στα features. Η πλήρης αρχιτεκτονική, το state model και ο πίνακας μετακίνησης λειτουργιών βρίσκονται στο [docs/redesign-v2/architecture.md](docs/redesign-v2/architecture.md).
+Το `F1PhantomCars.jsx` κάνει μόνο orchestration: data hooks, URL restore, κύκλο φόρτωσης και ποια επιφάνεια εμφανίζεται (builder, workspace ή embed). Η παρουσίαση ζει στα features. Η τρέχουσα αρχιτεκτονική βρίσκεται στο [docs/rework/architecture.md](docs/rework/architecture.md)· το [docs/redesign-v2/architecture.md](docs/redesign-v2/architecture.md) είναι ιστορικό.
 
 Hooks δεδομένων και ροής:
 
 - selector state / URL restore / lap loading: [src/hooks/useComparisonSelectors.js](src/hooks/useComparisonSelectors.js)
 - replay loading, cancellation και load-time snapshot (`replay.meta`): [src/hooks/useReplayLoader.js](src/hooks/useReplayLoader.js)
-- playback timeline, speed, loop και touch scrub: [src/hooks/usePlaybackController.js](src/hooks/usePlaybackController.js)
+- ρολόι αναπαραγωγής σε δευτερόλεπτα, ταχύτητα, loop και touch scrub: [src/hooks/usePlaybackController.js](src/hooks/usePlaybackController.js)
 - σύγκριση κατατακτήριων σεζόν (πρώην H2H και season dashboard): [src/hooks/useSeasonComparison.js](src/hooks/useSeasonComparison.js)
 - preset orchestration: [src/hooks/usePresetLoader.js](src/hooks/usePresetLoader.js)
 - σύνδεσμος, αποθηκευμένες συγκρίσεις και εξαγωγή εικόνας: [src/hooks/useShareAndGallery.js](src/hooks/useShareAndGallery.js)
@@ -173,18 +135,18 @@ Hooks δεδομένων και ροής:
 - [src/api.js](src/api.js): wrappers προς OpenF1, retries, cancellation-aware backoff, response cache, development request telemetry
 - [src/helpers.js](src/helpers.js): normalization, interpolation, formatting και URL helpers
 - [src/constants.js](src/constants.js): ομάδες, presets, camera labels
-- [src/domain/](src/domain): pure helpers για laps, drivers, replay validation, circuit metadata και OpenF1 availability copy
+- [src/domain/](src/domain): pure helpers για laps, drivers, replay validation, circuit metadata και OpenF1 availability copy· [timing.js](src/domain/timing.js) (θέση κάθε οδηγού στο κοινό ρολόι) και [gap.js](src/domain/gap.js) (διαφορά ανά σημείο, κυριαρχία, γραμμές τομέων)
 - [src/services/](src/services): OpenF1 replay stream και preset data orchestration
 
 ### Παρουσίαση
 
-- [src/styles/](src/styles): design tokens (`data-theme` + CSS variables) και βασικά primitives
-- [src/components/ui/](src/components/ui): Dialog (native `<dialog>`), Menu (Popover API), Tabs, Icon
-- [src/app/](src/app): headers, keyboard shortcuts, showreel, document metadata
-- [src/features/comparison/](src/features/comparison): builder σύγκρισης και επιλεγμένες συγκρίσεις
-- [src/features/replay/](src/features/replay): stage (2D `TrackMap`, lazy 3D), legend, transport, replay model
-- [src/features/analysis/](src/features/analysis): rail με Ζωντανά, Τηλεμετρία, Τομείς, Γύροι
-- [src/features/insights/](src/features/insights), [src/features/sharing/](src/features/sharing): σεζόν, ενσωμάτωση, αποθηκευμένες συγκρίσεις
+- [src/styles/](src/styles): tokens από το f1stories.gr (`data-theme`, χαρτί / σκούρο) και τα βασικά primitives (kicker, crumb, band, facts, κουμπιά, πεδία)
+- [src/components/ui/](src/components/ui): Dialog (native `<dialog>`), Menu (Popover API), Tabs (με `aside` για ενέργειες), Icon
+- [src/app/](src/app): μπάρα του site (`SiteMasthead`), τίτλος (`DeskHero`), κόκκινη λωρίδα και υποσέλιδο (`SignalBand`), ενέργειες σύγκρισης, keyboard shortcuts, showreel, metadata
+- [src/features/comparison/](src/features/comparison): η φόρμα σύγκρισης και ο διάλογος επιλεγμένων συγκρίσεων
+- [src/features/replay/](src/features/replay): stage (2D `TrackMap` με κυριαρχία, lazy 3D), transport, legend του embed, replay model και key facts
+- [src/features/analysis/](src/features/analysis): οι καρτέλες (`Workspace`), Αγωνιστικό δελτίο, τηλεμετρία, τομείς, γύροι
+- [src/features/insights/](src/features/insights), [src/features/sharing/](src/features/sharing): κατατακτήριες σεζόν, ενσωμάτωση, αποθηκευμένες συγκρίσεις, συντομεύσεις
 
 ### 3D / rendering layer
 
@@ -195,7 +157,7 @@ Hooks δεδομένων και ροής:
 
 - στήνει scene, camera και renderer
 - φορτώνει το `f1car.glb`
-- κρατάει το 3D playback συγχρονισμένο με το `progRef`
+- τοποθετεί κάθε μονοθέσιο με τα δικά του timestamps στο κοινό ρολόι (`progRef` και `timingRef`)
 - καθαρίζει resources όταν το scene ξαναχτίζεται ή αποσυνδέεται
 
 ## Ροή δεδομένων
@@ -215,13 +177,13 @@ Hooks δεδομένων και ροής:
 - τα location δεδομένα κανονικοποιούνται σε κοινή πίστα
 - γίνεται ανίχνευση direction / circuit flip
 - τα telemetry arrays γίνονται downsample όπου χρειάζεται
-- το playback ελέγχεται από κοινό `prog` / `progRef`
+- το playback ελέγχεται από κοινό ρολόι (`prog` = χρόνος / διάρκεια του πιο αργού γύρου)· κάθε οδηγός διαβάζεται στον δικό του χρόνο
 
 ## Mobile, performance και resilience
 
 Το project έχει ήδη ενσωματωμένες αρκετές αποφάσεις για σταθερότητα:
 
-- lazy loading για 3D scene και modals
+- lazy loading για το 3D scene
 - 2D low-power mode αντί για αποκλειστική εξάρτηση από WebGL
 - cleanup timers και abort controllers για να μην μένουν orphaned loads
 - scoped touch scrubbing ώστε να μη συγκρούεται με όλο το document
@@ -302,11 +264,11 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 ?embed=1
 ```
 
-Παράγεται έτοιμο iframe snippet από το UI. Το embed mode:
+Παράγεται έτοιμο iframe snippet από το UI (Κοινοποίηση → Ενσωμάτωση). Το embed:
 
-- κρύβει κομμάτια του full shell
-- προσαρμόζει layout και controls
-- δίνει compact replay + tabs για telemetry / stats / laps / season / H2H
+- δείχνει μόνο την πίστα (πάντα 2D), το legend με τη διαφορά και την αναπαραγωγή
+- ακολουθεί το θέμα (`th`), χαρτί ως προεπιλογή· το snippet ορίζει το ίδιο χρώμα φόντου στο iframe
+- έχει σύνδεσμο «Άνοιγμα στο F1 Stories Ghost Car» για την πλήρη σελίδα
 
 ## Deep linking
 
@@ -320,8 +282,8 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 - `d1`, `d2`, `d3`, `d4`
 - `l1`, `l2`, `l3`, `l4`
 - `nd` για πλήθος οδηγών
-- `tv`, `cam`, `vz` για view / camera / visualization mode
-- `th`, `spd`, `lp`, `tab` για theme, speed, loop και ενεργό tab
+- `tv`, `cam`, `vz` για view / camera / visualization mode (το 2D είναι προεπιλογή, οπότε γράφεται μόνο `tv=3d`)
+- `th`, `spd`, `lp`, `tab` για theme, speed, loop και καρτέλα (`sectors`, `laps`, `season`· παλιές τιμές όπως `telemetry` ή `stats` αντιστοιχίζονται αυτόματα)
 - `embed`
 
 Αυτό επιτρέπει:
@@ -336,8 +298,8 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 Η εφαρμογή χρησιμοποιεί `localStorage` για μικρές προτιμήσεις και convenience state:
 
-- `f1s-theme`: επιλογή light/dark
-- `f1s-track-view`: τελευταία επιλογή 2D/3D
+- `f1s-theme`: επιλογή χαρτί/σκούρο (προεπιλογή: χαρτί)
+- `f1s-track-view`: τελευταία επιλογή 2D/3D (προεπιλογή: 2D)
 - `f1s-gallery`: αποθηκευμένες συγκρίσεις
 
 Δεν αποθηκεύονται προσωπικά δεδομένα χρήστη.
@@ -348,11 +310,11 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 - `Space`: play / pause
 - `R`: reset στην αρχή
-- `T`: εναλλαγή Ζωντανά / Τηλεμετρία στο rail ανάλυσης
+- `T`: μετάβαση στην τηλεμετρία
 - `V`: toggle 2D / 3D
 - `C`: cycle camera mode
 - `L`: loop on / off
-- `←` / `→`: scrub
+- `←` / `→`: 1 δευτερόλεπτο πίσω / μπροστά (διπλό `←`: 5 δευτερόλεπτα)
 - `D`: theme toggle
 - `?`: keyboard help
 - `Esc`: close overlays
@@ -364,6 +326,7 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 - [public/f1car.glb](public/f1car.glb): 3D μοντέλο μονοθεσίου
 - [public/logo.png](public/logo.png): εικόνα για social metadata (`og:image`) μόνο· η σελίδα δεν τη φορτώνει
 - [public/favicon-64.png](public/favicon-64.png), [public/apple-touch-icon.png](public/apple-touch-icon.png): μικρά εικονίδια που παράγονται από το logo
+- [public/logo-nav.webp](public/logo-nav.webp): το λογότυπο της μπάρας του f1stories.gr (2,7 kB)
 - [public/f1-stories-logo.svg](public/f1-stories-logo.svg): local logo asset
 
 ### SEO / metadata
@@ -378,15 +341,14 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 ## Σχεδιαστική κατεύθυνση
 
-Το design system ακολουθεί τη λογική του F1 Stories:
+Το Ghost Car ακολουθεί το ύφος των σελίδων δεδομένων του f1stories.gr:
 
-- καθαρή τυπογραφία
-- έντονες, ελεγχόμενες accent αποχρώσεις
-- dark και light παραλλαγές
-- data-first ιεραρχία
-- όσο χρειάζεται motion, όχι decorative θόρυβο
+- χαρτί `#f2eee4` ως προεπιλογή, σκούρο `#1b1a19`, κόκκινο σήματος `#ed4c32`
+- IBM Plex Sans για κάθε ελληνικό κείμενο· Barlow Condensed μόνο για λατινικούς τίτλους (`GHOST CAR.`, `EVERY TENTH COUNTS.`, ακρωνύμια)
+- λεπτές γραμμές, αριθμημένες ετικέτες ενοτήτων, γωνίες 2 px, χωρίς σκιές
+- το χρώμα ομάδας είναι δεδομένο (γραμμές, κουκκίδες), ποτέ κείμενο
 
-Η βασική παλέτα και τα semantic tokens ορίζονται στο [src/constants.js](src/constants.js).
+Τα tokens ορίζονται στο [src/styles/tokens.css](src/styles/tokens.css), με την πηγή τους από το site σημειωμένη στην κορυφή του αρχείου.
 
 ## Ποιότητα δεδομένων και περιορισμοί
 
@@ -401,6 +363,7 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 - εμφανίζει loading / error states
 - πέφτει σε 2D όπου χρειάζεται
+- κρύβει τη διαφορά ανά σημείο και την κυριαρχία όταν τα δεδομένα θέσης δεν συμφωνούν με τους χρόνους τομέων, και λέει γιατί
 - ακυρώνει requests που δεν έχουν πια νόημα
 
 ## Γιατί υπάρχει αυτό το project

@@ -15,7 +15,7 @@ import { fractionAtTime } from "./timing.js";
 const MIN_SAMPLES = 20;
 const MAX_HOLE_S = 2; // longest allowed stretch without a location sample
 const MAX_EDGE_S = 1; // first and last samples must be this close to the lap start and end
-export const SECTOR_TOLERANCE_S = 0.1;
+const SECTOR_TOLERANCE_S = 0.1;
 const MAX_OFFSET_S = 0.5; // a larger clock offset means the position data belongs to something else
 const SEARCH_BACK = 4;
 const DOMINANCE_MARGIN_S = 0.005; // a stretch belongs to a driver only when they are clearly faster there
@@ -65,7 +65,7 @@ function interpolate(xs, ys, x) {
 }
 
 /** Why a driver's samples cannot support a gap trace, or null when they can. */
-export function sampleIssue(driver) {
+function sampleIssue(driver) {
   const times = driver.pathTimes || [];
   if (!(driver.lapDuration > 0)) return "Λείπει ο χρόνος γύρου.";
   if ((driver.path?.length || 0) < MIN_SAMPLES || times.length < MIN_SAMPLES) return "Λίγα δείγματα θέσης.";
@@ -79,7 +79,7 @@ export function sampleIssue(driver) {
  * Distance (0 at the start line, 1 at the finish) against time for one driver, on the reference line.
  * `ref` is { points, cum, start, finish } from the reference driver.
  */
-export function buildDistanceProfile(driver, ref) {
+function buildDistanceProfile(driver, ref) {
   const { path, pathTimes, lapDuration } = driver;
   const length = ref.finish - ref.start;
   const d = [0];
@@ -104,7 +104,7 @@ export function buildDistanceProfile(driver, ref) {
   return { d, t };
 }
 
-export const timeAtDistance = (profile, distance) => interpolate(profile.d, profile.t, distance);
+const timeAtDistance = (profile, distance) => interpolate(profile.d, profile.t, distance);
 
 // A driver's samples `offset` seconds earlier; the start (0) and finish (lap time) anchors stay put.
 function shiftProfile({ d, t }, offset) {
@@ -121,7 +121,7 @@ function shiftProfile({ d, t }, offset) {
   out.t.push(t[last]);
   return out;
 }
-export const distanceAtTime = (profile, time) => interpolate(profile.t, profile.d, time);
+const distanceAtTime = (profile, time) => interpolate(profile.t, profile.d, time);
 
 // Centred moving average; the ends stay exact (both drivers start together; the finish is the lap delta).
 // Radius 5 of 400 points (~160 m) smooths ~4 Hz position noise without flattening a braking zone.

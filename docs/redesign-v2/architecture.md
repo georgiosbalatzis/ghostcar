@@ -1,5 +1,7 @@
 # Ghost Car redesign v2: architecture
 
+> **Historical.** Superseded by the September 2026 Data Desk rework: see [`docs/rework/architecture.md`](../rework/architecture.md) and [`REWORK_TASKS.md`](../../REWORK_TASKS.md). Kept as a record; it no longer describes the current app.
+
 Developer reference for the presentation rebuild of September 2026. `docs/visual-rework/` records the previous attempt and is kept as history only.
 
 Screenshots: `baseline/` (before), `pass-1/`, `pass-2/`, `pass-3/` (design passes against the dev server), `final/` (production build served under `/ghostcar/`). All use the deterministic fixtures from the E2E suite, not live OpenF1 data.

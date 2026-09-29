@@ -1,6 +1,6 @@
 # Ghost Car → F1 Stories "Data Desk" rework
 
-Plan written 29 Sep 2026. **Nothing here is implemented yet.**
+Plan written 29 Sep 2026. **Status: Phases 0–10 complete** on branch `rework/data-desk`, one commit per phase (not merged or pushed). Still open: the optional f1StoriesPage follow-ups in §8, which need your OK, and the known issues in `docs/rework/architecture.md`.
 
 Goal: Ghost Car should look and behave like a page of f1stories.gr, not a separate dark tool that happens to share a font.
 
@@ -114,7 +114,7 @@ Copied from `f1StoriesPage/styles/editorial.css`, `standings/standings-editorial
 
 Each task lists its files and a done-when check. Phases run in order. Within a phase, tasks can run in parallel unless marked ⟶.
 
-### Phase 0: Baseline
+### Phase 0: Baseline ✅
 
 - **T0.1 ✅** Before-screenshots are in `docs/rework/baseline/`: 14 PNGs covering `empty` and `loaded-2d` at 390/768/1440, plus `loaded-3d` at 1440, in dark and light. The scrubber is at 45 % and has no focus ring.
   - They were made with `node scripts/capture-screens.mjs <dir>`. The script starts its own Vite server on port 5174 and uses the e2e fixtures (`e2e/fixtures.js`), so it needs no network and gives the same result every run.
@@ -131,12 +131,12 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 |---|---|---|---|
 | builder loads… | `heading level 1 "Σύγκριση γύρων Formula 1"` | T2.3 ✅ | h1 is `GHOST CAR.`; assert the tagline too |
 | builder loads… | `heading "Επιλεγμένες συγκρίσεις"` visible | T3.2 ✅ | a link/button `Επιλεγμένες συγκρίσεις (18)` |
-| builder loads… | `Σκέλος` / `Οδηγός 1` absent before they are relevant | T3.1 | keep: progressive disclosure stays (T3.1 changes styles only) |
+| builder loads… | `Σκέλος` / `Οδηγός 1` absent before they are relevant | T3.1 ✅ kept | keep: progressive disclosure stays (T3.1 changes styles only) |
 | secondary surfaces… | button `/^Όλες/` opens the Featured dialog | T3.2 ✅ | click the presets link |
 | secondary surfaces… | `Περισσότερα` → `Αποθηκευμένες συγκρίσεις` on the **builder** | T2.6 ✅ | the `Αποθηκευμένες` link in the builder utility row (finding 2) |
 | theme… | default `data-theme` is `dark` | T1.2 ✅ | updated: default `light`, toggle to dark |
 | theme… | toggle via `Περισσότερα` → menuitem `Φωτεινό θέμα` | T2.1 ✅ | the masthead theme button (visible at every width) |
-| embed without comparison | `getByRole("banner")` count 0 | T2.1 | keep: the masthead must not render in embed |
+| embed without comparison | `getByRole("banner")` count 0 | T2.1 ✅ kept | keep: the masthead must not render in embed |
 
 `e2e/scene.smoke.spec.js`
 
@@ -153,10 +153,10 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 | loaded at 320/390 | `.timeline` width > 250 px | T6.6 ✅ | keep > 250: give the time its own row under the scrubber on < 480 px |
 | loaded at…, primary flow, publishing | `timeline.fill("0.45")`, value grows on play, `ArrowRight` > 0 | T4.2 ✅ (unchanged, still green) | keep: the slider stays a 0–1 `prog`; assert the time text as well |
 | loaded at… | `/Επανάληψη/` has `aria-pressed` | T6.6 ✅ | keep: the `↻ Επανάληψη` button stays a toggle |
-| mobile embed | link `/Άνοιγμα στο F1 Stories Ghost Car/` | T8.3 | keep this accessible name even if the visible text is shortened |
+| mobile embed | link `/Άνοιγμα στο F1 Stories Ghost Car/` | T8.3 ✅ kept | keep this accessible name even if the visible text is shortened |
 | publishing & season | `Περισσότερα` → menuitem `/Κατατακτήριες σεζόν 2025/` → dialog `Κατατακτήριες 2025` | T6.1 ✅ | `tab "Κατατακτήριες σεζόν"` → a row `/Monza GP/` in its panel |
 | 3D round trip | `Επιλογές προβολής` → `menuitemradio "Από ψηλά"` | T6.2 ✅ (unchanged) | keep (the 3D view-options menu stays on the stage) |
-| (several) | `setPreferences` seeds `f1s-track-view` | T7.3 | keep: an explicit stored value still wins over the new 2D default |
+| (several) | `setPreferences` seeds `f1s-track-view` | T7.3 ✅ kept | keep: an explicit stored value still wins over the new 2D default |
 
 `test/`
 
@@ -171,7 +171,7 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 2. **Builder utilities (Phase 2). ✅ Decided: text row under the presets link (folded into T2.6).** Once T2.6 moves the `⋯` menu into the loaded tab row, the builder page has no way to reach Saved comparisons, Showreel or Shortcuts (`?` still works). Add a quiet text row under the presets link: `Αποθηκευμένες · Αυτόματη προβολή · Συντομεύσεις`.
 3. **3D default in URLs (Phase 7). ✅ Done in T7.3.** T7.3 flips the default view. `encodeURL` must switch from writing `tv=2d` to writing `tv=3d`, otherwise shared 3D links open in 2D. This is listed in the `test/` table above.
 
-### Phase 1: Foundations (tokens, fonts, primitives)
+### Phase 1: Foundations (tokens, fonts, primitives) ✅
 
 - **T1.1 ✅** `src/styles/tokens.css` now holds the §3 palettes, with a header comment naming the source file and date. Component variable names are unchanged. Added `--signal`, `--signal-ink`, `--tech`, `--cut-sm` and `--ease-editorial`. Removed `--positive` and `--warning`, which nothing used.
   - Measured in Chrome in both themes: every text and accent pair on page, surface and surface-2 is ≥ 4.5:1, `--signal-ink` on the band is 4.77:1, and control borders (`--rule-strong`) are ≥ 3:1.
@@ -202,7 +202,7 @@ On both surfaces the page now reads: f1stories masthead → crumb + `GHOST CAR.`
   - **While loading:** a live `role="status"` region with the label, `VER γύρος 7 · NOR γύρος 8`, **Ακύρωση**, and a 3 px ink progress line on the band's edge. Only that region is live, so the playback % isn't announced.
   - Change from the plan: this is the **only** load indicator. The builder's `builder__status`/progress and the stage's `stage__loading` overlay are removed; there's no second bar on the stage.
 - **T2.5 ✅** Colophon: `#17191b` in both themes, `F1 STORIES.` + `Ghost Car · Δεδομένα από το OpenF1 · Τεχνική ματιά, καθαρή άποψη`. It replaces the builder's one-line footer.
-- **T2.6 ✅ (interim)**
+- **T2.6 ✅** (the tab-row part was completed by T6.2)
   - Workspace actions live in the loaded hero (see T2.3). The Season item stays in `⋯` until T6.1.
   - Builder page: `BuilderUtilities` is a quiet text row, `Αποθηκευμένες · Αυτόματη προβολή · Συντομεύσεις`, currently under the featured list. It moves under the presets link in T3.2.
   - Every former header action is reachable, and all keyboard shortcuts work.
@@ -400,10 +400,20 @@ The loaded page now follows `a-desk-loaded.png`. Checked on the fixtures at 390,
   No dependencies were added. The 3D scene still loads lazily, and Three.js still isn't loaded before a 3D replay.
 - **T9.5 ✅** `lint`, `format:check`, `npm test` (43), `build` and `test:e2e` (29) all green.
 
-### Phase 10: Cleanup and docs
+### Phase 10: Cleanup and docs ✅
 
-- **T10.1** Delete dead components and CSS: `BuilderHeader`/`WorkspaceHeader`, the old `stage__loading`, the `FeaturedComparisons` empty-state list, `SeasonDialog`, and unused base primitives.
-- **T10.2** Update `README.MD` (theme default, real-time replay, tabs), `AGENTS.md` (view state is now `dialog` + page `tab`; the timing module), and add `docs/rework/architecture.md` (short, like the redesign-v2 one). Mark `docs/redesign-v2/` as historical.
+- **T10.1 ✅ Dead code.** The components the plan named were already removed when replaced: `BuilderHeader`/`WorkspaceHeader` (Phase 2), `stage__loading` (Phase 2), the `FeaturedComparisons` list (Phase 3), `SeasonDialog` → `SeasonPanel` (Phase 6), `AnalysisRail`/`railTabs` (Phase 6), `.btn--primary` (Phase 8).
+  - A sweep of every CSS class, custom property and export against the code then removed:
+    - classes: `.cut`, `.btn--quiet`, `.dialog--wide`, `.progress`/`.progress__bar`;
+    - tokens: `--accent-ink`, `--tech`, `--track`, `--track-edge`, `--radius-3`, `--header-height`, `--rail-width`;
+    - exports: `driverFractions` (unused); five `gap.js` helpers made private.
+  - What remains flagged is a false positive (dynamic `dialog--${variant}`, a class name in a comment) or predates the rework.
+- **T10.2 ✅ Docs**
+  - **`README.MD`** (Greek): what it offers, features, architecture, the embed, deep links (`tv=3d`, `tab` values), storage defaults, shortcuts, assets, design direction, data-quality behaviour.
+  - **`AGENTS.md`:** `pageTab`, the real-time clock, `timing.js`/`gap.js` rules (`fractionAtTime`, the reliability gate), the shell components, viewport-based mobile detection, the capture script, the new defaults to preserve.
+  - **`docs/rework/architecture.md`:** new, short.
+  - **`docs/redesign-v2/` and `docs/visual-rework/`:** marked historical.
+  - **`docs/deployment-checklist.md`:** the manual smoke steps rewritten for the current UI (they still named redesign-v2's removed modals).
 
 ---
 
@@ -424,12 +434,12 @@ Ship in reviewable PRs. Each one should leave the app working:
 ## 7. Risks and open points
 
 - **Gap accuracy.** ✅ Checked in Phase 5: with reference-line projection and sector-time clock calibration, 8/8 real sessions pass, with the sector error at most 0.068 s (see Phase 5). The gate still hides the views for data that fails.
-- **Lap start alignment.** Real time relies on `lap.date_start` and sample dates. If a session has missing or odd `date_start`, fall back to the first in-range sample and log it once.
-- **Drift from the site.** Hosting stays separate and the markup is copied, so it will drift. The nav constant and token header both carry their source and date; re-check them whenever f1stories changes its nav.
-- **Barlow has no Greek.** Every display string in Barlow must be Latin (`GHOST CAR.`, acronyms, slogans). Greek display text uses Plex 600.
-- **Team colours on paper.** Bright colours (Aston green, Sauber lime) need the `--ink` darkening for text. Driver acronyms always sit next to the colour.
+- **Lap start alignment.** ✅ Handled in `domain/timing.js`: `date_start` is used when it is within 2 s of the first sample; otherwise the first sample is time zero, and undated samples are spread evenly over the lap. This fallback is silent (no console noise), and a unit test covers it. On real data, samples start 0.02–0.28 s after `date_start` (Phase 4).
+- **Drift from the site.** Open and ongoing by design: hosting stays separate and the markup is copied. `NAV_LINKS` in `SiteMasthead.jsx` and the header of `tokens.css` carry their source and date; re-check them whenever f1stories changes its nav or palette.
+- **Barlow has no Greek.** ✅ Respected: Barlow is used only for `GHOST CAR.`, `EVERY TENTH COUNTS.`, `F1 STORIES.` and driver acronyms (2D, 3D, share card). Greek headings use Plex 600.
+- **Team colours on paper.** ✅ Measured in Phase 1: `--ink` is only used for marks, and every team colour is ≥ 3:1 in both themes. Names and acronyms stay in text colour.
 - **Theme key.** `f1s-theme` is per-origin, so it can't sync with f1stories.gr while hosting stays separate. This is accepted per the hosting decision.
-- **Tabs replace the rail** (my call in §1). If you'd rather keep a switchable rail beside the stage, T6.1 and T6.7 change; nothing else does.
+- **Tabs replace the rail** (my call in §1). ✅ Built in Phase 6. The Δελτίο sits beside the stage; if you'd rather have a switchable rail, only `Workspace.jsx` and `RaceBrief.jsx` change.
 
 ---
 

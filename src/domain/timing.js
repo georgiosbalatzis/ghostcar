@@ -40,8 +40,3 @@ export function fractionAtTime(times, t) {
   const span = times[hi] - times[lo];
   return (lo + (span > 0 ? (t - times[lo]) / span : 0)) / (count - 1);
 }
-
-/** Where a driver of the replay model is at `t` seconds: fractions into their location and telemetry samples. */
-export function driverFractions(driver, t) {
-  return { path: fractionAtTime(driver.pathTimes, t), tel: fractionAtTime(driver.telTimes, t) };
-}

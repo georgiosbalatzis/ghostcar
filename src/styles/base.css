@@ -298,10 +298,6 @@ a {
 .margin-note__title {
   font-weight: 600;
 }
-/* The site's one bottom-right cut corner on media and data panels. */
-.cut {
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cut-sm)), calc(100% - var(--cut-sm)) 100%, 0 100%);
-}
 
 /* ─── Buttons ─── */
 .btn {
@@ -352,13 +348,6 @@ a {
 .btn--line {
   border-color: var(--rule);
   background: var(--page);
-}
-.btn--quiet {
-  border-color: transparent;
-  color: var(--text-2);
-}
-.btn--quiet:hover:not(:disabled) {
-  color: var(--text);
 }
 .btn--link {
   min-height: auto;
@@ -602,9 +591,6 @@ textarea.input {
 .dialog::backdrop {
   background: var(--scrim);
 }
-.dialog--wide {
-  width: min(760px, calc(100vw - 32px));
-}
 .dialog--sheet {
   width: min(460px, 100vw);
   height: 100dvh;
@@ -661,7 +647,6 @@ textarea.input {
 }
 @media (max-width: 767px) {
   .dialog,
-  .dialog--wide,
   .dialog--sheet {
     width: 100vw;
     max-width: 100vw;
@@ -783,18 +768,6 @@ textarea.input {
 .notice p {
   flex: 1;
   padding-block: 6px;
-}
-
-.progress {
-  height: 2px;
-  background: var(--rule);
-  overflow: hidden;
-}
-.progress__bar {
-  height: 100%;
-  background: var(--accent);
-  transform-origin: left;
-  transition: transform var(--dur-base) ease;
 }
 
 .spinner {
