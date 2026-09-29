@@ -263,17 +263,42 @@ The replay now runs in real time. The clock goes from 0 to the slowest lap, and 
 - **Known, pre-existing, left for T6.8:** the brake lanes are narrower than their chart (their labels take space), so the playhead doesn't line up with the brake bands.
 - **Size:** JS +0.46 kB gz; the 3D chunk is unchanged.
 
-### Phase 5: Derived analysis data (pure domain + tests)
+### Phase 5: Derived analysis data ✅
 
-- **T5.1** `src/domain/gap.js`:
-  - Work out cumulative distance along each driver's own path, normalised to 0–1.
-  - `gapAtDistance(a, b, d) = tA(d) − tB(d)`.
-  - Sample on a fixed grid (e.g. 400 points) and smooth lightly; location is ~4 Hz, so interpolate time over distance and don't difference raw samples.
-  - For 3–4 drivers, compute each driver against the fastest.
-  - **Validation:** the gap at d = 1 must match `model.delta` within 0.05 s. If it doesn't, flag it as `unreliable`; the UI then hides the gap chart and the dominance colours and shows a margin note.
-  - *Tests:* synthetic constant-speed laps give a linear gap; the final gap equals the lap delta; unreliable data is flagged.
-- **T5.2** `dominanceSegments(model, n = 36…60)`: for each distance bucket, take the driver with the smallest Δt across the bucket. Map buckets onto the reference `trackPath` by distance fraction. Memoise per replay.
-- **T5.3** `sectorTicks(model)`: time positions from `duration_sector_1/2` of the reference (fastest) driver, as fractions of `model.duration`. Hide them when sector data is missing. Place them **only on the time axis** (transport), not on the map.
+`src/domain/gap.js`, pure and not yet imported by the UI (Phase 6 wires it in); `test/gap.test.js` has 6 tests. The method changed from the plan in two ways, both for accuracy.
+
+- **T5.1 ✅ `buildGapTrace(model)`**
+  - **Distance on one reference line.** Every driver's location samples are projected onto driver A's path (forward-searching nearest segment, forward-only), so a given distance is the same place on track even when the lines differ. The plan's per-driver normalised distance misaligns drivers on different lines: 0.5 % of extra line length is about 15 m mid-lap, roughly 0.2 s. A unit test with a line that's wider on only part of the lap passes with projection and **fails** with naive normalisation (checked by mutation).
+  - **Anchors.** Each driver is pinned at the start line (t = 0) and the finish (t = lap time). The line positions are extrapolated from the reference's speed at its first and last samples, because OpenF1 samples start and end 0.02–0.3 s inside the lap. That makes "gap at the finish = lap delta" true by construction, so it **can't** be the validation gate the plan proposed.
+  - **Ground truth: official sector times.** Where the fastest driver crosses the S1 and S2 lines, each driver's computed gap must equal the official sector-time difference.
+  - **Clock calibration.** On real data the errors were near-constant per driver (Monza +0.156/+0.174 s, Silverstone −0.11/−0.06 s): the location clock and lap `date_start` disagree by a tenth or two. Each driver's offset relative to the fastest is estimated as the mean sector error (when two lines are available) and removed. It's rejected above 0.5 s.
+  - **Gate:** the trace is `reliable` only when:
+    - every driver has at least 20 samples, no hole over 2 s, and first/last samples within 1 s of the lap ends;
+    - the offset is ≤ 0.5 s;
+    - every sector line agrees within **0.1 s** after calibration.
+
+    Otherwise `reliable: false` with a Greek `reason`, and the UI will hide the gap chart and dominance.
+  - **Output:** `d` (400-point grid), `times[slot][k]`, `series` (gap to the fastest, lightly smoothed, exact at both ends), `checks`, `offsets`, and `trackFractions` (each grid point mapped onto the replay's track geometry for drawing).
+- **T5.2 ✅** `dominanceSegments(trace, buckets = 48)`: each stretch goes to the driver who covers it in the least time; neighbouring stretches with the same owner are merged, and `from`/`to` are track-geometry fractions. Empty when the trace isn't reliable.
+- **T5.3 ✅** `sectorTicks(model)`: the fastest driver's S1 and S1+S2 ends as fractions of the replay's time axis. Empty when sector times are missing.
+- **Real-data validation** (fastest laps from OpenF1, 29 Sep 2026): **8 of 8 reliable**. Baku (no data) and Singapore (rate limited) couldn't be tested.
+
+  | Session | Pair | Residual S1 / S2 (s) | Clock offset (s) |
+  |---|---|---|---|
+  | Suzuka 2025 Q | VER / NOR | +0.014 / −0.014 | −0.011 |
+  | Monza 2025 Q | VER / NOR | −0.009 / +0.009 | +0.165 |
+  | Monaco 2025 Q | NOR / LEC | +0.045 / −0.045 | −0.019 |
+  | Silverstone 2025 R | NOR / PIA | −0.023 / +0.023 | (on NOR) |
+  | Spa 2024 Q | LEC / VER | −0.068 / +0.068 | (on LEC) |
+  | Zandvoort 2025 Q | PIA / NOR | +0.026 / −0.026 | +0.079 |
+  | Melbourne 2025 Q | NOR / PIA | −0.059 / +0.059 | −0.021 |
+  | Bahrain 2025 R | PIA / RUS | −0.033 / +0.033 | −0.066 |
+
+  With 2 sector lines and 1 fitted offset, the residuals are symmetric: the gate effectively requires the two lines to agree within 0.2 s of each other.
+- **Follow-ups**
+  - The replay (Phase 4) still places cars by raw timestamps, so the same 0.1–0.17 s clock offset shows as a few metres of position error. It could reuse `trace.offsets` later.
+  - Dominance splits a lap into about 30 segments on close laps. Phase 6 should check that it reads well and consider fewer buckets.
+  - The e2e fixture's drivers start at different angles on their circle, so the trace will likely be unreliable there. Phase 6 needs fixture laps that pass the gate, plus one that doesn't (for the hidden-chart path).
 
 ### Phase 6: Loaded workspace
 
@@ -358,7 +383,7 @@ Ship in reviewable PRs. Each one should leave the app working:
 
 ## 7. Risks and open points
 
-- **Gap accuracy.** OpenF1 location is ~3.7 Hz (about 80 m between samples at 300 km/h). The T5.1 validation gate decides whether the gap and dominance views show. Check it on the fixture and on 3–4 real sessions (Monza Q, Suzuka Q, a street circuit) before Phase 6 depends on it.
+- **Gap accuracy.** ✅ Checked in Phase 5: with reference-line projection and sector-time clock calibration, 8/8 real sessions pass, with the sector error at most 0.068 s (see Phase 5). The gate still hides the views for data that fails.
 - **Lap start alignment.** Real time relies on `lap.date_start` and sample dates. If a session has missing or odd `date_start`, fall back to the first in-range sample and log it once.
 - **Drift from the site.** Hosting stays separate and the markup is copied, so it will drift. The nav constant and token header both carry their source and date; re-check them whenever f1stories changes its nav.
 - **Barlow has no Greek.** Every display string in Barlow must be Latin (`GHOST CAR.`, acronyms, slogans). Greek display text uses Plex 600.
