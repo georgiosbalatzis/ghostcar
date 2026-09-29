@@ -4,7 +4,10 @@ import { findLapByNumber } from "./domain/laps.js";
 import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
 import Dialog from "./components/ui/Dialog.jsx";
 import Icon, { IconButton } from "./components/ui/Icon.jsx";
-import { BuilderHeader, WorkspaceHeader } from "./app/AppHeader.jsx";
+import DeskHero, { BuilderUtilities } from "./app/DeskHero.jsx";
+import { Colophon, SignalBand, describeResult } from "./app/SignalBand.jsx";
+import SiteMasthead from "./app/SiteMasthead.jsx";
+import "./app/app.css";
 import useDocumentMeta from "./app/useDocumentMeta.js";
 import useKeyboardShortcuts from "./app/useKeyboardShortcuts.js";
 import useShowreel from "./app/useShowreel.js";
@@ -417,10 +420,9 @@ export default function App({ embed }) {
       saveComparison: saveToGallery,
       takeScreenshot,
       generateSocialCard,
-      toggleTheme,
       toggleShowreel: showreel.toggle,
     }),
-    [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot, toggleTheme]
+    [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot]
   );
   const seasonMenu = useMemo(
     () => (driverA && driverB ? { year: model.year, pair: `${driverA.label}–${driverB.label}` } : null),
@@ -476,10 +478,6 @@ export default function App({ embed }) {
       isDark={isDark}
       onSceneError={setSceneErr}
       touch={touch}
-      loading={replayLoading}
-      loadProgress={ldPct}
-      canCancelLoad={canCancelLoad}
-      onCancelLoad={cancelLoading}
       embed={embed}
     />
   );
@@ -497,13 +495,19 @@ export default function App({ embed }) {
       compact={embed}
     />
   );
-  const builderProps = {
-    availableYears: AVAILABLE_YEARS,
-    selection,
-    loading,
-    loadProgress: ldPct,
-    canCancelLoad,
-    onCancelLoad: cancelLoading,
+  const builderProps = { availableYears: AVAILABLE_YEARS, selection, loading };
+  // Replay loads report in the signal band, with the requested drivers and laps, progress and cancel.
+  const loadStatus = replayLoading && {
+    label: replayLoading,
+    context: activeSlots
+      .filter((slot) => slot.driverNumber && slot.lapNumber)
+      .map((slot) => {
+        const driver = selection.drivers.find((item) => item.driver_number === slot.driverNumber);
+        return `${driver?.name_acronym || `#${slot.driverNumber}`} γύρος ${slot.lapNumber}`;
+      })
+      .join(" · "),
+    progress: ldPct,
+    onCancel: canCancelLoad ? cancelLoading : null,
   };
   const notice = err && <Notice message={err} onClose={() => setErr("")} />;
 
@@ -529,14 +533,12 @@ export default function App({ embed }) {
   } else if (model) {
     surface = (
       <div className="workspace">
-        <WorkspaceHeader
-          actions={actions}
-          isDark={isDark}
-          showreel={showreel.active}
-          eventLabel={`${model.meetingName} ${model.year}`}
-          sessionLabel={model.sessionLabel}
-          season={seasonMenu}
-        />
+        <DeskHero model={model} actions={actions} showreel={showreel.active} season={seasonMenu} />
+        <SignalBand load={loadStatus}>
+          <span className="band__minor num">● Αναπαράσταση · {Math.round(prog * 100)}%</span>
+          <span className="band__sep" />
+          <span className="num">{describeResult(model)}</span>
+        </SignalBand>
         {notice}
         <main className="workspace__main">
           <div className="workspace__player">
@@ -561,26 +563,29 @@ export default function App({ embed }) {
   } else {
     surface = (
       <div className="builder-page">
-        <BuilderHeader actions={actions} isDark={isDark} showreel={showreel.active} />
+        <DeskHero actions={actions} showreel={showreel.active} />
+        <SignalBand load={loadStatus}>
+          <span>
+            ● Δεδομένα OpenF1 · Σεζόν {AVAILABLE_YEARS.at(-1)}–{AVAILABLE_YEARS[0]}
+          </span>
+          <span className="band__sep" />
+          <span className="band__minor">2 έως 4 οδηγοί ανά σύγκριση</span>
+        </SignalBand>
         {notice}
         <main className="builder-page__main">
-          <div className="builder-page__intro">
-            <h1>Σύγκριση γύρων Formula 1</h1>
-            <p>Διάλεξε αγώνα, οδηγούς και γύρους. Η αναπαράσταση δείχνει πού κερδίζεται και πού χάνεται ο χρόνος.</p>
-          </div>
           <ComparisonBuilder idPrefix="cb" onCompare={loadData} {...builderProps} />
           <FeaturedComparisons presets={PLAYABLE_PRESETS} onLoad={loadPreset} onShowAll={() => setDialog("featured")} />
+          <BuilderUtilities actions={actions} showreel={showreel.active} />
         </main>
-        <footer className="builder-page__footer">
-          Δεδομένα από το OpenF1 · <a href="https://f1stories.gr/">f1stories.gr</a>
-        </footer>
       </div>
     );
   }
 
   return (
     <div className={embed ? "app app--embed" : "app"}>
+      {!embed && <SiteMasthead isDark={isDark} onToggleTheme={toggleTheme} />}
       {surface}
+      {!embed && <Colophon />}
       {dialog === "edit" && model && (
         <Dialog title="Αλλαγή σύγκρισης" variant="sheet" onClose={closeDialog}>
           <ComparisonBuilder

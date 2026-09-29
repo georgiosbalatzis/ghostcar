@@ -64,10 +64,6 @@ export default function ReplayStage({
   isDark,
   onSceneError,
   touch,
-  loading,
-  loadProgress,
-  canCancelLoad,
-  onCancelLoad,
   embed = false,
 }) {
   const is2D = trackView === "2d";
@@ -112,22 +108,6 @@ export default function ReplayStage({
             </Suspense>
           )}
         </div>
-        {loading && (
-          <div className="stage__loading" role="status">
-            <div className="progress">
-              <div className="progress__bar" style={{ transform: `scaleX(${(loadProgress || 0) / 100})` }} />
-            </div>
-            <div className="stage__loading-text">
-              <span className="spinner" aria-hidden="true" />
-              {loading}
-              {canCancelLoad && (
-                <button type="button" className="btn btn--link" onClick={onCancelLoad}>
-                  Ακύρωση
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

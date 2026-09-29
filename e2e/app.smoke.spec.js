@@ -7,7 +7,14 @@ test("builder loads as the only surface, without browser errors", async ({ page 
   await page.goto(APP_PATH);
 
   await expect(page).toHaveTitle(/F1 Stories Ghost Car/);
-  await expect(page.getByRole("heading", { level: 1, name: "Σύγκριση γύρων Formula 1" })).toBeVisible();
+  // The f1stories.gr shell: site nav with Ghost Car current, the display title and the signal band.
+  await expect(page.getByRole("banner").getByRole("link", { name: "Ghost Car" })).toHaveAttribute(
+    "aria-current",
+    "page"
+  );
+  await expect(page.getByRole("heading", { level: 1, name: "Ghost Car." })).toBeVisible();
+  await expect(page.getByText("EVERY TENTH COUNTS.")).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toContainText("Δεδομένα από το OpenF1");
   await expect(page.getByLabel("Σεζόν")).toHaveValue("2025");
   // Progressive disclosure: session and driver fields appear only once they are relevant.
   await expect(page.getByLabel("Σκέλος")).toHaveCount(0);
@@ -70,8 +77,7 @@ test("secondary surfaces open from menus and close with Escape", async ({ page }
   await page.keyboard.press("Escape");
   await expect(featured).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Περισσότερα" }).click();
-  await page.getByRole("menuitem", { name: "Αποθηκευμένες συγκρίσεις" }).click();
+  await page.getByRole("button", { name: "Αποθηκευμένες" }).click();
   const saved = page.getByRole("dialog", { name: "Αποθηκευμένες συγκρίσεις" });
   await expect(saved).toContainText("Δεν έχεις αποθηκεύσει συγκρίσεις ακόμη");
   await page.keyboard.press("Escape");
@@ -95,8 +101,7 @@ test("theme is a quiet preference that persists", async ({ page }) => {
   const lightBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(lightBackground).toBe("rgb(242, 238, 228)");
 
-  await page.getByRole("button", { name: "Περισσότερα" }).click();
-  await page.getByRole("menuitem", { name: "Σκούρο θέμα" }).click();
+  await page.getByRole("banner").getByRole("button", { name: "Σκούρο θέμα" }).click();
   await expect(html).toHaveAttribute("data-theme", "dark");
   const darkBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(darkBackground).not.toEqual(lightBackground);
@@ -106,4 +111,20 @@ test("theme is a quiet preference that persists", async ({ page }) => {
   // URL theme wins over the stored preference.
   await page.goto(`${APP_PATH}?th=light`);
   await expect(html).toHaveAttribute("data-theme", "light");
+});
+
+test("phone masthead folds the site links into a menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  const menuButton = page.getByRole("button", { name: "Μενού F1 Stories" });
+  await menuButton.click();
+  const menu = page.locator(".masthead__menu");
+  await expect(menu.getByRole("link", { name: "Βαθμολογία" })).toHaveAttribute(
+    "href",
+    "https://f1stories.gr/standings/"
+  );
+  await expect(menu.getByRole("link", { name: "Ghost Car" })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 });

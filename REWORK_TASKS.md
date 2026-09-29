@@ -129,13 +129,13 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 
 | Test | Assertion | Breaks in | Update to |
 |---|---|---|---|
-| builder loads… | `heading level 1 "Σύγκριση γύρων Formula 1"` | T2.3 | h1 is `GHOST CAR.`; assert the tagline too |
+| builder loads… | `heading level 1 "Σύγκριση γύρων Formula 1"` | T2.3 ✅ | h1 is `GHOST CAR.`; assert the tagline too |
 | builder loads… | `heading "Επιλεγμένες συγκρίσεις"` visible | T3.2 | a link/button `Επιλεγμένες συγκρίσεις (18)` |
 | builder loads… | `Σκέλος` / `Οδηγός 1` absent before they are relevant | T3.1 | keep: progressive disclosure stays (T3.1 changes styles only) |
 | secondary surfaces… | button `/^Όλες/` opens the Featured dialog | T3.2 | click the presets link |
-| secondary surfaces… | `Περισσότερα` → `Αποθηκευμένες συγκρίσεις` on the **builder** | T2.6 | the `Αποθηκευμένες` link in the builder utility row (finding 2) |
+| secondary surfaces… | `Περισσότερα` → `Αποθηκευμένες συγκρίσεις` on the **builder** | T2.6 ✅ | the `Αποθηκευμένες` link in the builder utility row (finding 2) |
 | theme… | default `data-theme` is `dark` | T1.2 ✅ | updated: default `light`, toggle to dark |
-| theme… | toggle via `Περισσότερα` → menuitem `Φωτεινό θέμα` | T2.1 | the masthead theme button (hamburger menu at < 992 px) |
+| theme… | toggle via `Περισσότερα` → menuitem `Φωτεινό θέμα` | T2.1 ✅ | the masthead theme button (visible at every width) |
 | embed without comparison | `getByRole("banner")` count 0 | T2.1 | keep: the masthead must not render in embed |
 
 `e2e/scene.smoke.spec.js`
@@ -144,12 +144,12 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 |---|---|---|---|
 | primary flow | text `Τελική διαφορά γύρου` | T6.3/T6.4 | key-facts label `Τελική διαφορά` |
 | primary flow, invalid lap, four-driver, dirty lap, publishing | `.legend__value` = `0.500 s`; `.legend__drivers` contains `Γ7`/`Γ5`/`VER`; `.legend__drivers tbody tr` ×4 | T2.3/T6.4 (`DriverLegend` leaves the stage) | a `role="table"` named e.g. `Οδηγοί σύγκρισης` in the Δελτίο rail; the lap shown as `Γύρος 7` |
-| primary flow | `banner` contains `Monza GP 2025` | T2.1/T2.3 (the banner becomes the site masthead) | the hero (`main`) contains the event line |
+| primary flow | `banner` contains `Monza GP 2025` | T2.1/T2.3 ✅ | the hero region `Ghost Car.` contains the event line; the band text is asserted too |
 | primary flow, four-driver | `tab "Τηλεμετρία"` → `figure.trace` ×3; `.brake-lane` ×4 | T6.1/T6.8 (telemetry moves into Αναπαράσταση) | assert the charts on the default tab, with no click |
 | primary flow | `tab "Τομείς"` → table `Χρόνοι τομέων` | T6.1 | keep (Τομείς stays a tab; keep the table name) |
 | dirty lap | `tab "Γύροι"` → `button /Γ5/` → status `διαφέρει` → `Φόρτωση` | T6.9 | keep the roles and copy |
-| cancelled load | `.builder__status` shows `VER γύρος 7 · NOR γύρος 8` + `Ακύρωση` | T2.4 (status moves to the band) | the band's `role="status"`; keep the copy and the Ακύρωση button |
-| loaded at 320/390/768 | `.stage` top < 120 px | T2.3 | stage and play button both inside the first viewport (finding 1) |
+| cancelled load | `.builder__status` shows `VER γύρος 7 · NOR γύρος 8` + `Ακύρωση` | T2.4 ✅ | the band's `role="status"`; keep the copy and the Ακύρωση button |
+| loaded at 320/390/768 | `.stage` top < 120 px | T2.3 ✅ | stage and play button both inside the first viewport (finding 1) |
 | loaded at 320/390 | `.timeline` width > 250 px | T6.6 (the mobile mockup puts play, scrubber and time on one row) | keep > 250: give the time its own row under the scrubber on < 480 px |
 | loaded at…, primary flow, publishing | `timeline.fill("0.45")`, value grows on play, `ArrowRight` > 0 | T4.2 | keep: the slider stays a 0–1 `prog`; assert the time text as well |
 | loaded at… | `/Επανάληψη/` has `aria-pressed` | T6.6 | keep: the `↻ Επανάληψη` button stays a toggle |
@@ -183,25 +183,34 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
   - I rendered each one in the real app in both themes; they match the reference.
   - Nothing uses them yet. Removing old primitives happens in T10.1, once Phases 2–8 have replaced their users.
 
-### Phase 2: Shell (masthead, hero, band, colophon)
+### Phase 2: Shell (masthead, hero, band, colophon) ✅
 
-- **T2.1** `src/app/SiteMasthead.jsx` (new; replaces `BuilderHeader` and `WorkspaceHeader` in `src/app/AppHeader.jsx`). The markup mirrors `f1StoriesPage/partials/nav.html`: logo (`public/apple-touch-icon.png` at 48 px, or add a `logo-nav.webp`), `F1 STORIES.` wordmark, links (Αρχική, Άρθρα, YouTube, Βαθμολογία, Δεδομένα, **Ghost Car** active, Συντάκτες, BetCast), countdown and theme toggle. Put the link list in one constant with a comment giving its source file and date, for drift checks. Below 992 px, use a hamburger that opens the list via the existing `Menu` popover, and put the theme toggle in the menu.
-  *Done when:* at 1440 it matches `reference/f1s-standings.png` pixel-for-pixel in structure; at 390 it matches `reference/f1s-390.png`.
-- **T2.2** Countdown: add `useNextSession` (new, small). Use the OpenF1 `sessions?year=<current>` response already cached by `api.js` to find the next future session. Show "‹GP› in ‹country›" and `Xd Yh Zm`, updating every minute. If there is no data or it fails, hide the whole block without errors.
-- **T2.3** `src/app/DeskHero.jsx` (new) with two variants.
-  - Builder: `GHOST CAR.` + tagline + aside text.
-  - Loaded: `GHOST CAR.` + `‹Χώρα› ‹έτος› · ‹συνεδρία›` + aside with drivers/laps (`.ruled-row`s) and an ink **Αλλαγή σύγκρισης →** button that opens the existing `edit` dialog.
-  - Shrink the display size with `clamp()`: 150 px at 1440, 78 px at 390, on two lines on mobile.
-  - **Loaded, < 768 px:** collapse to a one-line `GHOST CAR.` with the event line only. Driver and lap details move to the Δελτίο, and **Αλλαγή σύγκρισης** goes in the tab row's `⋯`. *Done when:* at 320, 390 and 768 px the stage and the play button are both inside the first viewport.
-- **T2.4** `src/app/SignalBand.jsx` (new). Left side: status, which is load progress + Ακύρωση while loading, else `● Αναπαράσταση · NN%` and `Τελική διαφορά X.XXX s · ABC ταχύτερος`. Right side: `EVERY TENTH COUNTS.` in Barlow. Hide the slogan below 480 px (mobile uses `EVERY TENTH.`). Loading moves here from `stage__loading`; the stage keeps only the thin progress bar.
-- **T2.5** Colophon footer: dark `#1b1a19` band with `F1 STORIES.` and `Ghost Car · Δεδομένα από το OpenF1`. It replaces the one-line builder footer. Hidden in embed.
-- **T2.6** Move the actions out of the `⋯` menu:
-  - Share, Embed and `⋯ Περισσότερα` (Saved, Showreel, Shortcuts) go in the tab row.
-  - The theme toggle goes to the masthead.
-  - Season becomes a tab (T6.1).
-  - Keep every keyboard shortcut.
-  - **Builder page:** one quiet text row under the presets link, `Αποθηκευμένες · Αυτόματη προβολή · Συντομεύσεις`, so these stay reachable before anything is loaded.
-  *Done when:* every action from `AppHeader.moreGroups` is still reachable, and e2e covers it.
+On both surfaces the page now reads: f1stories masthead → crumb + `GHOST CAR.` hero → signal band → content → dark colophon. Embeds have none of these. The layout below the band is still redesign-v2's until Phase 6.
+
+- **T2.1 ✅** `src/app/SiteMasthead.jsx` replaces `BuilderHeader` and `WorkspaceHeader`. `AppHeader.jsx` is **deleted** now rather than in T10.1, because nothing else used it.
+  - It shows the site's own `logo-nav.webp` (2.7 kB, copied to `public/`), the `F1 STORIES.` wordmark, and the site links from one `NAV_LINKS` constant (with its source file and date), with Ghost Car as `aria-current="page"`.
+  - Below 992 px the links fold into a hamburger. It's a native `popover` `<nav>` of real links, not the `Menu` component, so they stay anchors.
+  - Change from the plan: the theme toggle stays **visible next to the hamburger** at every size, as on f1stories mobile, instead of moving into the menu. The theme item left the `⋯` menu; `D` still toggles it.
+- **T2.2 ✅** The countdown is `useNextRace` inside `SiteMasthead.jsx`. It reads the next non-cancelled race from OpenF1 `/sessions?year=Y&session_name=Race` (then Y+1), because OpenF1 lists the full calendar. It refreshes every minute, is hidden under 768 px, and is hidden on any failure or when no race remains. Checked against the live API on 29 Sep 2026: "Kuala Lumpur 4d 21h", the same race as the site's own countdown.
+- **T2.3 ✅** `src/app/DeskHero.jsx` provides:
+  - **Builder:** crumb, `GHOST CAR.` h1, tagline, and an aside with "Κάθε δέκατο, μια ιστορία."
+  - **Loaded:** the `Monza GP 2025 · Κατατακτήριες` event line, driver/lap `.ruled-row`s, and the actions (ink **Αλλαγή σύγκρισης**, **Κοινοποίηση**, `⋯`).
+  - **Loaded under 768 px:** a one-line opening (title + event + 44 px icon actions). The crumb's right half is hidden on phones.
+  - The actions sit in the hero until the Phase 6 tab row exists (T6.2 moves them).
+- **T2.4 ✅** `src/app/SignalBand.jsx`:
+  - **Idle:** builder shows `Δεδομένα OpenF1 · Σεζόν 2023–2026 | 2 έως 4 οδηγοί`; loaded shows `Αναπαράσταση · NN% | Τελική διαφορά X s · ABC ταχύτερος` (`describeResult`: fastest lap for 3–4 drivers). Secondary parts are hidden on phones, and the slogan shortens to `EVERY TENTH.` under 480 px.
+  - **While loading:** a live `role="status"` region with the label, `VER γύρος 7 · NOR γύρος 8`, **Ακύρωση**, and a 3 px ink progress line on the band's edge. Only that region is live, so the playback % isn't announced.
+  - Change from the plan: this is the **only** load indicator. The builder's `builder__status`/progress and the stage's `stage__loading` overlay are removed; there's no second bar on the stage.
+- **T2.5 ✅** Colophon: `#17191b` in both themes, `F1 STORIES.` + `Ghost Car · Δεδομένα από το OpenF1 · Τεχνική ματιά, καθαρή άποψη`. It replaces the builder's one-line footer.
+- **T2.6 ✅ (interim)**
+  - Workspace actions live in the loaded hero (see T2.3). The Season item stays in `⋯` until T6.1.
+  - Builder page: `BuilderUtilities` is a quiet text row, `Αποθηκευμένες · Αυτόματη προβολή · Συντομεύσεις`, currently under the featured list. It moves under the presets link in T3.2.
+  - Every former header action is reachable, and all keyboard shortcuts work.
+- **Layout**
+  - New token `--edge: clamp(16px, 3.4vw, 48px)` for the shell's side margins. The builder form is left-aligned to it until Phase 3.
+  - At ≥ 1100 px the workspace grid is `max(560px, 100dvh)` tall, so once you scroll to it the replay and rail fill the screen and the rail scrolls on its own. Phones and tablets keep the sticky player.
+- **Tests:** 22 e2e pass, including a new one for the phone hamburger menu.
+- **Size:** JS +1.6 kB gz, CSS +0.6 kB gz.
 
 ### Phase 3: Builder (empty state)
 

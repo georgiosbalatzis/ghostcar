@@ -65,20 +65,6 @@
   min-height: var(--touch-target);
   font-size: var(--text-body);
 }
-.builder__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-size: var(--text-control);
-  color: var(--text-2);
-}
-.builder__status-context {
-  color: var(--muted);
-}
-.builder__progress {
-  margin-top: calc(-1 * var(--space-4));
-}
 
 /* Narrow forms (phones, the edit sheet) follow the form's own width, not the viewport:
    season + Grand Prix with the session below, and each driver's lap under the driver. */

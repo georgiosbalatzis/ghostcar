@@ -98,6 +98,8 @@
   --touch-target: 44px;
   --rail-width: clamp(320px, 28vw, 420px);
   --gutter: var(--space-5);
+  /* Page margin for the site shell (masthead, hero, band, colophon): 48px at desktop, as on f1stories.gr. */
+  --edge: clamp(16px, 3.4vw, 48px);
 }
 
 @media (max-width: 767px) {

@@ -42,7 +42,8 @@ test("primary flow: build, compare, play, scrub, switch view, inspect, edit, sha
   await expect(page.getByLabel("Σεζόν")).toHaveCount(0);
   await expect(page.getByText("Τελική διαφορά γύρου")).toBeVisible();
   await expect(page.locator(".legend__value")).toHaveText("0.500 s");
-  await expect(page.getByRole("banner")).toContainText("Monza GP 2025");
+  await expect(page.getByRole("region", { name: "Ghost Car." })).toContainText("Monza GP 2025");
+  await expect(page.getByText("Τελική διαφορά 0.500 s · VER ταχύτερος")).toBeVisible();
 
   await timeline(page).fill("0.45");
   await page.getByRole("button", { name: "Αναπαραγωγή" }).click();
@@ -87,7 +88,8 @@ test("a cancelled load never replaces the builder or leaves a stuck loading stat
   await page.getByLabel("Οδηγός 2", { exact: true }).selectOption("4");
   await page.getByRole("button", { name: "Σύγκριση γύρων" }).click();
 
-  const status = page.locator(".builder__status");
+  // Load status reports in the signal band.
+  const status = page.getByRole("status").filter({ hasText: "VER γύρος 7 · NOR γύρος 8" });
   await expect(status).toContainText("VER γύρος 7 · NOR γύρος 8");
   await status.getByRole("button", { name: "Ακύρωση" }).click();
   await expect(status).toHaveCount(0);
@@ -203,9 +205,15 @@ for (const width of [320, 390, 768]) {
     expect(box.play.width).toBeGreaterThanOrEqual(44);
     expect(box.slider.width).toBeGreaterThan(width < 768 ? 250 : 300);
 
-    // The replay is reached before any form on small screens.
-    const stageTop = await page.locator(".stage").evaluate((node) => node.getBoundingClientRect().top);
-    expect(stageTop).toBeLessThan(120);
+    // The replay and its play button are in the first screen, below the one-line opening.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const firstScreen = await page.evaluate(() => ({
+      stage: document.querySelector(".stage").getBoundingClientRect().top,
+      play: document.querySelector(".transport__play").getBoundingClientRect().bottom,
+      height: window.innerHeight,
+    }));
+    expect(firstScreen.stage).toBeGreaterThan(0);
+    expect(firstScreen.play).toBeLessThanOrEqual(firstScreen.height);
 
     await page.getByRole("button", { name: "Αλλαγή σύγκρισης" }).click();
     await expect(page.getByRole("dialog", { name: "Αλλαγή σύγκρισης" }).getByLabel("Σεζόν")).toBeVisible();

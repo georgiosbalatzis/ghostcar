@@ -224,7 +224,7 @@ a {
   align-items: center;
   gap: var(--space-4);
   min-height: 44px;
-  padding: var(--space-2) var(--gutter);
+  padding: var(--space-2) var(--edge);
   background: var(--signal);
   color: var(--signal-ink);
   font-size: var(--text-control);

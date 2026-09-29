@@ -68,9 +68,6 @@ function ComparisonBuilder({
   availableYears,
   selection,
   loading,
-  loadProgress,
-  canCancelLoad,
-  onCancelLoad,
   onCompare,
   submitLabel = "Σύγκριση γύρων",
 }) {
@@ -100,7 +97,6 @@ function ComparisonBuilder({
     (slot) => slot.driverNumber && slot.lapsLoaded && !slot.lapLoading && slot.lapSelect.options.length === 0
   );
   const availability = getOpenF1AvailabilityMessages({ year, sessionName: session?.session_name });
-  const loadingReplay = isBusy && loadProgress !== undefined;
 
   return (
     <form
@@ -220,37 +216,7 @@ function ComparisonBuilder({
         <button type="submit" className="btn btn--primary builder__submit" disabled={!canCompare}>
           {submitLabel}
         </button>
-        {loadingReplay && (
-          <div className="builder__status" role="status">
-            <span className="spinner" aria-hidden="true" />
-            <span>
-              {loading}
-              {loadingReplay && (
-                <span className="builder__status-context">
-                  {" "}
-                  {activeSlots
-                    .filter((slot) => slot.driverNumber && slot.lapNumber)
-                    .map((slot) => {
-                      const driver = drivers.find((item) => item.driver_number === slot.driverNumber);
-                      return `${driver?.name_acronym || `#${slot.driverNumber}`} γύρος ${slot.lapNumber}`;
-                    })
-                    .join(" · ")}
-                </span>
-              )}
-            </span>
-            {canCancelLoad && (
-              <button type="button" className="btn btn--link" onClick={onCancelLoad}>
-                Ακύρωση
-              </button>
-            )}
-          </div>
-        )}
       </div>
-      {loadingReplay && (
-        <div className="progress builder__progress" aria-hidden="true">
-          <div className="progress__bar" style={{ transform: `scaleX(${(loadProgress || 0) / 100})` }} />
-        </div>
-      )}
     </form>
   );
 }
