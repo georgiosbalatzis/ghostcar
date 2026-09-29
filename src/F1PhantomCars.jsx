@@ -14,7 +14,7 @@ import useShowreel from "./app/useShowreel.js";
 import AnalysisRail from "./features/analysis/AnalysisRail.jsx";
 import { normalizeRailTab } from "./features/analysis/railTabs.js";
 import ComparisonBuilder from "./features/comparison/ComparisonBuilder.jsx";
-import { FeaturedComparisons, FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
+import { FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
 import SeasonDialog from "./features/insights/SeasonDialog.jsx";
 import PlaybackBar from "./features/replay/PlaybackBar.jsx";
 import ReplayStage from "./features/replay/ReplayStage.jsx";
@@ -574,8 +574,7 @@ export default function App({ embed }) {
         {notice}
         <main className="builder-page__main">
           <ComparisonBuilder idPrefix="cb" onCompare={loadData} {...builderProps} />
-          <FeaturedComparisons presets={PLAYABLE_PRESETS} onLoad={loadPreset} onShowAll={() => setDialog("featured")} />
-          <BuilderUtilities actions={actions} showreel={showreel.active} />
+          <BuilderUtilities actions={actions} showreel={showreel.active} presetCount={PLAYABLE_PRESETS.length} />
         </main>
       </div>
     );
@@ -592,6 +591,7 @@ export default function App({ embed }) {
             idPrefix="edit"
             onCompare={compareFromSheet}
             submitLabel="Φόρτωση σύγκρισης"
+            inSheet
             {...builderProps}
           />
         </Dialog>

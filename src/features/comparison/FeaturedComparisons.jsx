@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { DRIVER_NAME_BY_NUMBER, PRESETS, formatSessionLabel } from "../../constants.js";
 import { normalizeText } from "../../helpers.js";
 import Icon from "../../components/ui/Icon.jsx";
@@ -13,7 +13,7 @@ function PresetRow({ preset, onLoad }) {
     <li>
       <button type="button" className="preset" onClick={() => onLoad(preset)}>
         <span className="preset__title">{preset.title}</span>
-        <span className="preset__meta">
+        <span className="preset__meta kicker">
           <span className="preset__drivers">
             {preset.a1} – {preset.a2}
           </span>
@@ -25,31 +25,6 @@ function PresetRow({ preset, onLoad }) {
     </li>
   );
 }
-
-// Empty-state entry point: a few editorial comparisons, one click each.
-export const FeaturedComparisons = memo(function FeaturedComparisons({ presets, onLoad, onShowAll }) {
-  return (
-    <section className="featured" aria-labelledby="featured-title">
-      <div className="featured__head">
-        <h2 id="featured-title" className="featured__title">
-          Επιλεγμένες συγκρίσεις
-        </h2>
-        <button type="button" className="btn btn--link" onClick={onShowAll}>
-          Όλες ({presets.length})
-        </button>
-      </div>
-      <ul className="preset-list">
-        {presets.slice(0, 4).map((preset) => (
-          <PresetRow
-            key={`${preset.year}-${preset.meeting}-${preset.session}-${preset.d1}`}
-            preset={preset}
-            onLoad={onLoad}
-          />
-        ))}
-      </ul>
-    </section>
-  );
-});
 
 export function FeaturedDialog({ presets, onLoad, onClose }) {
   const [query, setQuery] = useState("");
@@ -87,7 +62,7 @@ export function FeaturedDialog({ presets, onLoad, onClose }) {
       />
       {years.map((year) => (
         <section key={year} className="preset-year">
-          <h3 className="preset-year__title">{year}</h3>
+          <h3 className="crumb preset-year__title">{year}</h3>
           <ul className="preset-list">
             {filtered
               .filter((preset) => preset.year === year)

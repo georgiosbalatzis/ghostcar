@@ -130,9 +130,9 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 | Test | Assertion | Breaks in | Update to |
 |---|---|---|---|
 | builder loads… | `heading level 1 "Σύγκριση γύρων Formula 1"` | T2.3 ✅ | h1 is `GHOST CAR.`; assert the tagline too |
-| builder loads… | `heading "Επιλεγμένες συγκρίσεις"` visible | T3.2 | a link/button `Επιλεγμένες συγκρίσεις (18)` |
+| builder loads… | `heading "Επιλεγμένες συγκρίσεις"` visible | T3.2 ✅ | a link/button `Επιλεγμένες συγκρίσεις (18)` |
 | builder loads… | `Σκέλος` / `Οδηγός 1` absent before they are relevant | T3.1 | keep: progressive disclosure stays (T3.1 changes styles only) |
-| secondary surfaces… | button `/^Όλες/` opens the Featured dialog | T3.2 | click the presets link |
+| secondary surfaces… | button `/^Όλες/` opens the Featured dialog | T3.2 ✅ | click the presets link |
 | secondary surfaces… | `Περισσότερα` → `Αποθηκευμένες συγκρίσεις` on the **builder** | T2.6 ✅ | the `Αποθηκευμένες` link in the builder utility row (finding 2) |
 | theme… | default `data-theme` is `dark` | T1.2 ✅ | updated: default `light`, toggle to dark |
 | theme… | toggle via `Περισσότερα` → menuitem `Φωτεινό θέμα` | T2.1 ✅ | the masthead theme button (visible at every width) |
@@ -212,16 +212,24 @@ On both surfaces the page now reads: f1stories masthead → crumb + `GHOST CAR.`
 - **Tests:** 22 e2e pass, including a new one for the phone hamburger menu.
 - **Size:** JS +1.6 kB gz, CSS +0.6 kB gz.
 
-### Phase 3: Builder (empty state)
+### Phase 3: Builder (empty state) ✅
 
-- **T3.1** Restyle `src/features/comparison/ComparisonBuilder.jsx` and `comparison.css` to `a-desk-empty.png`:
-  - A `01 / ΝΕΑ ΣΥΓΚΡΙΣΗ` crumb with a step counter on the right (`Βήμα n από 3`, derived from which fields are resolved).
-  - Row 1: underline selects for Σεζόν, Γκραν Πρι, Συνεδρία.
-  - Row 2: one column per driver with a 4 px team-colour top rule, `ΟΔΗΓΟΣ A`, and Οδηγός/Γύρος selects.
-  - Right column: `+ Πρόσθεσε τρίτο οδηγό`, ink **Σύγκριση γύρων →**, and a one-line note.
-  - Keep native `<select>`s, labels, `fieldset/legend`, availability messages, disabled/loading states, the 2–4 slot model and restore order. **Styles only; no hook changes.**
-- **T3.2** Remove the `FeaturedComparisons` list from the empty state (`src/F1PhantomCars.jsx` builder surface). Add the presets row `Ή ξεκίνα από έτοιμη σύγκριση · ΕΠΙΛΕΓΜΕΝΕΣ ΣΥΓΚΡΙΣΕΙΣ (18) →`, which opens `dialog="featured"`. Restyle the `FeaturedDialog` as ruled rows with kicker metadata.
-- **T3.3** Edit sheet (loaded → Αλλαγή σύγκρισης): the same builder markup inside `Dialog`, on paper surface, with the same field styles. Behaviour is unchanged: the replay stays until Compare.
+- **T3.1 ✅** `ComparisonBuilder.jsx` and `comparison.css` now follow `a-desk-empty.png`:
+  - `01 / ΝΕΑ ΣΥΓΚΡΙΣΗ` crumb with `Βήμα n από 3` (event → session → drivers).
+  - Underline fields.
+  - One column per driver, with a 4 px team-colour top rule (neutral until a driver is chosen) and a `ΟΔΗΓΟΣ A…D` kicker.
+  - A right-hand column with `+ Πρόσθεσε τρίτο/τέταρτο οδηγό`, the ink **Σύγκριση γύρων →** (a quiet surface fill while disabled), and the OpenF1 note.
+  - The layout follows the **form's** width (container queries): ≥ 900 px is 3-column event + A|B + action column; tablet puts the action under the drivers; ≤ 560 px (phones, the sheet) is Season + GP, then Session, then one driver per row.
+  - Unchanged: every `id`, `aria-label` and label text (`Σκέλος` stays), progressive disclosure, native selects, availability hints, and the 2–4 slot hooks.
+  - The group legends are visually hidden (the crumb and kickers carry the structure).
+- **T3.2 ✅** The four-card `FeaturedComparisons` list is removed from the page and its component deleted. The builder now ends with:
+  - a ruled row `Ή ξεκίνα από έτοιμη σύγκριση · ΕΠΙΛΕΓΜΕΝΕΣ ΣΥΓΚΡΙΣΕΙΣ (18) →` that opens the existing searchable dialog;
+  - the utility row under it (`BuilderUtilities` in `DeskHero.jsx`).
+  - The dialog's rows are ruled, with 16 px/600 titles, kicker metadata, and crumb-style year headings. Full dialog chrome is T8.1.
+  - The builder page now spans the full `--edge` width, as in the mockup.
+- **T3.3 ✅** The edit sheet renders the same builder with `inSheet`: no crumb or note, tighter rhythm, 16 px fields. Its behaviour is unchanged.
+- **Tests:** checked visually at 390, 768 and 1440 px in both themes, with 2 and 4 drivers, plus the sheet and dialog. The removable driver's column lines up with its neighbours. All 22 e2e tests pass.
+- **Size:** JS +0.15 kB gz.
 
 ### Phase 4: Real-time playback engine ⟶ (blocks Phases 5 and 6)
 

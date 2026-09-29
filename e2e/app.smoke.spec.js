@@ -20,7 +20,9 @@ test("builder loads as the only surface, without browser errors", async ({ page 
   await expect(page.getByLabel("Σκέλος")).toHaveCount(0);
   await expect(page.getByLabel("Οδηγός 1", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Σύγκριση γύρων" })).toBeDisabled();
-  await expect(page.getByRole("heading", { name: "Επιλεγμένες συγκρίσεις" })).toBeVisible();
+  // Featured comparisons are one quiet link to their dialog, not a list on the page.
+  await expect(page.getByRole("button", { name: /^Επιλεγμένες συγκρίσεις \(\d+\)/ })).toBeVisible();
+  await expect(page.getByText("Μαγική pole στη Suzuka")).toHaveCount(0);
   // No replay chrome before there is a replay.
   await expect(page.getByRole("slider", { name: "Πρόοδος γύρου" })).toHaveCount(0);
   await expect(page.getByRole("tab")).toHaveCount(0);
@@ -66,7 +68,7 @@ test("secondary surfaces open from menus and close with Escape", async ({ page }
   await routeOpenF1(page);
   await page.goto(APP_PATH);
 
-  await page.getByRole("button", { name: /^Όλες/ }).click();
+  await page.getByRole("button", { name: /^Επιλεγμένες συγκρίσεις/ }).click();
   const featured = page.getByRole("dialog", { name: "Επιλεγμένες συγκρίσεις" });
   await expect(featured).toBeVisible();
   await featured.getByRole("searchbox").fill("suzuka");

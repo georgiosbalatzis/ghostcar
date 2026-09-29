@@ -140,22 +140,31 @@ function DeskHero({ model, actions, showreel, season }) {
   );
 }
 
-// Before anything is loaded there is no ⋯ menu, so these stay reachable as a quiet text row.
-export function BuilderUtilities({ actions, showreel }) {
+// Under the builder: the featured comparisons (a dialog), and the utilities that live in ⋯ once a
+// comparison is loaded, as a quiet text row.
+export function BuilderUtilities({ actions, showreel, presetCount }) {
   return (
-    <p className="builder-utilities">
-      <button type="button" className="btn btn--link" onClick={() => actions.openDialog("saved")}>
-        Αποθηκευμένες
-      </button>
-      <button type="button" className="btn btn--link" onClick={actions.toggleShowreel}>
-        {showreel ? "Διακοπή αυτόματης προβολής" : "Αυτόματη προβολή"}
-      </button>
-      {HAS_KEYBOARD && (
-        <button type="button" className="btn btn--link" onClick={() => actions.openDialog("shortcuts")}>
-          Συντομεύσεις
+    <div className="builder-more">
+      <p className="builder-more__presets">
+        <span className="kicker">Ή ξεκίνα από έτοιμη σύγκριση</span>
+        <button type="button" className="btn btn--link kicker" onClick={() => actions.openDialog("featured")}>
+          Επιλεγμένες συγκρίσεις ({presetCount}) →
         </button>
-      )}
-    </p>
+      </p>
+      <p className="builder-more__utilities">
+        <button type="button" className="btn btn--link" onClick={() => actions.openDialog("saved")}>
+          Αποθηκευμένες
+        </button>
+        <button type="button" className="btn btn--link" onClick={actions.toggleShowreel}>
+          {showreel ? "Διακοπή αυτόματης προβολής" : "Αυτόματη προβολή"}
+        </button>
+        {HAS_KEYBOARD && (
+          <button type="button" className="btn btn--link" onClick={() => actions.openDialog("shortcuts")}>
+            Συντομεύσεις
+          </button>
+        )}
+      </p>
+    </div>
   );
 }
 
