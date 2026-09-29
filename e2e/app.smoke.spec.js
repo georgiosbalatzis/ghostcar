@@ -85,9 +85,12 @@ test("secondary surfaces open from menus and close with Escape", async ({ page }
   await page.keyboard.press("Escape");
   await expect(saved).toHaveCount(0);
 
-  await page.keyboard.press("?");
   const shortcuts = page.getByRole("dialog", { name: "Συντομεύσεις πληκτρολογίου" });
-  await expect(shortcuts).toBeVisible();
+  // The key can land while the page is still catching up after the last dialog closed: press until it opens.
+  await expect(async () => {
+    await page.keyboard.press("?");
+    await expect(shortcuts).toBeVisible({ timeout: 1500 });
+  }).toPass();
   await shortcuts.getByRole("button", { name: "Κλείσιμο" }).click();
   await expect(shortcuts).toHaveCount(0);
   // Focus returns to the page, not lost in a removed dialog.

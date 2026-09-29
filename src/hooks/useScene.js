@@ -232,6 +232,10 @@ export default function useScene(
             R.current.lineSet?.restyle(liveRef.current.style.map((driver) => driver.color));
           },
           setViz: track.setViz,
+          setQuality(tier) {
+            environment.setDetail(tier === 0);
+            R.current.quality = tier;
+          },
           setSectors(fractions) {
             R.current.labels?.setSectors(track.setSectors(fractions));
           },
@@ -306,6 +310,8 @@ export default function useScene(
           world: live.frame.bounds,
           start: track.start,
           band: track.band,
+          tails,
+          setQuality: (tier) => R.current.api?.setQuality(tier),
           cars,
           info: () => ren?.info,
           project,

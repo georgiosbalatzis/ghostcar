@@ -74,7 +74,7 @@ export function startSceneRenderLoop({
       fractions: carProgress,
       time: clock,
       pathTimes,
-      showTails: isPlaying && cameraMode !== "top",
+      showTails: isPlaying && cameraMode !== "top" && (sceneState.quality ?? 0) < 2,
     });
     needsRender = needsRender || carUpdate.needsRender;
 

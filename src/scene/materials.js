@@ -11,7 +11,15 @@ import {
 
 // Road, run-off and skirts are lit, so the relief reads; the colours come from sceneTheme.js.
 export function createRoadMaterial(color) {
-  return new MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.25 });
+  // Not tone-mapped: the neutral operator lowers dark colours a little, and the road has to be the palette's colour.
+  return new MeshStandardMaterial({
+    color,
+    roughness: 0.95,
+    metalness: 0,
+    side: DoubleSide,
+    envMapIntensity: 0, // no reflections: the road is lit by the sun and sky alone
+    toneMapped: false,
+  });
 }
 
 // Paint and the start line sit on the road: polygon offset wins the depth test at any distance.

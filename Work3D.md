@@ -402,19 +402,19 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 **✅ T6.4: Sector boundaries.** _(Decision: yes, draw them. Done. The comment in `buildTrack.js` now says why they are drawn only for a trusted gap trace.)_
 - Proposal: when `trace.reliable`, draw thin neutral lines across the road, with "S1 | S2" chips, at the fastest driver's position at `sector1` and `sector1 + sector2` seconds (`fractionAtTime` on their corrected `pathTimes`). This is derived from official sector times and position data and is gated like dominance. However, `buildTrack.js:156-157` records a deliberate decision *not* to draw sectors. **Ask the owner.** Implement only on a yes, and then also update that comment.
 
-### Phase 7: Look and feel pass
+### ✅ Phase 7: Look and feel pass
 
-**T7.1: Scene palette from tokens.**
+**✅ T7.1: Scene palette from tokens.** _(Done. `test/scene-theme.test.js` holds the palette to `tokens.css`. The road is one step past `--surface-3` in both themes, because at the tokens' own values the light road/run-off contrast is 1.12:1. Roads are no longer tone-mapped and have no reflections, so a lit road renders as its palette colour within a few units.)_
 - Files: `sceneTheme.js`.
 - Steps: for each theme, define `background` (= `--surface`), `ground`, `grid minor/major`, `road`, `runoff`, `skirt`, `paint`, `ink`, `signal`, the speed ramp and the shadow opacity. Derive them from `src/styles/tokens.css` values and record which token each one mirrors in a comment, as the current `SCENE_THEME` does. Check the two themes side by side with the page around the stage.
 - Acceptance: at a glance the stage looks like part of the page in both themes. The road/ground contrast is visible but quiet. Road vs run-off contrast is ≥ 1.15:1 (a subtle but readable step).
 
-**T7.2: Antialiasing and resolution.**
+**✅ T7.2: Antialiasing and resolution.** _(Done except the phone measurement, which needs a real device and was not made. The 3D scene has no separate "placeholder shadows" to fall back to: a shadow is already one textured quad per car, so tier 2 only drops the tails.)_
 - Files: `createRenderer.js`, `adaptiveQuality.js`.
 - Steps: turn on `antialias: true` everywhere, since there are no more 1 px lines and MSAA is the cheapest fix for skirt/road edges. Keep the pixel-ratio caps. Adaptive quality tiers become: tier 0 is full; tier 1 lowers DPR and hides the grid's minor lines; tier 2 lowers DPR further, hides tails and uses the placeholder shadows only. Measure frame rate before and after on a phone.
 - Acceptance: no visible stair-stepping on road edges at 1440 DPR 1. Phones stay ≥ 30 fps during playback in Overview and Chase (manual check, record the device in the phase commit message).
 
-**T7.3: Reduced motion and restraint.**
+**✅ T7.3: Reduced motion and restraint.**
 - Steps: under `prefers-reduced-motion`, make camera transitions instant, TV only cuts, and chase uses a stiffer spring (no sway). Confirm there is no auto-rotation, no shake and no continuous animation while paused. The render loop must go idle when paused and not interacting (keep the existing `IDLE_MS` logic).
 - Acceptance: with playback paused and no input, `renderer.info.render.frame` does not advance over 2 s (e2e via the dev hook).
 

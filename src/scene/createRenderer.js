@@ -67,7 +67,7 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
     const width = Math.max(container.clientWidth, 1);
     const height = Math.max(container.clientHeight, 1);
     // A phone is a narrow viewport, not a narrow stage: on desktop the stage shares its row with the analysis
-    // rail and can be under 768px wide, and must still get antialiasing and a readable buffer.
+    // rail and can be under 768px wide, and must still get a readable buffer.
     const isMob = window.innerWidth < 768;
     const connection =
       window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
@@ -88,7 +88,8 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
 
     const camera = new PerspectiveCamera(50, width / height, 0.3, 20000);
     renderer = new WebGLRenderer({
-      antialias: !isMob,
+      // Every road edge is a hard edge now (no 1 px lines), and multisampling is the cheapest way to smooth them.
+      antialias: true,
       powerPreference: isMob ? "low-power" : "high-performance",
       preserveDrawingBuffer: !isMob,
     });

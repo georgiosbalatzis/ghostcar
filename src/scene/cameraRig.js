@@ -118,6 +118,15 @@ export function createCameraRig({
     controls.update();
   }
 
+  // A spring never quite arrives: within a centimetre and at rest, it has, so a paused chase camera goes idle.
+  function settle(current, target, velocity, omega, dt) {
+    springStep(current, target, velocity, omega, dt);
+    if (current.distanceToSquared(target) < 1e-4 && velocity.lengthSq() < 1e-4) {
+      current.copy(target);
+      velocity.set(0, 0, 0);
+    }
+  }
+
   // ─── The cars ───
   const slotOf = (requested) => (cars[requested - 1] ? requested : 1);
   const placeOf = (frame, slot) => frame.carStates[slot - 1].place;
@@ -144,11 +153,11 @@ export function createCameraRig({
     const stiff = prefersReducedMotion() ? 14 : 6;
     desired.set(-fx * distance, 2.8, -fz * distance);
     if (chase.snap) chase.offset.copy(desired);
-    else springStep(chase.offset, desired, chase.velocity, stiff, dt);
+    else settle(chase.offset, desired, chase.velocity, stiff, dt);
     pointAhead(frame.driverPaths[slot - 1], frame.fractions[slot - 1], 15, ahead);
     desired.set(ahead.x - place.x, 1 + Math.tan(place.pitch) * 15, ahead.z - place.z);
     if (chase.snap) chase.lookOffset.copy(desired);
-    else springStep(chase.lookOffset, desired, chase.lookVelocity, 10, dt);
+    else settle(chase.lookOffset, desired, chase.lookVelocity, 10, dt);
     chase.snap = false;
     out.pos.set(place.x + chase.offset.x, place.y + chase.offset.y, place.z + chase.offset.z);
     out.look.set(place.x + chase.lookOffset.x, place.y + chase.lookOffset.y, place.z + chase.lookOffset.z);

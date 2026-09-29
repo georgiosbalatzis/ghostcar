@@ -102,8 +102,6 @@ function paintMaterial(material, color, isDark, isGhost) {
   }
 }
 
-const SHADOW_OPACITY = { dark: 0.5, light: 0.35 };
-
 function applyModelToCar(template, carGroup, shared) {
   if (!carGroup) return;
   const clone = template.clone(true);
@@ -150,7 +148,7 @@ function restyleCar(carGroup, { color, isDark }) {
   const paint = new Color(color);
   const { isGhost, placeholder, shadow } = carGroup.userData;
   carGroup.userData.color = color;
-  shadow.material.opacity = SHADOW_OPACITY[isDark ? "dark" : "light"];
+  shadow.material.opacity = (isDark ? SCENE_THEME.dark : SCENE_THEME.light).shadow;
   if (placeholder) {
     placeholder.material.color.copy(paint);
     placeholder.material.emissive.copy(paint);

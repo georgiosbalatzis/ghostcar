@@ -29,7 +29,9 @@ export function createAdaptiveQualityController({
     if (container && !isContextLost() && container.clientWidth && container.clientHeight) {
       renderer.setSize(container.clientWidth, container.clientHeight);
     }
+    // Beyond the resolution: tier 1 drops the fine grid, tier 2 also the cars' tails.
     const sceneState = getSceneState();
+    sceneState.api?.setQuality(tier);
     sceneState._dirty = true;
   }
 

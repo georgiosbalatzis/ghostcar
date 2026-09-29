@@ -27,6 +27,7 @@ const GROUND_FRAGMENT = `
   uniform vec3 uMinor;
   uniform vec3 uMajor;
   uniform float uRadius;
+  uniform float uMinorOn;
   float gridLine(vec2 p, float size) {
     vec2 q = p / size;
     vec2 fw = fwidth(q);
@@ -36,7 +37,7 @@ const GROUND_FRAGMENT = `
   }
   void main() {
     float reach = 1.0 - smoothstep(0.7 * uRadius, uRadius, length(vWorld.xz));
-    vec3 col = mix(uGround, uMinor, gridLine(vWorld.xz, 100.0) * reach);
+    vec3 col = mix(uGround, uMinor, gridLine(vWorld.xz, 100.0) * reach * uMinorOn);
     col = mix(col, uMajor, gridLine(vWorld.xz, 500.0) * reach);
     gl_FragColor = vec4(col, 1.0);
     #include <colorspace_fragment>
@@ -62,6 +63,7 @@ export function buildEnvironment({ scene, renderer, isDark, bounds, groundY }) {
         uMinor: { value: new Color() },
         uMajor: { value: new Color() },
         uRadius: { value: 1.6 * extent },
+        uMinorOn: { value: 1 },
       },
     })
   );
@@ -98,5 +100,9 @@ export function buildEnvironment({ scene, renderer, isDark, bounds, groundY }) {
     hemisphere.intensity = 1.3;
   }
   applyTheme(isDark);
-  return { applyTheme };
+  // Quality tier 1 and up drops the fine grid, the busiest thing on the ground.
+  const setDetail = (full) => {
+    ground.material.uniforms.uMinorOn.value = full ? 1 : 0;
+  };
+  return { applyTheme, setDetail };
 }
