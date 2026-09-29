@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>B · Tech Desk · mobile</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { --bg: #1b1a19; --panel: #222426; --panel-2: #2c2e30; --line: #3a3b3c; --txt: #eee7dc; --mut: #9d9a93; --teal: #5ec4b6; --sig: #ff775f; --road: #2e3031; --ver: #4c86e0; --nor: #ff8a1f;
+    background: var(--bg); color: var(--txt); height: 844px; overflow: hidden; display: grid; grid-template-rows: 52px 318px auto 1fr 62px;
+    background-image: repeating-linear-gradient(90deg, rgb(238 231 220 / .04) 0 1px, transparent 1px 78px); }
+  .top { display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+  .top .brand { font: 700 22px var(--display); } .top .brand .dot { color: var(--sig); }
+  .top .ev { margin-left: auto; font-size: 13px; } .top .ev .kicker { color: var(--teal); font-size: 10px; display: block; text-align: right; }
+  .more { width: 40px; height: 40px; border: 1px solid var(--line); display: grid; place-items: center; font-size: 18px; }
+  .stage { position: relative; overflow: hidden; }
+  .persp { position: absolute; inset: 150px 30px 10px 40px; perspective: 700px; }
+  .persp .t { position: absolute; inset: 0; transform: rotateX(48deg) rotateZ(-8deg) scale(1.0); }
+  .hl { position: absolute; left: 16px; top: 16px; }
+  .hl .kicker { color: var(--teal); font-size: 10px; }
+  .hl h1 { font: 700 92px/.85 var(--display); margin-top: 6px; } .hl h1 .dot { color: var(--teal); }
+  .hl p { color: var(--mut); font-size: 12.5px; margin-top: 4px; }
+  .gap { position: absolute; right: 16px; top: 22px; text-align: right; border-top: 2px solid var(--teal); padding-top: 8px; }
+  .gap b { font-size: 30px; font-weight: 400; display: block; line-height: 1.1; } .gap b i { color: var(--teal); font-style: normal; }
+  .gap span { font-size: 10px; color: var(--mut); letter-spacing: .12em; }
+  .chips .label-chip { position: absolute; --ink: var(--txt); --paper: var(--bg); font-size: 15px; }
+  .rows { padding: 0 16px; }
+  .row { display: grid; grid-template-columns: 4px 50px 1fr auto; gap: 10px; align-items: center; height: 54px; border-bottom: 1px solid var(--line); }
+  .row .c { height: 30px; background: var(--c); }
+  .row .a { font: 700 24px var(--display); }
+  .row .s { font: 700 34px/1 var(--display); } .row .s small { font: 400 11px var(--ui); color: var(--mut); }
+  .row .t { text-align: right; font-weight: 600; font-size: 14px; } .row .t small { display: block; font-weight: 400; color: var(--mut); font-size: 11px; }
+  .strip { padding: 12px 16px 0; display: grid; grid-template-rows: auto 1fr; gap: 10px; }
+  .ctl { display: flex; align-items: center; gap: 12px; }
+  .pb { width: 46px; height: 46px; background: var(--txt); display: grid; place-items: center; }
+  .pb i { border-left: 13px solid var(--bg); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin-left: 3px; }
+  .ctl b { font-size: 18px; } .ctl .m { color: var(--mut); font-size: 12px; }
+  .ctl .opts { margin-left: auto; display: flex; gap: 6px; } .ctl .opts span { border: 1px solid var(--line); padding: 6px 9px; font-size: 12px; } .ctl .opts .on { background: var(--txt); color: var(--bg); }
+  .lanes { position: relative; display: grid; grid-template-rows: 16px 1fr 1fr; gap: 4px; }
+  .sbar { display: grid; grid-template-columns: 34.1fr 34.3fr 31.6fr; } .sbar span { border-left: 1px solid var(--line); padding-left: 5px; font-size: 10px; color: var(--mut); letter-spacing: .1em; }
+  .lane { position: relative; border-bottom: 1px solid var(--line); }
+  .knob { position: absolute; left: 32%; top: 16px; bottom: -4px; width: 2px; background: var(--txt); }
+  .knob::after { content: ""; position: absolute; bottom: -6px; left: -7px; width: 16px; height: 16px; background: var(--txt); }
+  nav.tb { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--panel); }
+  nav.tb span { display: grid; place-items: center; font-size: 12.5px; color: var(--mut); border-top: 2px solid transparent; }
+  nav.tb span.on { color: var(--txt); border-color: var(--teal); font-weight: 600; }
+</style></head>
+<body>
+<header class="top"><span class="brand">F1 STORIES<span class="dot">.</span></span><div class="ev"><span class="kicker">R16 / Monza</span>Κατατακτήριες</div><div class="more">⋯</div></header>
+<main class="stage">
+  <div class="persp"><div class="t" id="trk"></div></div><div class="chips" id="chips"></div>
+  <div class="hl num"><span class="kicker">Τελική διαφορά</span><h1>0.153<span class="dot">.</span></h1><p>VER ταχύτερος</p></div>
+  <div class="gap num"><span>ΣΤΟ ΙΔΙΟ ΣΗΜΕΙΟ</span><b><i>+</i><span id="gap"></span></b><span>NOR ΜΠΡΟΣΤΑ</span></div>
+</main>
+<section class="rows num">
+  <div class="row" style="--c:var(--ver)"><span class="c"></span><span class="a">VER</span><span class="s" data-s="0"></span><span class="t">1:18.792<small>Γ7 · Soft</small></span></div>
+  <div class="row" style="--c:var(--nor)"><span class="c"></span><span class="a">NOR</span><span class="s" data-s="1"></span><span class="t">+0.153<small>Γ8 · Soft</small></span></div>
+</section>
+<section class="strip num">
+  <div class="ctl"><div class="pb"><i></i></div><div><b>0:25.213</b><div class="m">/ 1:18.792</div></div><div class="opts"><span class="on">3D</span><span>2D</span><span>1×</span></div></div>
+  <div class="lanes"><div class="sbar"><span>S1</span><span>S2</span><span>S3</span></div><div class="lane" id="d"></div><div class="lane" id="s"></div><div class="knob"></div></div>
+</section>
+<nav class="tb"><span class="on">Ζωντανά</span><span>Τηλεμετρία</span><span>Τομείς</span><span>Γύροι</span></nav>
+<script src="shared.js"></script>
+<script>
+  const P = 0.32;
+  const svg = GC.track(document.getElementById("trk"), { road: "var(--road)", width: 26, startColor: "var(--sig)", carR: 12, carStroke: "var(--bg)", cars: [{ p: P + 0.004, c: "var(--ver)" }, { p: P, c: "var(--nor)" }] });
+  [...svg.querySelectorAll("circle")].forEach((c, i) => {
+    const r = c.getBoundingClientRect(), s = document.querySelector(".stage").getBoundingClientRect();
+    const d = document.createElement("span"); d.className = "label-chip"; d.textContent = i ? "NOR" : "VER";
+    d.style.cssText = `--c:var(--${i ? "nor" : "ver"});left:${r.left - s.left + 16}px;top:${r.top - s.top + (i ? 12 : -28)}px`;
+    document.getElementById("chips").appendChild(d);
+  });
+  document.getElementById("gap").textContent = GC.gap(P).toFixed(3);
+  document.querySelectorAll("[data-s]").forEach((e) => (e.innerHTML = Math.round(GC.speed(P, +e.dataset.s)) + "<small> km/h</small>"));
+  const sectors = [0.341, 0.684];
+  GC.trace(document.getElementById("d"), [
+    { fn: (p) => Math.max(0, GC.gap(p)), c: "var(--nor)", fill: "color-mix(in srgb, var(--nor) 35%, transparent)", width: 1 },
+    { fn: (p) => Math.min(0, GC.gap(p)), c: "var(--ver)", fill: "color-mix(in srgb, var(--ver) 35%, transparent)", width: 1 },
+  ], { min: -0.17, max: 0.07, zero: 0, sectors });
+  GC.trace(document.getElementById("s"), [{ fn: (p) => GC.speed(p, 0), c: "var(--ver)" }, { fn: (p) => GC.speed(p, 1), c: "var(--nor)", dash: "4 3" }], { min: 60, max: 380, sectors });
+</script>
+</body></html>

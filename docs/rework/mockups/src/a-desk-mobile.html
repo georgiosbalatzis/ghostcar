@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>A · Data Desk · mobile</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .wrap { padding: 0 16px; }
+  .mast { height: 64px; padding: 0 16px; gap: 10px; }
+  .mast .brand { font-size: 24px; }
+  .mast .brand img { width: 30px; height: 30px; }
+  .burger { width: 42px; height: 42px; border: 1px solid var(--rule); display: grid; place-content: center; gap: 5px; }
+  .burger i { display: block; width: 20px; height: 2px; background: var(--ink); }
+  .crumb { display: flex; justify-content: space-between; border-top: 1px solid var(--ink); padding-top: 12px; margin-top: 18px; font-size: 10.5px; }
+  h1 { font: 700 78px/.85 var(--display); letter-spacing: -.02em; margin-top: 22px; }
+  .sub { font-size: 20px; margin-top: 10px; }
+  .vs { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px 10px; align-items: center; font-size: 14px; margin: 16px 0; }
+  .band { padding: 0 16px; height: 40px; font-size: 12.5px; }
+  .tabs { gap: 4px; overflow: hidden; white-space: nowrap; font-size: 14px; }
+  .tabs span { padding: 14px 10px; }
+  .stage { position: relative; height: 250px; background: var(--paper-2); border-top: 2px solid var(--ink); margin-top: 14px; }
+  .stage .trk { position: absolute; inset: 24px 8px 10px; }
+  .stage .kicker { position: absolute; top: 10px; left: 12px; font-size: 10px; }
+  .seg { position: absolute; top: 8px; right: 8px; display: flex; border: 1px solid var(--rule); background: var(--paper); font-size: 12px; }
+  .seg span { padding: 4px 10px; } .seg .on { background: var(--ink); color: var(--paper); }
+  .transport { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .play { width: 44px; height: 44px; background: var(--ink); display: grid; place-items: center; }
+  .play i { border-left: 12px solid var(--paper); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin-left: 3px; }
+  .scrub { position: relative; height: 4px; background: var(--paper-3); }
+  .scrub i { position: absolute; inset: 0 68% 0 0; background: var(--signal); }
+  .scrub b { position: absolute; left: 32%; top: -7px; width: 4px; height: 18px; background: var(--ink); }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 16px; padding: 20px 0; border-bottom: 1px solid var(--rule); }
+  .facts b { display: block; font-size: 18px; font-weight: 600; margin-top: 8px; }
+  .facts small { font-size: 12px; color: var(--ink-2); }
+  .facts .kicker { font-size: 10px; color: var(--ink-2); }
+  h3 { font: 600 22px/1.1 var(--ui); text-transform: uppercase; margin-top: 24px; }
+  .drv { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; padding: 12px 0 12px 12px; border-left: 3px solid var(--c); border-bottom: 1px solid var(--rule); margin-top: 8px; }
+  .drv .pos { font-size: 22px; font-weight: 600; color: var(--accent); }
+  .drv .nm { font-size: 16px; font-weight: 500; line-height: 1.2; } .drv .tm { font-size: 12px; color: var(--ink-2); }
+  .drv .t { font-size: 20px; font-weight: 600; }
+</style></head>
+<body>
+<header class="mast"><a class="brand"><img src="../../../../public/apple-touch-icon.png" alt="">F1 STORIES<span class="dot">.</span></a><div class="right" style="gap:16px"><div class="moon"></div><div class="burger"><i></i><i></i><i></i></div></div></header>
+<div class="wrap">
+  <div class="crumb kicker"><span>F1 Stories / Data desk</span><span>OpenF1</span></div>
+  <h1>GHOST<br>CAR<span class="dot">.</span></h1>
+  <p class="sub">Ιταλία 2025 · Κατατακτήριες</p>
+  <div class="vs num"><span class="swatch" style="--c:var(--ver)"></span><span>Verstappen · Γ7</span><b>1:18.792</b><span class="swatch" style="--c:var(--nor)"></span><span>Norris · Γ8</span><b>1:18.945</b></div>
+  <a class="btn-ink" style="width:100%;justify-content:space-between;margin-bottom:18px">Αλλαγή σύγκρισης <span>→</span></a>
+</div>
+<div class="band num"><span>● 0.153 s · VER ταχύτερος</span><span class="slogan" style="font-size:17px">EVERY TENTH.</span></div>
+<div class="wrap">
+  <div class="tabs"><span class="on">Αναπαράσταση</span><span>Τηλεμετρία</span><span>Τομείς</span><span>Γύροι</span></div>
+  <div class="stage"><span class="kicker">Κυριαρχία πίστας</span><div class="seg"><span class="on">2D</span><span>3D</span></div><div class="trk" id="trk"></div></div>
+  <div class="transport num"><div class="play"><i></i></div><div class="scrub"><i></i><b></b></div><span><b>0:25.2</b> <span class="muted">/ 1:18.8</span></span></div>
+  <div class="facts num">
+    <div><span class="kicker">Τελική διαφορά</span><b>0.153 s</b><small>VER μπροστά</small></div>
+    <div><span class="kicker">Μεγαλύτερο κέρδος</span><b>Τομέας 2</b><small>VER −0.112</small></div>
+    <div><span class="kicker">Ταχύτητα τώρα</span><b id="sp"></b><small>VER / NOR km/h</small></div>
+    <div><span class="kicker">Μέγιστη</span><b>345 km/h</b><small>VER · NOR 341</small></div>
+  </div>
+  <h3>Αγωνιστικό δελτίο</h3>
+  <div class="drv num" style="--c:var(--ver)"><span class="pos">1</span><div><div class="nm">Max Verstappen</div><div class="tm">Red Bull · Soft</div></div><div class="t">1:18.792</div></div>
+  <div class="drv num" style="--c:var(--nor)"><span class="pos" style="color:var(--ink)">2</span><div><div class="nm">Lando Norris</div><div class="tm">McLaren · Soft</div></div><div class="t">+0.153</div></div>
+</div>
+<script src="shared.js"></script>
+<script>
+  GC.track(document.getElementById("trk"), { road: "var(--paper-3)", edge: "var(--rule)", width: 22, dominance: 8, carR: 14, cars: [{ p: 0.324, c: "var(--ver)", label: "VER", dx: 22 }, { p: 0.32, c: "var(--nor)", label: "NOR", below: true, dx: 22 }] });
+  document.getElementById("sp").textContent = Math.round(GC.speed(0.32, 0)) + " / " + Math.round(GC.speed(0.32, 1));
+</script>
+</body></html>

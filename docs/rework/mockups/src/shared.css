@@ -1,0 +1,52 @@
+/* Mockup-only styles. Tokens copied from the rendered f1stories.gr (29 Sep 2026). */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400 600; src: url("../../../../src/assets/fonts/ibm-plex-sans-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+2212; }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400 600; src: url("../../../../src/assets/fonts/ibm-plex-sans-greek.woff2") format("woff2"); unicode-range: U+0370-03FF; }
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; src: url("../../../../src/assets/fonts/barlow-condensed-700.woff2") format("woff2"); }
+
+:root {
+  --paper: #f2eee4; --paper-2: #e9e3d6; --paper-3: #dfd9ca;
+  --ink: #20251f; --ink-2: #5b6256; --rule: #c8c8b9; --rule-strong: #20251f;
+  --accent: #a82e1c; --signal: #ed4c32; --signal-ink: #17191b;
+  --tech: #12655f;
+  --ver: #2b58a0; --nor: #c96400;
+  --ui: "IBM Plex Sans", system-ui, sans-serif;
+  --display: "Barlow Condensed", "IBM Plex Sans", sans-serif;
+}
+.dark {
+  --paper: #181a1c; --paper-2: #222426; --paper-3: #2c2e30;
+  --ink: #eee7dc; --ink-2: #bcb8b0; --rule: #47494a; --rule-strong: #eee7dc;
+  --accent: #ff826b; --tech: #5ec4b6;
+  --ver: #4c86e0; --nor: #ff8a1f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font: 400 16px/1.5 var(--ui); -webkit-font-smoothing: antialiased; }
+.num { font-variant-numeric: tabular-nums; }
+.dot { color: var(--signal); }
+.kicker { font: 600 12px/1 var(--ui); letter-spacing: .14em; text-transform: uppercase; }
+.muted { color: var(--ink-2); }
+.wrap { padding: 0 48px; }
+
+/* f1stories masthead, as in partials/nav.html */
+.mast { height: 76px; display: flex; align-items: center; gap: 28px; padding: 0 48px; border-bottom: 1px solid var(--rule); background: color-mix(in srgb, var(--paper) 70%, var(--paper-2)); }
+.mast .brand { display: flex; align-items: center; gap: 12px; font: 700 30px/1 var(--display); letter-spacing: -.03em; }
+.mast .brand span { margin-left: -12px; }
+.mast .brand img { width: 34px; height: 34px; border-radius: 50%; }
+.mast nav { display: flex; gap: 22px; font-size: 14.5px; }
+.mast nav a { padding: 6px 0; border-bottom: 2px solid transparent; }
+.mast nav a.on { border-color: var(--signal); font-weight: 500; }
+.mast .right { margin-left: auto; display: flex; align-items: center; gap: 24px; font-size: 12.5px; }
+.mast .cd { border-left: 1px solid var(--rule); padding-left: 18px; line-height: 1.25; }
+.mast .cd b { font-weight: 600; display: block; }
+.moon { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset -5px -2px 0 0 var(--ink); transform: rotate(-20deg); }
+a { color: inherit; text-decoration: none; }
+
+.btn-ink { display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 20px; background: var(--ink); color: var(--paper); font: 600 14px var(--ui); border-radius: 2px; }
+.btn-line { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border: 1px solid var(--rule); font-size: 13px; border-radius: 2px; background: var(--paper); }
+.band { background: var(--signal); color: var(--signal-ink); display: flex; align-items: center; gap: 16px; height: 44px; padding: 0 48px; font-size: 13px; font-weight: 500; }
+.band .sep { width: 1px; height: 18px; background: rgb(32 37 31 / .35); }
+.band .slogan { margin-left: auto; font: 700 22px/1 var(--display); letter-spacing: .01em; }
+.tabs { display: flex; gap: 40px; border-bottom: 1px solid var(--rule); font-size: 15px; }
+.tabs span { padding: 18px 12px; border-bottom: 2px solid transparent; color: var(--ink-2); }
+.tabs span.on { color: var(--ink); font-weight: 600; border-color: var(--signal); }
+.swatch { display: inline-block; width: 10px; height: 10px; background: var(--c); }
+.label-chip { font: 700 13px/1 var(--display); letter-spacing: .04em; padding: 3px 6px; background: var(--ink); color: var(--paper); border-left: 3px solid var(--c); }

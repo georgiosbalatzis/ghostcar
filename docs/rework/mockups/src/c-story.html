@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>C · Story mode</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .cover { display: grid; grid-template-columns: 1fr 1fr; min-height: 740px; background: var(--paper-2); position: relative; }
+  .cover .txt { padding: 70px 48px 48px; display: flex; flex-direction: column; justify-content: center; }
+  .k { display: flex; align-items: center; gap: 14px; }
+  .k i { width: 48px; height: 2px; background: var(--signal); }
+  .cover h1 { font: 600 84px/1.02 var(--ui); letter-spacing: -.045em; margin: 26px 0 26px; }
+  .cover .stand { font-size: 25px; line-height: 1.4; letter-spacing: -.01em; max-width: 560px; }
+  .cover .meta { margin: 24px 0 30px; color: var(--ink-2); }
+  .cover .cta { display: flex; gap: 24px; align-items: center; }
+  .ul { border-bottom: 1px solid var(--ink); padding-bottom: 4px; font-size: 14px; }
+  .img { position: relative; background: #1b1a19; overflow: hidden; --ver: #4c86e0; --nor: #ff8a1f; }
+  .img .persp { position: absolute; inset: 60px 20px 120px; perspective: 900px; }
+  .img .persp div { position: absolute; inset: 0; transform: rotateX(46deg) rotateZ(-18deg) scale(1.05); }
+  .img .big { position: absolute; left: 40px; bottom: 40px; color: #eee7dc; font: 700 150px/.8 var(--display); }
+  .img .big span { color: var(--signal); }
+  .img .cap { position: absolute; left: 0; bottom: -28px; }
+  .sticker { position: absolute; right: 40px; top: 36px; background: var(--signal); color: var(--ink); font: 700 34px/.95 var(--display); padding: 14px 18px; transform: rotate(4deg); box-shadow: 0 2px 0 rgb(0 0 0 / .15); }
+  .band { gap: 0; padding: 0; height: 56px; }
+  .band span.ch { flex: 1; display: flex; align-items: center; gap: 12px; padding: 0 48px; height: 100%; border-right: 1px solid rgb(32 37 31 / .25); font-size: 13px; }
+  .band span.ch b { font: 700 24px var(--display); }
+  .band span.ch.on { background: var(--ink); color: var(--paper); }
+  .story { display: grid; grid-template-columns: 600px 1fr; gap: 64px; padding: 64px 48px 0; }
+  .sticky { position: relative; }
+  .viz { background: var(--paper-2); border-top: 2px solid var(--ink); height: 470px; position: relative; }
+  .viz .t { position: absolute; inset: 40px 20px 60px; }
+  .viz .read { position: absolute; left: 20px; bottom: 16px; right: 20px; display: flex; justify-content: space-between; align-items: baseline; }
+  .viz .read b { font-size: 28px; font-weight: 600; }
+  .viz .kicker.tl { position: absolute; left: 20px; top: 14px; }
+  .prog { margin-top: 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; font-size: 13px; }
+  .prog .l { height: 3px; background: var(--paper-3); position: relative; }
+  .prog .l i { position: absolute; inset: 0 42% 0 0; background: var(--signal); }
+  .ch-card { padding: 34px 0 44px; border-top: 1px solid var(--rule); }
+  .ch-card.dim { opacity: .38; }
+  .ch-card .n { font: 700 72px/1 var(--display); color: var(--signal); }
+  .ch-card h2 { font: 600 44px/1.08 var(--ui); letter-spacing: -.035em; margin: 14px 0 16px; max-width: 640px; }
+  .ch-card p { font-size: 18px; line-height: 1.6; max-width: 620px; color: var(--ink); }
+  .ch-card p b { font-weight: 600; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 26px; border-top: 1px solid var(--ink); max-width: 700px; }
+  .stats div { padding: 14px 16px 0 0; }
+  .stats b { display: block; font-size: 24px; font-weight: 600; margin-top: 6px; }
+  .stats small { color: var(--ink-2); font-size: 12.5px; }
+  .mini { height: 130px; margin-top: 26px; max-width: 700px; border-bottom: 1px solid var(--rule); }
+  .mk { display: inline-block; padding: 2px 6px; font-size: 12px; background: var(--c); color: #fff; font-weight: 600; }
+  .build { margin-top: 90px; background: var(--paper-2); padding: 64px 48px; display: grid; grid-template-columns: 1fr 1.3fr; gap: 64px; }
+  .build h2 { font: 600 64px/1.02 var(--ui); letter-spacing: -.045em; margin-top: 18px; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 32px; align-content: start; }
+  .fld { border-bottom: 1px solid var(--ink); padding-bottom: 10px; }
+  .fld .kicker { font-size: 11px; color: var(--ink-2); } .fld div { font-size: 19px; margin-top: 8px; }
+  footer { background: #1b1a19; color: #eee7dc; padding: 30px 48px; display: flex; justify-content: space-between; font-size: 13px; }
+  footer b { font: 700 26px var(--display); }
+</style></head>
+<body>
+<header class="mast">
+  <a class="brand"><img src="../../../../public/apple-touch-icon.png" alt="">F1 STORIES<span class="dot">.</span></a>
+  <nav><a>Αρχική</a><a>Άρθρα</a><a>YouTube</a><a>Βαθμολογία</a><a>Δεδομένα</a><a class="on">Ghost Car</a><a>Συντάκτες</a><a>BetCast</a></nav>
+  <div class="right"><div class="cd">🏁 Bahrain GP in Malaysia<b>4d 22h 44m</b></div><div class="moon"></div></div>
+</header>
+
+<section class="cover">
+  <div class="txt">
+    <div class="k kicker"><span>01</span><i></i><span>Ghost Car · Κατατακτήριες</span></div>
+    <h1>Verstappen: 0,153 στη Monza, όλα στον Τομέα 2<span class="dot">.</span></h1>
+    <p class="stand">Ο γύρος 7 του Max Verstappen απέναντι στον γύρο 8 του Lando Norris, μέτρο προς μέτρο. Κύλισε και ο γύρος τρέχει μαζί σου.</p>
+    <p class="meta kicker">Ghost Car Lab · Ιταλία 2025 · Δεδομένα OpenF1</p>
+    <div class="cta"><a class="btn-ink">▶ Τρέξε τον γύρο</a><a class="ul">Ελεύθερη αναπαραγωγή</a><a class="ul">Αλλαγή σύγκρισης</a></div>
+  </div>
+  <div class="img">
+    <div class="persp"><div id="cov"></div></div>
+    <div class="sticker">EVERY TENTH<br>COUNTS.</div>
+    <div class="big num">0,153<span>.</span></div>
+  </div>
+</section>
+<div class="band num">
+  <span class="ch"><b>S1</b> NOR −0,041 · 26.800</span>
+  <span class="ch on"><b>S2</b> VER −0,112 · 27.012</span>
+  <span class="ch"><b>S3</b> VER −0,082 · 24.939</span>
+</div>
+
+<section class="story">
+  <div class="sticky">
+    <div class="viz"><span class="kicker tl">Τομέας 2 · σε εξέλιξη</span><div class="t" id="viz"></div>
+      <div class="read num"><span class="kicker muted">Στο ίδιο σημείο</span><span><b id="g"></b> <span class="muted">VER μπροστά</span></span></div></div>
+    <div class="prog num"><span class="kicker">▶ 0:45.9</span><div class="l"><i></i></div><span class="muted">κύλισε ↓</span></div>
+  </div>
+  <div>
+    <article class="ch-card dim"><span class="n">01</span><h2>Ο Norris ξεκινά καλύτερα<span class="dot">.</span></h2><p>Στο πρώτο φρενάρισμα ο NOR κρατά 4 km/h περισσότερα…</p></article>
+    <article class="ch-card num"><span class="n">02</span>
+      <span class="kicker muted" style="display:block;margin-top:10px">Τομέας 2 · 27.012 έναντι 27.124</span>
+      <h2>Ο Verstappen παίρνει πίσω 0,112 σε τρεις στροφές<span class="dot">.</span></h2>
+      <p>Ο <span class="mk" style="--c:var(--ver)">VER</span> φρενάρει <b>9 μέτρα αργότερα</b> στο δεύτερο φρενάρισμα και περνά την κορυφή με <b>4 km/h</b> περισσότερα. Στην έξοδο ο <span class="mk" style="--c:var(--nor)">NOR</span> ανοίγει γκάζι νωρίτερα, αλλά η διαφορά έχει ήδη γυρίσει.</p>
+      <div class="mini" id="mini"></div>
+      <div class="stats"><div><small>Ελάχιστη ταχύτητα</small><b>112 / 108</b></div><div><small>Σημείο φρεναρίσματος</small><b>+9 m VER</b></div><div><small>Κέρδος τομέα</small><b style="color:var(--ver)">−0,112 s</b></div></div>
+    </article>
+    <article class="ch-card dim"><span class="n">03</span><h2>Η Parabolica κλειδώνει την pole<span class="dot">.</span></h2></article>
+  </div>
+</section>
+
+<section class="build">
+  <div><div class="k kicker"><span>04</span><i></i><span>Η δική σου σύγκριση</span></div><h2>Διάλεξε τους δικούς σου γύρους<span class="dot">.</span></h2><p class="muted" style="margin-top:16px">Κάθε σύγκριση γίνεται ιστορία με το δικό της link, έτοιμη για ενσωμάτωση σε άρθρο.</p></div>
+  <div class="fields num">
+    <div class="fld"><span class="kicker">Σεζόν · Γκραν Πρι</span><div>2025 · Ιταλία</div></div>
+    <div class="fld"><span class="kicker">Συνεδρία</span><div>Κατατακτήριες</div></div>
+    <div class="fld" style="border-color:var(--ver)"><span class="kicker">Οδηγός Α · Γύρος</span><div>Verstappen · 7</div></div>
+    <div class="fld" style="border-color:var(--nor)"><span class="kicker">Οδηγός Β · Γύρος</span><div>Norris · 8</div></div>
+    <a class="btn-ink" style="grid-column:2;justify-content:space-between">Γράψε την ιστορία <span>→</span></a>
+  </div>
+</section>
+<footer><b>F1 STORIES<span class="dot">.</span></b><span>Ghost Car · Δεδομένα από το OpenF1</span></footer>
+
+<script src="shared.js"></script>
+<script>
+  GC.track(document.getElementById("cov"), { road: "#2e3031", width: 22, dominance: 8, start: false });
+  const P = 0.58;
+  const svg = GC.track(document.getElementById("viz"), { road: "var(--paper-3)", edge: "var(--rule)", width: 20, cars: [{ p: P + 0.003, c: "var(--ver)", label: "VER" }, { p: P - 0.002, c: "var(--nor)", label: "NOR", below: true }] });
+  // highlight sector 2 only
+  const L = svg.querySelector("path").getTotalLength();
+  const hl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  hl.setAttribute("d", GC.TRACK); hl.setAttribute("fill", "none"); hl.setAttribute("stroke", "var(--ink)"); hl.setAttribute("stroke-width", 6);
+  hl.setAttribute("stroke-dasharray", `${0.343 * L} ${L}`); hl.setAttribute("stroke-dashoffset", -0.341 * L);
+  svg.insertBefore(hl, svg.querySelector("line"));
+  document.getElementById("g").textContent = Math.abs(GC.gap(P)).toFixed(3).replace(".", ",") + " s";
+  const s2 = (f) => (p) => f(0.341 + p * 0.343);
+  GC.trace(document.getElementById("mini"), [{ fn: s2((p) => GC.speed(p, 0)), c: "var(--ver)" }, { fn: s2((p) => GC.speed(p, 1)), c: "var(--nor)", dash: "5 3" }], { min: 80, max: 360, grid: [150, 250], play: (P - 0.341) / 0.343 });
+</script>
+</body></html>

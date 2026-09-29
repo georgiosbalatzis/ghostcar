@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>A · Data Desk · builder</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .crumb { display: flex; justify-content: space-between; border-top: 1px solid var(--ink); padding-top: 14px; margin-top: 26px; }
+  .hero { display: grid; grid-template-columns: 1fr 380px; gap: 48px; padding: 30px 0 40px; align-items: end; }
+  .hero h1 { font: 700 150px/.82 var(--display); letter-spacing: -.02em; }
+  .hero .sub { font-size: 30px; margin-top: 18px; letter-spacing: -.01em; }
+  .hero aside { border-left: 1px solid var(--rule); padding-left: 28px; }
+  .hero aside h2 { font-size: 26px; font-weight: 500; line-height: 1.2; }
+  .hero aside p { font-size: 14px; color: var(--ink-2); margin-top: 12px; }
+  .builder { margin-top: 56px; }
+  .builder .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 30px; }
+  .f { border-bottom: 1px solid var(--ink); padding-bottom: 10px; }
+  .f .kicker { color: var(--ink-2); font-size: 11px; }
+  .f div { font-size: 22px; font-weight: 500; margin-top: 10px; display: flex; justify-content: space-between; }
+  .f div::after { content: "▾"; font-size: 14px; color: var(--ink-2); }
+  .f.off div { color: var(--ink-2); }
+  .drivers { display: grid; grid-template-columns: 1fr 1fr 300px; gap: 32px; margin-top: 36px; align-items: end; }
+  .dcol { border-top: 4px solid var(--c); padding-top: 14px; display: grid; gap: 22px; }
+  .dcol .who { font: 700 18px var(--display); letter-spacing: .08em; }
+  .go { display: grid; gap: 12px; }
+  .go .btn-ink { height: 56px; font-size: 16px; justify-content: space-between; }
+  .go small { color: var(--ink-2); font-size: 12.5px; }
+  .add { font-size: 13px; border-bottom: 1px solid var(--accent); color: var(--accent); justify-self: start; padding-bottom: 2px; }
+  .presets { display: flex; gap: 20px; align-items: baseline; margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--rule); }
+  .presets a { border-bottom: 1px solid var(--ink); padding-bottom: 3px; }
+  .feat-head { display: grid; grid-template-columns: 1fr 380px; gap: 48px; align-items: end; margin: 26px 0 36px; }
+  .feat-head h2 { font: 600 72px/1 var(--ui); letter-spacing: -.045em; }
+  .feat-head a { display: inline-block; margin-top: 16px; border-bottom: 1px solid var(--ink); padding-bottom: 4px; }
+  .feat { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; border-top: 1px solid var(--ink); padding-top: 28px; }
+  .big .thumb { position: relative; height: 380px; background: #1b1a19; }
+  .big .thumb .t { position: absolute; inset: 30px 40px; }
+  .chip { position: absolute; left: 0; top: 0; background: var(--paper); padding: 8px 12px; }
+  .delta { position: absolute; right: 24px; bottom: 18px; color: #eee7dc; font-size: 64px; font-weight: 400; letter-spacing: -.03em; }
+  .delta small { font-size: 22px; color: #bcb8b0; }
+  .big h3 { font-size: 34px; font-weight: 600; letter-spacing: -.02em; margin-top: 18px; }
+  .meta { margin-top: 8px; }
+  .side { display: grid; gap: 22px; border-left: 1px solid var(--rule); padding-left: 32px; }
+  .side .it { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding-bottom: 22px; border-bottom: 1px solid var(--rule); }
+  .side .it:last-child { border: 0; }
+  .side .th { height: 100px; background: var(--paper-2); }
+  .side h4 { font-size: 20px; font-weight: 600; line-height: 1.2; margin-top: 8px; }
+  .strip { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); margin-top: 40px; }
+  .strip div { padding: 20px 20px 0; border-left: 1px solid var(--rule); }
+  .strip div:first-child { border: 0; padding-left: 0; }
+  .strip .n { font-size: 34px; font-weight: 500; color: var(--ink-2); }
+  .strip b { display: block; font-size: 15px; font-weight: 600; margin: 8px 0 6px; }
+  footer { margin-top: 70px; background: #1b1a19; color: #eee7dc; padding: 30px 48px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  footer b { font: 700 26px var(--display); }
+  .k-tech { color: var(--tech); }
+  .k-q { color: #3a5f86; }
+  .k-r { color: var(--accent); }
+</style></head>
+<body>
+<header class="mast">
+  <a class="brand"><img src="../../../../public/apple-touch-icon.png" alt="">F1 STORIES<span class="dot">.</span></a>
+  <nav><a>Αρχική</a><a>Άρθρα</a><a>YouTube</a><a>Βαθμολογία</a><a>Δεδομένα</a><a class="on">Ghost Car</a><a>Συντάκτες</a><a>BetCast</a></nav>
+  <div class="right"><div class="cd">🏁 Bahrain GP in Malaysia<b>4d 22h 44m</b></div><div class="moon"></div></div>
+</header>
+<div class="wrap">
+  <div class="crumb kicker"><span>F1 Stories / Data desk</span><span>Σύγκριση γύρων · OpenF1</span></div>
+  <section class="hero">
+    <div><h1>GHOST CAR<span class="dot">.</span></h1><p class="sub">Δύο γύροι, μία πίστα, μέτρο προς μέτρο.</p></div>
+    <aside><h2>Κάθε δέκατο,<br>μια ιστορία.</h2><p>Διάλεξε αγώνα, οδηγούς και γύρους. Η αναπαράσταση δείχνει πού κερδίζεται και πού χάνεται ο χρόνος.</p></aside>
+  </section>
+</div>
+<div class="band"><span>● Δεδομένα OpenF1 · Σεζόν 2023–2026</span><span class="sep"></span><span>2 έως 4 οδηγοί ανά σύγκριση</span><span class="slogan">EVERY TENTH COUNTS.</span></div>
+
+<div class="wrap">
+  <section class="builder">
+    <div class="crumb kicker"><span>01 / Νέα σύγκριση</span><span>Βήμα 3 από 3</span></div>
+    <div class="grid">
+      <div class="f"><span class="kicker">Σεζόν</span><div>2025</div></div>
+      <div class="f"><span class="kicker">Γκραν Πρι</span><div>Ιταλία · Monza</div></div>
+      <div class="f"><span class="kicker">Συνεδρία</span><div>Κατατακτήριες</div></div>
+    </div>
+    <div class="drivers num">
+      <div class="dcol" style="--c:var(--ver)"><span class="who">ΟΔΗΓΟΣ A</span>
+        <div class="f"><span class="kicker">Οδηγός</span><div>Max Verstappen · Red Bull</div></div>
+        <div class="f"><span class="kicker">Γύρος</span><div>7 · 1:18.792 · ταχύτερος</div></div></div>
+      <div class="dcol" style="--c:var(--nor)"><span class="who">ΟΔΗΓΟΣ B</span>
+        <div class="f"><span class="kicker">Οδηγός</span><div>Lando Norris · McLaren</div></div>
+        <div class="f"><span class="kicker">Γύρος</span><div>8 · 1:18.945 · ταχύτερος</div></div></div>
+      <div class="go"><a class="add">+ Πρόσθεσε τρίτο οδηγό</a><a class="btn-ink">Σύγκριση γύρων <span>→</span></a><small>Φορτώνει τηλεμετρία θέσης και ταχύτητας από το OpenF1.</small></div>
+    </div>
+    <div class="presets"><span class="kicker muted">Ή ξεκίνα από έτοιμη σύγκριση</span><a class="kicker">Επιλεγμένες συγκρίσεις (18) →</a>
+    </div>
+  </section>
+
+</div>
+<footer><b>F1 STORIES<span class="dot">.</span></b><span>Ghost Car · Δεδομένα από το OpenF1 · Τεχνική ματιά, καθαρή άποψη</span></footer>
+</body></html>

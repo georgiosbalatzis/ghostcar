@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>A · Data Desk · loaded</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .crumb { display: flex; justify-content: space-between; border-top: 1px solid var(--ink); padding-top: 14px; margin-top: 26px; }
+  .hero { display: grid; grid-template-columns: 1fr 380px; gap: 48px; padding: 30px 0 34px; align-items: end; }
+  .hero h1 { font: 700 150px/.82 var(--display); letter-spacing: -.02em; }
+  .hero .sub { font-size: 30px; margin-top: 18px; letter-spacing: -.01em; }
+  .hero aside { border-left: 1px solid var(--rule); padding-left: 28px; }
+  .hero aside h2 { font-size: 26px; font-weight: 500; line-height: 1.2; letter-spacing: -.01em; }
+  .hero aside p { font-size: 14px; color: var(--ink-2); margin: 12px 0 20px; }
+  .vs { display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 10px; align-items: center; font-size: 14px; margin: 16px 0 22px; }
+  .bar { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .tabs { gap: 30px; }
+  .tabrow { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 1px solid var(--rule); }
+  .tabrow .tabs { border: 0; }
+  .actions { display: flex; gap: 8px; padding-bottom: 10px; }
+  .seg { display: flex; border: 1px solid var(--rule); height: 40px; }
+  .seg span { padding: 0 16px; display: grid; place-items: center; font-size: 13px; }
+  .seg span.on { background: var(--ink); color: var(--paper); font-weight: 600; }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); padding: 26px 0; }
+  .facts div { padding: 0 24px; border-left: 1px solid var(--rule); }
+  .facts div:first-child { padding-left: 0; border: 0; }
+  .facts b { display: block; font-size: 20px; font-weight: 600; margin: 12px 0 2px; }
+  .facts small { font-size: 13px; color: var(--ink-2); }
+  .main { display: grid; grid-template-columns: 1fr 380px; gap: 48px; }
+  .stage { position: relative; height: 540px; background: var(--paper-2); border-top: 2px solid var(--ink); }
+  .stage .trk { position: absolute; inset: 40px 30px 30px; }
+  .legend { position: absolute; top: 16px; left: 20px; display: flex; gap: 18px; font-size: 12.5px; align-items: center; }
+  .caption { position: absolute; bottom: 14px; right: 20px; font-size: 12px; color: var(--ink-2); }
+  .transport { display: grid; grid-template-columns: 46px 1fr auto auto auto; gap: 18px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .play { width: 46px; height: 46px; background: var(--ink); display: grid; place-items: center; }
+  .play i { border-left: 13px solid var(--paper); border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin-left: 3px; }
+  .scrub { position: relative; height: 34px; }
+  .scrub .line { position: absolute; left: 0; right: 0; top: 22px; height: 3px; background: var(--paper-3); }
+  .scrub .done { position: absolute; left: 0; width: 32%; top: 22px; height: 3px; background: var(--signal); }
+  .scrub .knob { position: absolute; left: 32%; top: 15px; width: 4px; height: 17px; background: var(--ink); transform: translateX(-2px); }
+  .scrub .sec { position: absolute; top: 0; font-size: 11px; color: var(--ink-2); letter-spacing: .1em; border-left: 1px solid var(--rule); padding-left: 6px; height: 28px; }
+  .rail h3 { font: 600 26px/1.1 var(--ui); text-transform: uppercase; letter-spacing: -.01em; border-top: 2px solid var(--ink); padding-top: 18px; }
+  .rail .lede { color: var(--ink-2); font-size: 14px; margin: 6px 0 18px; }
+  .drv { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; padding: 14px 0 14px 14px; border-left: 3px solid var(--c); border-bottom: 1px solid var(--rule); }
+  .drv .pos { font-size: 26px; font-weight: 600; color: var(--accent); }
+  .drv .pos.n2 { color: var(--ink); }
+  .drv .nm { font-size: 17px; font-weight: 500; line-height: 1.2; }
+  .drv .tm { font-size: 13px; color: var(--ink-2); }
+  .drv .t { font-size: 22px; font-weight: 600; text-align: right; line-height: 1.1; }
+  .drv .t small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-2); }
+  .live { width: 100%; border-collapse: collapse; margin-top: 22px; font-size: 14px; }
+  .live th { font: 600 11px var(--ui); letter-spacing: .14em; text-align: right; color: var(--ink-2); padding: 0 0 8px; }
+  .live th:first-child { text-align: left; }
+  .live td { padding: 9px 0; border-bottom: 1px solid var(--rule); text-align: right; }
+  .live td:first-child { text-align: left; color: var(--ink-2); }
+  .live td.big { font-size: 22px; font-weight: 600; }
+  .sect { margin-top: 26px; }
+  .sect .row { display: grid; grid-template-columns: 34px 1fr 84px; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+  .sect .row .b { height: 4px; background: var(--paper-3); position: relative; }
+  .sect .row .b i { position: absolute; top: 0; bottom: 0; background: var(--c); }
+  .sec2 { margin-top: 88px; }
+  .sec2 .head { display: grid; grid-template-columns: 1fr 380px; gap: 48px; align-items: end; margin: 26px 0 36px; }
+  .sec2 h2 { font: 600 64px/1 var(--ui); letter-spacing: -.045em; }
+  .chart { border-top: 2px solid var(--ink); padding: 12px 0 22px; }
+  .chart header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .chart .plot { height: 150px; }
+  .charts { display: grid; gap: 8px; }
+  footer { margin-top: 70px; background: #1b1a19; color: #eee7dc; padding: 30px 48px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  footer b { font: 700 26px var(--display); }
+</style></head>
+<body>
+<header class="mast">
+  <a class="brand" href="#"><img src="../../../../public/apple-touch-icon.png" alt="">F1 STORIES<span class="dot">.</span></a>
+  <nav><a>Αρχική</a><a>Άρθρα</a><a>YouTube</a><a>Βαθμολογία</a><a>Δεδομένα</a><a class="on">Ghost Car</a><a>Συντάκτες</a><a>BetCast</a></nav>
+  <div class="right"><div class="cd">🏁 Bahrain GP in Malaysia<b>4d 22h 44m</b></div><div class="moon"></div></div>
+</header>
+
+<div class="wrap">
+  <div class="crumb kicker"><span>F1 Stories / Data desk</span><span>Σύγκριση γύρων · OpenF1</span></div>
+  <section class="hero">
+    <div>
+      <h1>GHOST CAR<span class="dot">.</span></h1>
+      <p class="sub">Ιταλία 2025 · Κατατακτήριες</p>
+    </div>
+    <aside>
+      <h2>Κάθε δέκατο,<br>μια ιστορία.</h2>
+      <div class="vs num">
+        <span class="swatch" style="--c:var(--ver)"></span><span>Max Verstappen · Γύρος 7</span><b>1:18.792</b>
+        <span class="swatch" style="--c:var(--nor)"></span><span>Lando Norris · Γύρος 8</span><b>1:18.945</b>
+      </div>
+      <div class="bar"><a class="btn-ink">Αλλαγή σύγκρισης →</a><span class="kicker muted">Monza · Q3</span></div>
+    </aside>
+  </section>
+</div>
+
+<div class="band num"><span>● Αναπαράσταση · 32% του γύρου</span><span class="sep"></span><span>Τελική διαφορά 0.153 s · VER ταχύτερος</span><span class="slogan">EVERY TENTH COUNTS.</span></div>
+
+<div class="wrap">
+  <div class="tabrow">
+    <div class="tabs"><span class="on">Αναπαράσταση</span><span>Τηλεμετρία</span><span>Τομείς</span><span>Γύροι</span><span>Κατατακτήριες σεζόν</span></div>
+    <div class="actions"><div class="seg"><span class="on">2D</span><span>3D</span></div><a class="btn-line">⤴ Κοινοποίηση</a><a class="btn-line">‹/› Ενσωμάτωση</a></div>
+  </div>
+
+  <div class="facts num">
+    <div><span class="kicker muted">Ταχύτερος</span><b>Max Verstappen</b><small>1:18.792 · Γύρος 7</small></div>
+    <div><span class="kicker muted">Τελική διαφορά</span><b>0.153 s</b><small>VER μπροστά στη γραμμή</small></div>
+    <div><span class="kicker muted">Μεγαλύτερο κέρδος</span><b>Τομέας 2</b><small>VER −0.112 s</small></div>
+    <div><span class="kicker muted">Μέγιστη ταχύτητα</span><b>345 km/h</b><small>VER · NOR 341</small></div>
+  </div>
+
+  <div class="main">
+    <div>
+      <div class="stage">
+        <div class="legend"><span class="kicker">Κυριαρχία πίστας</span><span><span class="swatch" style="--c:var(--ver)"></span> VER ταχύτερος</span><span><span class="swatch" style="--c:var(--nor)"></span> NOR ταχύτερος</span></div>
+        <div class="trk" id="trk"></div>
+        <div class="caption">Η γραμμή χρωματίζεται με βάση το ποιος κερδίζει χρόνο σε κάθε σημείο.</div>
+      </div>
+      <div class="transport num">
+        <div class="play"><i></i></div>
+        <div class="scrub"><div class="line"></div><div class="done"></div><div class="knob"></div>
+          <span class="sec" style="left:0">S1</span><span class="sec" style="left:34.1%">S2</span><span class="sec" style="left:68.4%">S3</span></div>
+        <span><b>0:25.213</b> <span class="muted">/ 1:18.792</span></span>
+        <a class="btn-line">↻ Επανάληψη</a><a class="btn-line">1×</a>
+      </div>
+    </div>
+
+    <aside class="rail">
+      <h3>Αγωνιστικό δελτίο</h3>
+      <p class="lede">Ζωντανές τιμές στο 32% του γύρου</p>
+      <div class="drv num" style="--c:var(--ver)"><span class="pos">1</span><div><div class="nm">Max Verstappen</div><div class="tm">Red Bull · Γύρος 7 · Soft</div></div><div class="t">1:18.792<small>ταχύτερος</small></div></div>
+      <div class="drv num" style="--c:var(--nor)"><span class="pos n2">2</span><div><div class="nm">Lando Norris</div><div class="tm">McLaren · Γύρος 8 · Soft</div></div><div class="t">+0.153<small>1:18.945</small></div></div>
+      <table class="live num">
+        <tr><th></th><th>VER</th><th>NOR</th></tr>
+        <tr><td>Ταχύτητα km/h</td><td class="big" data-s="0"></td><td class="big" data-s="1"></td></tr>
+        <tr><td>Γκάζι</td><td>100%</td><td>100%</td></tr>
+        <tr><td>Φρένο</td><td>—</td><td>—</td></tr>
+        <tr><td>Σχέση · DRS</td><td>8 · κλειστό</td><td>8 · κλειστό</td></tr>
+      </table>
+      <div class="sect num">
+        <span class="kicker muted">Διαφορές ανά τομέα</span>
+        <div class="row" style="--c:var(--nor)"><b>S1</b><div class="b"><i style="left:50%;width:18%"></i></div><span>NOR 0.041</span></div>
+        <div class="row" style="--c:var(--ver)"><b>S2</b><div class="b"><i style="right:50%;width:48%"></i></div><span>VER 0.112</span></div>
+        <div class="row" style="--c:var(--ver)"><b>S3</b><div class="b"><i style="right:50%;width:35%"></i></div><span>VER 0.082</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="sec2">
+    <div class="crumb kicker"><span>02 / Τηλεμετρία</span><span>Ανά απόσταση γύρου</span></div>
+    <div class="head"><h2>Ταχύτητα, γκάζι,<br>φρένο<span class="dot">.</span></h2><p class="muted">Οι δύο γύροι στον ίδιο άξονα. Η κάθετη γραμμή ακολουθεί την αναπαράσταση — σύρε πάνω στο γράφημα για να μετακινηθείς.</p></div>
+    <div class="charts">
+      <div class="chart"><header><span class="kicker">Ταχύτητα · km/h</span><span class="kicker muted"><span class="swatch" style="--c:var(--ver)"></span> VER &nbsp; <span class="swatch" style="--c:var(--nor)"></span> NOR</span></header><div class="plot" id="c1"></div></div>
+      <div class="chart"><header><span class="kicker">Γκάζι · %</span></header><div class="plot" id="c2" style="height:80px"></div></div>
+      <div class="chart"><header><span class="kicker">Διαφορά χρόνου · s</span><span class="kicker muted">πάνω από τη γραμμή: NOR μπροστά</span></header><div class="plot" id="c3" style="height:100px"></div></div>
+    </div>
+  </section>
+</div>
+<footer><b>F1 STORIES<span class="dot">.</span></b><span>Ghost Car · Δεδομένα από το OpenF1 · Τεχνική ματιά, καθαρή άποψη</span></footer>
+
+<script src="shared.js"></script>
+<script>
+  const P = 0.32;
+  GC.track(document.getElementById("trk"), { road: "var(--paper-3)", edge: "var(--rule)", width: 20, dominance: 7, cars: [{ p: P + 0.004, c: "var(--ver)", label: "VER" }, { p: P, c: "var(--nor)", label: "NOR", below: true }] });
+  const sectors = [0.341, 0.684];
+  GC.trace(document.getElementById("c1"), [{ fn: (p) => GC.speed(p, 0), c: "var(--ver)" }, { fn: (p) => GC.speed(p, 1), c: "var(--nor)", dash: "5 3" }], { min: 60, max: 360, grid: [100, 200, 300], sectors, play: P });
+  GC.trace(document.getElementById("c2"), [{ fn: (p) => GC.throttle(p, 0), c: "var(--ver)" }, { fn: (p) => GC.throttle(p, 1), c: "var(--nor)", dash: "5 3" }], { min: -5, max: 105, sectors, play: P });
+  GC.trace(document.getElementById("c3"), [{ fn: GC.gap, c: "var(--ink)", fill: "color-mix(in srgb, var(--signal) 18%, transparent)" }], { min: -0.17, max: 0.06, zero: 0, sectors, play: P });
+  document.querySelectorAll("[data-s]").forEach((td) => (td.textContent = Math.round(GC.speed(P, +td.dataset.s))));
+</script>
+</body></html>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>B · Tech Desk broadcast</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { --bg: #1b1a19; --panel: #222426; --panel-2: #2c2e30; --line: #3a3b3c; --txt: #eee7dc; --mut: #9d9a93; --teal: #5ec4b6; --sig: #ff775f; --road: #2e3031; --ver: #4c86e0; --nor: #ff8a1f;
+    background: var(--bg); color: var(--txt); height: 900px; overflow: hidden; display: grid; grid-template-rows: 58px 1fr 236px; }
+  body.light { --bg: #f2eee4; --panel: #e9e3d6; --panel-2: #dfd9ca; --line: #c8c8b9; --txt: #20251f; --mut: #5b6256; --teal: #12655f; --sig: #a82e1c; --road: #d6cfbf; --ver: #2b58a0; --nor: #c96400; }
+  .grid-bg { background-image: repeating-linear-gradient(90deg, color-mix(in srgb, var(--txt) 4%, transparent) 0 1px, transparent 1px 120px); }
+  .top { display: flex; align-items: center; gap: 22px; padding: 0 28px; border-bottom: 1px solid var(--line); }
+  .top .brand { font: 700 26px var(--display); letter-spacing: -.02em; }
+  .top .brand .dot { color: var(--sig); }
+  .top .ev { margin: 0 auto; display: flex; gap: 14px; align-items: center; }
+  .top .ev b { font-weight: 600; }
+  .ob { height: 36px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--txt) 40%, transparent); display: inline-flex; align-items: center; gap: 8px; font: 600 11.5px var(--ui); letter-spacing: .14em; text-transform: uppercase; }
+  .mid { display: grid; grid-template-columns: 300px 1fr; min-height: 0; overflow: hidden; }
+  .tower { border-right: 1px solid var(--line); padding: 22px 22px; display: grid; align-content: start; gap: 6px; background: color-mix(in srgb, var(--bg) 60%, var(--panel)); }
+  .tower .kicker { color: var(--mut); font-size: 10.5px; }
+  .row { display: grid; grid-template-columns: 26px 4px 1fr auto; gap: 10px; align-items: center; height: 46px; border-bottom: 1px solid var(--line); }
+  .row .p { font: 700 20px var(--display); color: var(--mut); }
+  .row .c { height: 26px; background: var(--c); }
+  .row .a { font: 700 24px var(--display); letter-spacing: .02em; line-height: 1; }
+  .row .a small { display: block; font: 400 11.5px var(--ui); color: var(--mut); letter-spacing: 0; }
+  .row .t { font-weight: 600; font-size: 15px; }
+  .live { margin-top: 18px; border-top: 2px solid var(--c); padding-top: 12px; }
+  .live .head { display: flex; justify-content: space-between; align-items: baseline; }
+  .live .head b { font: 700 18px var(--display); letter-spacing: .08em; }
+  .spd { font: 700 56px/1 var(--display); letter-spacing: -.01em; margin: 6px 0 8px; }
+  .spd small { font: 500 13px var(--ui); color: var(--mut); margin-left: 4px; }
+  .meter { display: grid; grid-template-columns: 58px 1fr 34px; gap: 8px; align-items: center; font-size: 11.5px; color: var(--mut); margin: 5px 0; }
+  .meter i { height: 4px; background: var(--panel-2); position: relative; }
+  .meter i::after { content: ""; position: absolute; inset: 0 calc(100% - var(--v)) 0 0; background: var(--c); }
+  .meter span:last-child { text-align: right; color: var(--txt); }
+  .cams { margin-top: 22px; display: grid; gap: 8px; font-size: 13px; }
+  .cams span { color: var(--mut); } .cams span.on { color: var(--txt); } .cams span.on::before { content: "● "; color: var(--teal); }
+  .stage { position: relative; overflow: hidden; }
+  .persp { position: absolute; inset: 215px 80px 60px 40px; perspective: 900px; }
+  .persp .t { position: absolute; inset: 0; transform: rotateX(50deg) rotateZ(-8deg) scale(1.25); transform-origin: 50% 50%; }
+  .headline { position: absolute; left: 44px; top: 30px; }
+  .headline .kicker { color: var(--teal); }
+  .headline h1 { font: 700 150px/.85 var(--display); letter-spacing: -.02em; margin-top: 10px; }
+  .headline h1 .dot { color: var(--teal); }
+  .headline p { color: var(--mut); font-size: 15px; margin-top: 8px; }
+  .chips .label-chip { position: absolute; --ink: var(--txt); --paper: var(--bg); font-size: 16px; }
+  .card { position: absolute; right: 28px; top: 40px; width: 420px; background: var(--panel); border-top: 2px solid var(--teal); padding: 22px 26px; }
+  .card .hd { display: flex; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .card .hd span:last-child { color: var(--mut); }
+  .card .sub { margin-top: 10px; }
+  .card .big { font-size: 64px; line-height: 1; letter-spacing: -.03em; margin: 6px 0 4px; }
+  .card .big .pl { color: var(--teal); }
+  .card .big small { font-size: 22px; color: var(--mut); }
+  .card .cap { font-size: 13px; color: var(--mut); padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .secs { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
+  .secs div { border-left: 1px solid var(--line); padding-left: 12px; font-size: 13px; }
+  .secs div:first-child { border: 0; padding-left: 0; }
+  .secs b { display: block; font-size: 17px; margin-top: 4px; }
+  .secs .w { color: var(--c); }
+  .strip { border-top: 1px solid var(--line); padding: 14px 28px 16px; display: grid; grid-template-columns: 180px 1fr; gap: 0 22px; background: color-mix(in srgb, var(--bg) 60%, var(--panel)); }
+  .ctl { display: grid; align-content: start; gap: 12px; }
+  .ctl .pl { display: flex; align-items: center; gap: 12px; }
+  .ctl .pb { width: 50px; height: 50px; background: var(--txt); display: grid; place-items: center; }
+  .ctl .pb i { border-left: 14px solid var(--bg); border-top: 9px solid transparent; border-bottom: 9px solid transparent; margin-left: 3px; }
+  .ctl .tm b { font-size: 20px; display: block; line-height: 1.1; }
+  .ctl .tm span { color: var(--mut); font-size: 13px; }
+  .ctl .opts { display: flex; gap: 6px; }
+  .ctl .opts span { border: 1px solid var(--line); padding: 5px 9px; font-size: 12px; }
+  .ctl .opts span.on { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+  .lanes { display: grid; grid-template-rows: 18px 1fr 1fr; gap: 6px; position: relative; }
+  .sbar { display: grid; grid-template-columns: 34.1fr 34.3fr 31.6fr; }
+  .sbar span { border-left: 1px solid var(--line); padding-left: 8px; font-size: 11px; letter-spacing: .12em; color: var(--mut); }
+  .lane { position: relative; border-bottom: 1px solid var(--line); }
+  .lane .lb { position: absolute; right: 0; top: -14px; font-size: 10.5px; letter-spacing: .12em; color: var(--mut); z-index: 1; }
+  .knob { position: absolute; left: 32%; top: 18px; bottom: -4px; width: 2px; background: var(--txt); }
+  .knob::after { content: ""; position: absolute; bottom: -6px; left: -6px; width: 14px; height: 14px; background: var(--txt); }
+</style></head>
+<body class="grid-bg">
+<header class="top">
+  <span class="brand">F1 STORIES<span class="dot">.</span></span>
+  <span class="kicker" style="color:var(--mut)">Tech desk / Ghost Car</span>
+  <div class="ev num"><span class="kicker" style="color:var(--teal)">R16 / Monza</span><b>Ιταλία 2025 · Κατατακτήριες</b></div>
+  <a class="ob">Αλλαγή σύγκρισης →</a><a class="ob">Κοινοποίηση</a><div class="moon" style="--ink:var(--txt)"></div>
+</header>
+
+<div class="mid">
+  <aside class="tower num">
+    <span class="kicker">Χρονομέτρηση · τελικός χρόνος</span>
+    <div class="row" style="--c:var(--ver)"><span class="p">1</span><span class="c"></span><span class="a">VER<small>Verstappen · Γ7 · Soft</small></span><span class="t">1:18.792</span></div>
+    <div class="row" style="--c:var(--nor)"><span class="p">2</span><span class="c"></span><span class="a">NOR<small>Norris · Γ8 · Soft</small></span><span class="t">+0.153</span></div>
+    <div class="live" style="--c:var(--ver)"><div class="head"><b>VER</b><span class="kicker">Σχέση 8 · DRS —</span></div><div class="spd" data-s="0"></div>
+      <div class="meter" style="--v:100%"><span>Γκάζι</span><i></i><span>100</span></div><div class="meter" style="--v:0%"><span>Φρένο</span><i></i><span>0</span></div></div>
+    <div class="live" style="--c:var(--nor)"><div class="head"><b>NOR</b><span class="kicker">Σχέση 8 · DRS —</span></div><div class="spd" data-s="1"></div>
+      <div class="meter" style="--v:100%"><span>Γκάζι</span><i></i><span>100</span></div><div class="meter" style="--v:0%"><span>Φρένο</span><i></i><span>0</span></div></div>
+  </aside>
+
+  <main class="stage">
+    <div class="persp"><div class="t" id="trk"></div></div>
+    <div class="chips" id="chips"></div>
+    <div class="headline"><span class="kicker">03 / Τελική διαφορά γύρου</span><h1 class="num">0.153<span class="dot">.</span></h1><p>Ο Verstappen ταχύτερος · 32% του γύρου</p></div>
+    <div class="card num">
+      <div class="hd kicker"><span>R16 / Monza</span><span>Q3</span></div>
+      <div class="sub kicker">VER vs NOR · στο ίδιο σημείο της πίστας</div>
+      <div class="big"><span class="pl">+</span><span id="gap"></span><small> s</small></div>
+      <div class="cap">Ο NOR μπροστά σε αυτό το σημείο · τελικά χάνει 0.153</div>
+      <div class="secs"><div style="--c:var(--nor)">S1<b class="w">NOR −0.041</b></div><div style="--c:var(--ver)">S2<b class="w">VER −0.112</b></div><div style="--c:var(--ver)">S3<b class="w">VER −0.082</b></div></div>
+    </div>
+  </main>
+</div>
+
+<footer class="strip num">
+  <div class="ctl">
+    <div class="pl"><div class="pb"><i></i></div><div class="tm"><b>0:25.213</b><span>/ 1:18.792</span></div></div>
+    <div class="opts"><span class="on">3D</span><span>2D</span><span>1×</span><span>↻</span></div>
+    <div class="opts"><span>Κάμερα · Τροχιά ▾</span></div>
+  </div>
+  <div class="lanes">
+    <div class="sbar"><span>S1 · NOR</span><span>S2 · VER</span><span>S3 · VER</span></div>
+    <div class="lane"><span class="lb">ΔΙΑΦΟΡΑ</span><div id="d" style="position:absolute;inset:0"></div></div>
+    <div class="lane"><span class="lb">KM/H</span><div id="s" style="position:absolute;inset:0"></div></div>
+    <div class="knob"></div>
+  </div>
+</footer>
+
+<script src="shared.js"></script>
+<script>
+  if (location.search.includes("light")) document.body.classList.add("light");
+  const P = 0.32;
+  const svg = GC.track(document.getElementById("trk"), { road: "var(--road)", edge: "color-mix(in srgb, var(--txt) 12%, transparent)", width: 24, startColor: "var(--sig)", carR: 10, carStroke: "var(--bg)",
+    cars: [{ p: P + 0.004, c: "var(--ver)" }, { p: P, c: "var(--nor)" }] });
+  const chips = document.getElementById("chips");
+  [...svg.querySelectorAll("circle")].forEach((c, i) => {
+    const r = c.getBoundingClientRect(), s = document.querySelector(".stage").getBoundingClientRect();
+    const d = document.createElement("span"); d.className = "label-chip"; d.textContent = i ? "NOR" : "VER";
+    d.style.cssText = `--c:var(--${i ? "nor" : "ver"});left:${r.left - s.left + 18}px;top:${r.top - s.top + (i ? 14 : -30)}px`;
+    chips.appendChild(d);
+  });
+  document.getElementById("gap").textContent = GC.gap(P).toFixed(3);
+  document.querySelectorAll("[data-s]").forEach((e) => (e.innerHTML = Math.round(GC.speed(P, +e.dataset.s)) + "<small>km/h</small>"));
+  const sectors = [0.341, 0.684];
+  GC.trace(document.getElementById("d"), [
+    { fn: (p) => Math.max(0, GC.gap(p)), c: "var(--nor)", fill: "color-mix(in srgb, var(--nor) 35%, transparent)", width: 1 },
+    { fn: (p) => Math.min(0, GC.gap(p)), c: "var(--ver)", fill: "color-mix(in srgb, var(--ver) 35%, transparent)", width: 1 },
+  ], { min: -0.17, max: 0.07, zero: 0, sectors });
+  GC.trace(document.getElementById("s"), [{ fn: (p) => GC.speed(p, 0), c: "var(--ver)" }, { fn: (p) => GC.speed(p, 1), c: "var(--nor)", dash: "4 3" }], { min: 60, max: 380, sectors });
+</script>
+</body></html>
