@@ -10,7 +10,7 @@ export function normalizeThemeMode(value) {
 
 export default function useThemePreference() {
   // index.html already resolved URL `th` over the stored preference before first paint; start from its answer.
-  const [isDark, setIsDark] = useState(() => document.documentElement.dataset.theme !== "light");
+  const [isDark, setIsDark] = useState(() => document.documentElement.dataset.theme === "dark");
 
   const persistTheme = useCallback((nextIsDark) => {
     try {
@@ -41,7 +41,7 @@ export default function useThemePreference() {
   useEffect(() => {
     const theme = isDark ? "dark" : "light";
     document.documentElement.dataset.theme = theme;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#0c0e0f" : "#f1efe9");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#1b1a19" : "#f2eee4");
   }, [isDark]);
 
   return { isDark, setThemeMode, toggleTheme };

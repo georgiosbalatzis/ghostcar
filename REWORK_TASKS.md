@@ -134,7 +134,7 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 | builder loads… | `Σκέλος` / `Οδηγός 1` absent before they are relevant | T3.1 | keep: progressive disclosure stays (T3.1 changes styles only) |
 | secondary surfaces… | button `/^Όλες/` opens the Featured dialog | T3.2 | click the presets link |
 | secondary surfaces… | `Περισσότερα` → `Αποθηκευμένες συγκρίσεις` on the **builder** | T2.6 | the `Αποθηκευμένες` link in the builder utility row (finding 2) |
-| theme… | default `data-theme` is `dark` | T1.2 | default `light`; toggle to dark |
+| theme… | default `data-theme` is `dark` | T1.2 ✅ | updated: default `light`, toggle to dark |
 | theme… | toggle via `Περισσότερα` → menuitem `Φωτεινό θέμα` | T2.1 | the masthead theme button (hamburger menu at < 992 px) |
 | embed without comparison | `getByRole("banner")` count 0 | T2.1 | keep: the masthead must not render in embed |
 
@@ -173,13 +173,15 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 
 ### Phase 1: Foundations (tokens, fonts, primitives)
 
-- **T1.1** Replace the palettes in `src/styles/tokens.css` with the §3 values. Keep the variable names components already use (`--page`, `--surface*`, `--text*`, `--rule*`, `--accent*`) and add `--signal`, `--signal-ink`, `--tech`, `--cut-sm`, `--ease-editorial`. Update `--track` and `--track-edge` for the paper theme. Keep driver-colour darkening (`--ink`) for paper, and re-check it at the new background.
-  *Done when:* the app renders with the new palette without layout changes, and text/accent contrast is ≥ 4.5:1 in both themes.
-- **T1.2** Make paper the default. In `index.html`, fall back to `"light"` instead of `"dark"` when there is no stored value, and set `theme-color` to `#f2eee4`. In `src/hooks/useThemePreference.js`, use `#1b1a19` / `#f2eee4` in the meta update.
-  *Done when:* a fresh profile opens in paper with no flash, and `?th=dark` and a stored `dark` still win.
-- **T1.3** Add the `IBM Plex Sans Fallback` metric-matched faces from the site's `editorial.css` to `src/styles/base.css`, and put them in `--font-ui`.
-- **T1.4** Add the primitives to `src/styles/base.css`: `.kicker`, `.crumb`, `.btn--ink`, `.btn--line`, `.band`, `.page-tabs`, `.facts`, `.ruled-row` (with `--c` left rule), `.field--underline`, `.margin-note`, `.cut` (clip-path corner), `.display` (Barlow). Remove the primitives Phase 2+ no longer uses once they are unused.
-  *Done when:* each primitive has one owner rule and no inline styles.
+- **T1.1 ✅** `src/styles/tokens.css` now holds the §3 palettes, with a header comment naming the source file and date. Component variable names are unchanged. Added `--signal`, `--signal-ink`, `--tech`, `--cut-sm` and `--ease-editorial`. Removed `--positive` and `--warning`, which nothing used.
+  - Measured in Chrome in both themes: every text and accent pair on page, surface and surface-2 is ≥ 4.5:1, `--signal-ink` on the band is 4.77:1, and control borders (`--rule-strong`) are ≥ 3:1.
+  - To get there, four light values differ slightly from the site: `--text-2` `#555c50` (site `#5b6256`, 4.48:1 on surface-2), plus Ghost Car's own `--muted` `#585e53` and `--rule-strong` `#8c897b`. The old light input border was only ~2:1.
+  - `--ink` is only used for marks (fills, strokes, rules), never for text, so the bar is 3:1. The paper darkening moved from 72 % to 64 % team colour so Mercedes and Cadillac clear it; every 2025–26 team is now ≥ 3.59:1 in both themes.
+- **T1.2 ✅** Paper is the default. `index.html` falls back to `light`, and `theme-color` is `#f2eee4`. `useThemePreference` reads only an explicit `dark` as dark, and writes `#1b1a19` / `#f2eee4` to the meta. `?th=` and a stored value still win. The e2e theme test now checks a paper `rgb(242, 238, 228)` default, the toggle to dark, persistence, and a URL override.
+- **T1.3 ✅** The site's 12 metric-matched `IBM Plex Sans Fallback` faces are in `base.css`, and `--font-ui` lists them after Plex.
+- **T1.4 ✅** Primitives in `base.css`: `.kicker`, `.crumb`, `.display` + `.dot`, `.band` (`__sep`, `__slogan`), `.facts` (`__item`, `__label`, `__value`, `__note`; 2 columns under 768 px), `.ruled-row`, `.margin-note` (`__title`), `.cut`, `.btn--ink`, `.btn--line`, `.field--underline`, and `.page-tabs`. `.page-tabs` is a modifier on the existing `.tabs`, so `Tabs.jsx` keeps its ARIA.
+  - I rendered each one in the real app in both themes; they match the reference.
+  - Nothing uses them yet. Removing old primitives happens in T10.1, once Phases 2–8 have replaced their users.
 
 ### Phase 2: Shell (masthead, hero, band, colophon)
 

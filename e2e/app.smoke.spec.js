@@ -90,18 +90,20 @@ test("theme is a quiet preference that persists", async ({ page }) => {
   await routeOpenF1(page);
   await page.goto(APP_PATH);
   const html = page.locator("html");
-  await expect(html).toHaveAttribute("data-theme", "dark");
-  const darkBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-
-  await page.getByRole("button", { name: "Περισσότερα" }).click();
-  await page.getByRole("menuitem", { name: "Φωτεινό θέμα" }).click();
+  // Paper by default, as on f1stories.gr.
   await expect(html).toHaveAttribute("data-theme", "light");
   const lightBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(lightBackground).not.toEqual(darkBackground);
+  expect(lightBackground).toBe("rgb(242, 238, 228)");
+
+  await page.getByRole("button", { name: "Περισσότερα" }).click();
+  await page.getByRole("menuitem", { name: "Σκούρο θέμα" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  const darkBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(darkBackground).not.toEqual(lightBackground);
 
   await page.reload();
-  await expect(html).toHaveAttribute("data-theme", "light");
-  // URL theme wins over the stored preference.
-  await page.goto(`${APP_PATH}?th=dark`);
   await expect(html).toHaveAttribute("data-theme", "dark");
+  // URL theme wins over the stored preference.
+  await page.goto(`${APP_PATH}?th=light`);
+  await expect(html).toHaveAttribute("data-theme", "light");
 });
