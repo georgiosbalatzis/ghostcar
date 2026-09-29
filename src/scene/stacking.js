@@ -21,3 +21,20 @@ export function stackOffsets(points, near = 60) {
     );
   });
 }
+
+/** stackOffsets without allocating: the first `count` of `points`, results written into `out`. */
+export function stackOffsetsInto(points, count, out, near = 60) {
+  for (let i = 0; i < count; i++) {
+    const point = points[i];
+    let group = 0;
+    let above = 0;
+    for (let j = 0; j < count; j++) {
+      const other = points[j];
+      if (Math.abs(other.x - point.x) >= near || Math.abs(other.y - point.y) >= near) continue;
+      group++;
+      if (other.y < point.y || (other.y === point.y && other.index < point.index)) above++;
+    }
+    out[i] = above - (group - 1) / 2;
+  }
+  return out;
+}

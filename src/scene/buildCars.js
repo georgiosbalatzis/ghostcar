@@ -193,7 +193,7 @@ function writeEnd(array, offset, x, y, z) {
   array[offset + 2] = z;
 }
 
-function updateTail(tail, { path, times, time, centreline, carIndex }) {
+function updateTail(tail, path, times, time, centreline, carIndex) {
   const f1 = fractionAtTime(times, time);
   const f0 = fractionAtTime(times, time - TAIL_SECONDS);
   const last = path.count - 1;
@@ -281,7 +281,22 @@ export function buildCars({
     tails.forEach((tail) => tail?.line.material.resolution.set(width, height));
   }
 
-  return { cars, tails, restyle, setResolution, settled };
+  return {
+    cars,
+    tails,
+    restyle,
+    setResolution,
+    settled,
+    // What the cars own outside the scene graph's own disposal: the shared shadow and ghost pass, and the tails.
+    dispose: () => {
+      shadowTexture.dispose();
+      shared.prepass.dispose();
+      tails.forEach((tail) => {
+        tail?.line.geometry.dispose();
+        tail?.line.material.dispose();
+      });
+    },
+  };
 }
 
 export function createCarState() {
@@ -294,15 +309,15 @@ export function createCarState() {
 
 /**
  * Place every car for this frame from the shared clock: position on its own line at its own fraction, height and
- * pitch from the road, heading along its line. Returns whether anything moved and the first two cars' places
- * (the cameras follow them).
+ * pitch from the road, heading along its line. Allocation-free; returns whether anything moved.
  */
 export function placeCars({ sceneState, fractions, time, pathTimes, showTails }) {
   const { cars, driverPaths, centreline, carStates, tails } = sceneState;
   let needsRender = false;
-  const places = cars.map((car, slot) => {
+  for (let slot = 0; slot < cars.length; slot++) {
+    const car = cars[slot];
     const path = driverPaths[slot];
-    if (!car || !path) return null;
+    if (!car || !path) continue;
     const state = carStates[slot];
     const pose = poseAt(path, fractions[slot], state.pose);
     placeOnRoad(centreline, pose, state);
@@ -332,10 +347,9 @@ export function placeCars({ sceneState, fractions, time, pathTimes, showTails })
       needsRender = true;
     }
     if (show) {
-      updateTail(tail, { path, times: pathTimes[slot], time, centreline, carIndex: state.index });
+      updateTail(tail, path, pathTimes[slot], time, centreline, state.index);
       needsRender = true;
     }
-    return state.place;
-  });
-  return { needsRender, p1: places[0], p2: places[1] };
+  }
+  return needsRender;
 }

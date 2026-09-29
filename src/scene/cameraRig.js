@@ -63,6 +63,10 @@ export function createCameraRig({
   const ahead = { x: 0, y: 0, z: 0 };
   const desired = new Vector3();
 
+  let parsedCam = null;
+  let parsedName = null;
+  let parsedSlot = null;
+  let parsedKey = null;
   let familyKey = null;
   let focusSlot = 0; // the driver the chase, onboard or TV camera is on (0: none)
   let family = "orbit";
@@ -132,15 +136,15 @@ export function createCameraRig({
   const placeOf = (frame, slot) => frame.carStates[slot - 1].place;
 
   function trackSpeeds(frame, dt) {
-    frame.carStates.forEach((state, index) => {
+    for (let index = 0; index < speeds.length; index++) {
+      const { place } = frame.carStates[index];
       const s = speeds[index];
-      if (!s) return;
-      const moved = Math.hypot(state.place.x - s.x, state.place.z - s.z);
+      const moved = Math.hypot(place.x - s.x, place.z - s.z);
       // A scrub is a jump, not a speed: only steady movement counts (F1 tops out near 100 m/s).
       if (dt > 1e-4 && moved / dt < 130) s.value += (moved / dt - s.value) * (1 - Math.exp(-3 * dt));
-      s.x = state.place.x;
-      s.z = state.place.z;
-    });
+      s.x = place.x;
+      s.z = place.z;
+    }
   }
 
   function chasePose(frame, slot, dt, out) {
@@ -186,15 +190,15 @@ export function createCameraRig({
     let slot = frame.focus && cars[frame.focus - 1] ? frame.focus : 0;
     if (!slot) {
       let best = -1;
-      cars.forEach((car, index) => {
+      for (let index = 0; index < cars.length; index++) {
         const path = frame.driverPaths[index];
-        if (!car || !path) return;
+        if (!cars[index] || !path) continue;
         const covered = distanceAt(path, frame.fractions[index]);
         if (covered > best) {
           best = covered;
           slot = index + 1;
         }
-      });
+      }
     }
     setFocus(slot);
     const state = frame.carStates[slot - 1];
@@ -281,10 +285,17 @@ export function createCameraRig({
   // ─── Update, once per frame; true when the picture changed ───
   function update(frame) {
     const dt = Math.min(frame.dt, 0.05);
-    const mode = parseCam(frame.cam);
-    const name = mode.family;
-    const slot = mode.family === "follow" || mode.family === "onboard" ? slotOf(mode.slot) : null;
-    const key = `${name}${slot ?? ""}`;
+    // The mode is parsed when it changes, not every frame.
+    if (frame.cam !== parsedCam) {
+      parsedCam = frame.cam;
+      const mode = parseCam(frame.cam);
+      parsedName = mode.family;
+      parsedSlot = mode.family === "follow" || mode.family === "onboard" ? slotOf(mode.slot) : null;
+      parsedKey = `${parsedName}${parsedSlot ?? ""}`;
+    }
+    const name = parsedName;
+    const slot = parsedSlot;
+    const key = parsedKey;
     previousPosition.copy(camera.position);
     previousQuaternion.copy(camera.quaternion);
     trackSpeeds(frame, dt);

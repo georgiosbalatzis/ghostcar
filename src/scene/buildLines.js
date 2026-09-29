@@ -42,6 +42,11 @@ export function buildRacingLines({ scene, driverPaths, centreline, colours, reso
   return {
     setVisible: (visible) => lines.forEach((line) => line && (line.visible = visible)),
     restyle: (next) => lines.forEach((line, index) => line?.material.color.set(next[index])),
+    dispose: () =>
+      lines.forEach((line) => {
+        line?.geometry.dispose();
+        line?.material.dispose();
+      }),
     setResolution: (width, height) => lines.forEach((line) => line?.material.resolution.set(width, height)),
   };
 }

@@ -127,6 +127,9 @@ export default function useScene(
     let devHook = null;
     let contextLost = false;
     let active = true;
+    let debugTimer = 0;
+    // The scene's builders, each of which frees what it owns; the scene graph and renderer follow.
+    const parts = [];
 
     const clearRenderer = () => {
       if (R.current.fr) cancelAnimationFrame(R.current.fr);
@@ -137,6 +140,9 @@ export default function useScene(
       resizeCleanup = null;
       if (devHook && window.__ghostcar3d === devHook) delete window.__ghostcar3d;
       devHook = null;
+      clearInterval(debugTimer);
+      parts.forEach((part) => part.dispose?.());
+      R.current.lineSet?.dispose();
       rendererContext?.dispose();
       rendererContext = null;
       scene = null;
@@ -181,6 +187,7 @@ export default function useScene(
         groundY: live.frame.groundY,
       });
 
+      parts.push(environment);
       const track = buildTrack({
         scene,
         reference: { points: drivers[0].path.map(live.frame.toWorld), times: live.referenceTimes },
@@ -190,6 +197,7 @@ export default function useScene(
       });
       track.setViz(live.vizMode, live.vizData);
 
+      parts.push(track);
       const carSet = buildCars({
         scene,
         drivers: live.style.map((driver, index) => ({ ...driver, path: drivers[index].path })),
@@ -200,6 +208,7 @@ export default function useScene(
         isActive: () => active,
         isContextLost: () => contextLost,
       });
+      parts.push(carSet);
       const { cars, tails } = carSet;
 
       // Everything the frame loop and the in-place effects touch.
@@ -292,6 +301,14 @@ export default function useScene(
       R.current._playRef = playRef;
       R.current._speedRef = speedRef;
 
+      // `?debug3d=1`: what a frame costs, every 5 s. Nothing logs otherwise.
+      if (new URLSearchParams(window.location.search).has("debug3d")) {
+        debugTimer = setInterval(() => {
+          const { calls, triangles } = ren.info.render;
+          console.info(`[3D] ${calls} draw calls, ${triangles} triangles`);
+        }, 5000);
+      }
+
       // Test and capture hook, not present in production for real visitors.
       if (import.meta.env.DEV || navigator.webdriver) {
         const project = (slot) => {
@@ -312,6 +329,7 @@ export default function useScene(
           band: track.band,
           tails,
           setQuality: (tier) => R.current.api?.setQuality(tier),
+          loseContext: () => ren?.forceContextLoss(),
           cars,
           info: () => ren?.info,
           project,

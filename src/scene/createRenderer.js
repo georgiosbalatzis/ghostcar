@@ -1,16 +1,23 @@
 import { Color, Fog, NeutralToneMapping, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { SCENE_THEME } from "./sceneTheme.js";
 
+const NO_WEBGL = "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
+let supportError;
+
 export function getSceneSupportError() {
   if (typeof window === "undefined") return "";
   if (!window.WebGLRenderingContext) return "Αυτός ο browser δεν υποστηρίζει WebGL.";
+  // Asked once per page: the probe is a real WebGL context, and browsers only allow a handful of them.
+  if (supportError !== undefined) return supportError;
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    return gl ? "" : "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    supportError = gl ? "" : NO_WEBGL;
   } catch {
-    return "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
+    supportError = NO_WEBGL;
   }
+  return supportError;
 }
 
 export function formatSceneError(error) {

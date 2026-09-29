@@ -65,7 +65,7 @@ export function createAdaptiveQualityController({
     }
   }
 
-  function recordFrame({ now, previousFrameTime, isSceneVisible }) {
+  function recordFrame(now, previousFrameTime, isSceneVisible) {
     if (previousFrameTime > 0 && isSceneVisible) {
       const frameMs = now - previousFrameTime;
       if (frameMs > 0 && frameMs < 200) {

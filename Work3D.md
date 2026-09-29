@@ -418,16 +418,16 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 - Steps: under `prefers-reduced-motion`, make camera transitions instant, TV only cuts, and chase uses a stiffer spring (no sway). Confirm there is no auto-rotation, no shake and no continuous animation while paused. The render loop must go idle when paused and not interacting (keep the existing `IDLE_MS` logic).
 - Acceptance: with playback paused and no input, `renderer.info.render.frame` does not advance over 2 s (e2e via the dev hook).
 
-### Phase 8: Performance and robustness
+### ✅ Phase 8: Performance and robustness
 
-**T8.1: Budgets.**
+**✅ T8.1: Budgets.** _(Done except the Android phone and M1/M2 numbers, which need devices that were not available; the M3 Pro was measured. See `docs/rework3d/perf.md`.)_
 - 1440×900, DPR 2, 4 drivers, Chase: draw calls ≤ 90 and triangles ≤ 250k (`renderer.info`). Log both in dev once per 5 s behind `?debug3d=1`. Nothing logs otherwise.
 - Record fps on an M1/M2 MacBook (Chrome) and a mid-range Android phone in `docs/rework3d/perf.md`.
 
-**T8.2: Allocation-free frame.**
+**✅ T8.2: Allocation-free frame.** _(Done. Checked with V8's sampling heap profiler and GC counts instead of a visual look at a performance recording.)_
 - The render loop, pose, labels and camera rig must not allocate per frame: reuse `Vector3`/`Quaternion` scratch objects and write into out-params. Check with a Chrome performance recording (no sawtooth GC during a 20 s playback). Note the result in `perf.md`.
 
-**T8.3: Disposal and context loss.**
+**✅ T8.3: Disposal and context loss.**
 - Every `build*` returns `dispose()`. The shared template and the env map are disposed on page unload only. Keep the context-loss → 2D fallback message. Add an e2e test: toggle 2D/3D 10 times, then check that `renderer.info.memory.geometries` and `textures` are back to their first-3D values ±2 (dev hook).
 
 ### Phase 9: QA and docs

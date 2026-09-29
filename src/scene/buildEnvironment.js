@@ -104,5 +104,14 @@ export function buildEnvironment({ scene, renderer, isDark, bounds, groundY }) {
   const setDetail = (full) => {
     ground.material.uniforms.uMinorOn.value = full ? 1 : 0;
   };
-  return { applyTheme, setDetail };
+  return {
+    applyTheme,
+    setDetail,
+    dispose: () => {
+      scene.environment?.dispose();
+      scene.environment = null;
+      ground.geometry.dispose();
+      ground.material.dispose();
+    },
+  };
 }

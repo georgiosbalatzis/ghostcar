@@ -54,12 +54,19 @@ export function yawFor2D() {
  */
 export function springStep(current, target, velocity, omega, dt) {
   const decay = Math.exp(-omega * dt);
-  for (const axis of ["x", "y", "z"]) {
-    const offset = current[axis] - target[axis];
-    const impulse = (velocity[axis] + omega * offset) * dt;
-    current[axis] = target[axis] + (offset + impulse) * decay;
-    velocity[axis] = (velocity[axis] - omega * impulse) * decay;
-  }
+  // Three axes written out: a loop over ["x", "y", "z"] would build an array every frame.
+  let offset = current.x - target.x;
+  let impulse = (velocity.x + omega * offset) * dt;
+  current.x = target.x + (offset + impulse) * decay;
+  velocity.x = (velocity.x - omega * impulse) * decay;
+  offset = current.y - target.y;
+  impulse = (velocity.y + omega * offset) * dt;
+  current.y = target.y + (offset + impulse) * decay;
+  velocity.y = (velocity.y - omega * impulse) * decay;
+  offset = current.z - target.z;
+  impulse = (velocity.z + omega * offset) * dt;
+  current.z = target.z + (offset + impulse) * decay;
+  velocity.z = (velocity.z - omega * impulse) * decay;
 }
 
 export const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);

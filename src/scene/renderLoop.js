@@ -25,6 +25,12 @@ export function startSceneRenderLoop({
   let hasRendered = false;
   let lastSimTime = 0;
   let cancelled = false;
+  // The frame is allocation-free: these are filled in place every frame instead of building new arrays and objects.
+  const carProgress = [0, 0, 0, 0];
+  const carFrame = { sceneState: null, fractions: carProgress, time: 0, pathTimes: null, showTails: false };
+  const rigFrame = { dt: 0, cam: "", focus: 0, carStates: null, driverPaths: null, fractions: carProgress };
+  const labelFrame = { hiddenIndex: -1, width: 0, height: 0 };
+  const noTimes = [];
 
   function animate(now = performance.now()) {
     if (cancelled || isContextLost()) return;
@@ -37,7 +43,7 @@ export function startSceneRenderLoop({
     if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
     const prevFrameTime = lastFrameTime;
     lastFrameTime = now;
-    adaptiveQuality.recordFrame({ now, previousFrameTime: prevFrameTime, isSceneVisible });
+    adaptiveQuality.recordFrame(now, prevFrameTime, isSceneVisible);
     if (!isSceneVisible) {
       lastSceneVisible = false;
       lastSimTime = 0;
@@ -52,10 +58,10 @@ export function startSceneRenderLoop({
     // prog is the shared clock (share of the slowest lap); each car's position comes from its own timestamps.
     const timing = sceneState._timingRef?.current;
     const clock = prog * (timing?.duration || 0);
-    const pathTimes = timing?.pathTimes || [];
-    const carProgress = [0, 1, 2, 3].map((slot) =>
-      pathTimes[slot]?.length ? fractionAtTime(pathTimes[slot], clock) : prog
-    );
+    const pathTimes = timing?.pathTimes || noTimes;
+    for (let slot = 0; slot < 4; slot++) {
+      carProgress[slot] = pathTimes[slot]?.length ? fractionAtTime(pathTimes[slot], clock) : prog;
+    }
     const cameraMode = cameraModeRef.current;
     let needsRender =
       !hasRendered ||
@@ -69,32 +75,27 @@ export function startSceneRenderLoop({
     lastSceneVisible = true;
     if (isPlaying) needsRender = true;
 
-    const carUpdate = placeCars({
-      sceneState,
-      fractions: carProgress,
-      time: clock,
-      pathTimes,
-      showTails: isPlaying && cameraMode !== "top" && (sceneState.quality ?? 0) < 2,
-    });
-    needsRender = needsRender || carUpdate.needsRender;
+    carFrame.sceneState = sceneState;
+    carFrame.time = clock;
+    carFrame.pathTimes = pathTimes;
+    carFrame.showTails = isPlaying && cameraMode !== "top" && (sceneState.quality ?? 0) < 2;
+    needsRender = placeCars(carFrame) || needsRender;
 
-    needsRender =
-      rig.update({
-        dt,
-        cam: cameraMode,
-        focus: focusRef.current,
-        carStates: sceneState.carStates,
-        driverPaths: sceneState.driverPaths,
-        fractions: carProgress,
-      }) || needsRender;
+    rigFrame.dt = dt;
+    rigFrame.cam = cameraMode;
+    rigFrame.focus = focusRef.current;
+    rigFrame.carStates = sceneState.carStates;
+    rigFrame.driverPaths = sceneState.driverPaths;
+    needsRender = rig.update(rigFrame) || needsRender;
     if (!needsRender) return;
     try {
       // The name chips are DOM: put them where the cars are in this very frame.
-      sceneState.labels?.update({
-        hiddenIndex: rig.hiddenLabelIndex(),
-        width: renderer.domElement.clientWidth,
-        height: renderer.domElement.clientHeight,
-      });
+      if (sceneState.labels) {
+        labelFrame.hiddenIndex = rig.hiddenLabelIndex();
+        labelFrame.width = renderer.domElement.clientWidth;
+        labelFrame.height = renderer.domElement.clientHeight;
+        sceneState.labels.update(labelFrame);
+      }
       renderer.render(scene, camera);
       hasRendered = true;
       if (!sceneState._rendered) {

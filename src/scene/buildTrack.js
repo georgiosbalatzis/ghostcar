@@ -207,5 +207,21 @@ export function buildTrack({ scene, reference, groundY, theme, isMob }) {
   }
   applyTheme(theme);
 
-  return { centreline: c, curve: c.curve, start, band, setViz, setSectors, applyTheme };
+  const meshes = [road, runoff, skirt, paint, band, strip, gantry, ...sectorBars];
+  return {
+    centreline: c,
+    curve: c.curve,
+    start,
+    band,
+    setViz,
+    setSectors,
+    applyTheme,
+    dispose: () => {
+      for (const mesh of meshes) {
+        mesh.geometry.dispose();
+        mesh.material.map?.dispose();
+        mesh.material.dispose();
+      }
+    },
+  };
 }
