@@ -109,8 +109,8 @@ export function startSceneRenderLoop({
       p2: carUpdate.p2,
       progress: prog,
       carProgress,
-      primaryPath: sceneState.n1,
-      secondaryPath: sceneState.n2,
+      primaryPath: sceneState.paths[0],
+      secondaryPath: sceneState.paths[1],
       fallbackPath: trackPath,
       telemetry: sceneState._telData1,
       curve: sceneState.curve,
@@ -141,6 +141,7 @@ export function startSceneRenderLoop({
     try {
       renderer.render(scene, camera);
       hasRendered = true;
+      sceneState._rendered = true;
       sceneState._dirty = false;
     } catch (error) {
       onRenderError(error);

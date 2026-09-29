@@ -123,8 +123,8 @@ export function updateCarsAndMarkers({
   playbackSpeed,
   followCamera,
 }) {
-  const { car1, car2, tr1, tr2, spot1, spot2, deltaLine, deltaPos } = sceneState;
-  if (!car1 || !car2 || !trackPath || trackPath.length < 2) {
+  const { cars, trails, paths, spot1, spot2, deltaLine, deltaPos } = sceneState;
+  if (!cars?.[0] || !cars[1] || !trackPath || trackPath.length < 2) {
     return { needsRender: false, p1: null, p2: null };
   }
 
@@ -135,8 +135,8 @@ export function updateCarsAndMarkers({
   const positionLerp = frameLerp(MathUtils.clamp(0.34 - playbackSpeed * 0.04, 0.18, 0.34), deltaTime);
 
   // carProgress: each car's own position (fraction of its samples) at the shared clock.
-  const rawP1 = lerp(sceneState.n1?.length >= 2 ? sceneState.n1 : trackPath, carProgress[0]);
-  const rawP2 = lerp(sceneState.n2?.length >= 2 ? sceneState.n2 : trackPath, carProgress[1]);
+  const rawP1 = lerp(paths[0]?.length >= 2 ? paths[0] : trackPath, carProgress[0]);
+  const rawP2 = lerp(paths[1]?.length >= 2 ? paths[1] : trackPath, carProgress[1]);
   const dist = Math.sqrt((rawP1.x - rawP2.x) ** 2 + (rawP1.z - rawP2.z) ** 2);
   const closeThreshold = 3.0;
   const maxOffset = 0.7;
@@ -145,7 +145,7 @@ export function updateCarsAndMarkers({
   // Trails are the path just driven, so they only grow during playback. After a jump they are cleared: otherwise a
   // single point recorded mid-glide stays behind as a stray dot (the "two coloured dots" of earlier versions).
   if (jumped) {
-    for (const trail of [tr1, tr2, sceneState.tr3, sceneState.tr4]) {
+    for (const trail of trails) {
       if (!trail?.count) continue;
       trail.count = 0;
       trail.mesh.geometry.setDrawRange(0, 0);
@@ -163,46 +163,22 @@ export function updateCarsAndMarkers({
     positionLerp,
     headingHelper,
   };
-  const p1 = updateCar({
-    ...updateOptions,
-    car: car1,
-    progress: carProgress[0],
-    trail: tr1,
-    data: sceneState.n1,
-    targetLateralOffset: lateralOffset,
-  });
-  const p2 = updateCar({
-    ...updateOptions,
-    car: car2,
-    progress: carProgress[1],
-    trail: tr2,
-    data: sceneState.n2,
-    targetLateralOffset: -lateralOffset,
-  });
-  needsRender = needsRender || p1.dirty || p2.dirty;
-
-  if (sceneState.car3) {
-    const p3 = updateCar({
-      ...updateOptions,
-      car: sceneState.car3,
-      progress: carProgress[2],
-      trail: sceneState.tr3,
-      data: sceneState.n3,
-      targetLateralOffset: lateralOffset * 0.5,
-    });
-    needsRender = needsRender || p3.dirty;
-  }
-  if (sceneState.car4) {
-    const p4 = updateCar({
-      ...updateOptions,
-      car: sceneState.car4,
-      progress: carProgress[3],
-      trail: sceneState.tr4,
-      data: sceneState.n4,
-      targetLateralOffset: -lateralOffset * 0.5,
-    });
-    needsRender = needsRender || p4.dirty;
-  }
+  // Slots 1 and 2 pass on either side when close; slots 3 and 4 half as far.
+  const lateralTargets = [lateralOffset, -lateralOffset, lateralOffset * 0.5, -lateralOffset * 0.5];
+  const poses = cars.map((car, slot) =>
+    car
+      ? updateCar({
+          ...updateOptions,
+          car,
+          progress: carProgress[slot],
+          trail: trails[slot],
+          data: paths[slot],
+          targetLateralOffset: lateralTargets[slot],
+        })
+      : null
+  );
+  const [p1, p2] = poses;
+  needsRender = needsRender || poses.some((pose) => pose?.dirty);
 
   if (spot1) spot1.position.set(p1.x, p1.y + 12, p1.z);
   if (spot2) spot2.position.set(p2.x, p2.y + 12, p2.z);

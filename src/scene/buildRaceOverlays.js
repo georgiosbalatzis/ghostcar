@@ -24,8 +24,9 @@ export function buildRaceOverlays({ scene, curve, seg, isLowDetail, theme }) {
   deltaLine.frustumCulled = false;
   scene.add(freezeObjectTransform(deltaLine));
 
+  let racingLine = null;
   if (!isLowDetail) {
-    const racingLine = new Line(
+    racingLine = new Line(
       new BufferGeometry().setFromPoints(curve.getPoints(seg)),
       createRacingLineMaterial(theme.ink)
     );
@@ -33,5 +34,11 @@ export function buildRaceOverlays({ scene, curve, seg, isLowDetail, theme }) {
     scene.add(freezeObjectTransform(racingLine));
   }
 
-  return { spot1, spot2, deltaLine, deltaPos };
+  // Theme change in place: both lines are drawn in the ink colour.
+  function applyTheme(next) {
+    deltaLine.material.color.set(next.ink);
+    racingLine?.material.color.set(next.ink);
+  }
+
+  return { spot1, spot2, deltaLine, deltaPos, applyTheme };
 }

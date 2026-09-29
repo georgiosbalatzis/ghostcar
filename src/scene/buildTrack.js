@@ -81,77 +81,93 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
   ribbonGeo.setAttribute("position", new Float32BufferAttribute(ribbonPos, 3));
   ribbonGeo.setAttribute("normal", new Float32BufferAttribute(ribbonNorm, 3));
   ribbonGeo.setIndex(ribbonIdx);
-  scene.add(freezeObjectTransform(new Mesh(ribbonGeo, createTrackRibbonMaterial({ isDark, theme }))));
+  const ribbonMaterial = createTrackRibbonMaterial({ isDark, theme });
+  scene.add(freezeObjectTransform(new Mesh(ribbonGeo, ribbonMaterial)));
 
-  if (vizMode === "heatmap" && speedArr.length > 10) {
-    const heatColors = new Float32Array(curvePts.length * 2 * 3);
-    for (let i = 0; i < curvePts.length; i++) {
-      const t = i / (curvePts.length - 1);
-      const si = Math.min(Math.floor(t * (speedArr.length - 1)), speedArr.length - 1);
-      const ratio = Math.max(0, Math.min(1, (speedArr[si] - 50) / 300));
-      let r;
-      let g;
-      let b;
-      if (ratio < 0.25) {
-        r = 0;
-        g = ratio * 4;
-        b = 1;
-      } else if (ratio < 0.5) {
-        r = 0;
-        g = 1;
-        b = 1 - (ratio - 0.25) * 4;
-      } else if (ratio < 0.75) {
-        r = (ratio - 0.5) * 4;
-        g = 1;
-        b = 0;
-      } else {
-        r = 1;
-        g = 1 - (ratio - 0.75) * 4;
-        b = 0;
+  // The colouring overlay is the one part that changes without a rebuild: setViz swaps it in place.
+  let overlay = null;
+  function makeOverlay(mode, { speedArr = [], brakeArr = [] }) {
+    if (mode === "heatmap" && speedArr.length > 10) {
+      const heatColors = new Float32Array(curvePts.length * 2 * 3);
+      for (let i = 0; i < curvePts.length; i++) {
+        const t = i / (curvePts.length - 1);
+        const si = Math.min(Math.floor(t * (speedArr.length - 1)), speedArr.length - 1);
+        const ratio = Math.max(0, Math.min(1, (speedArr[si] - 50) / 300));
+        let r;
+        let g;
+        let b;
+        if (ratio < 0.25) {
+          r = 0;
+          g = ratio * 4;
+          b = 1;
+        } else if (ratio < 0.5) {
+          r = 0;
+          g = 1;
+          b = 1 - (ratio - 0.25) * 4;
+        } else if (ratio < 0.75) {
+          r = (ratio - 0.5) * 4;
+          g = 1;
+          b = 0;
+        } else {
+          r = 1;
+          g = 1 - (ratio - 0.75) * 4;
+          b = 0;
+        }
+        const vi = i * 2;
+        heatColors[vi * 3] = r;
+        heatColors[vi * 3 + 1] = g;
+        heatColors[vi * 3 + 2] = b;
+        heatColors[(vi + 1) * 3] = r;
+        heatColors[(vi + 1) * 3 + 1] = g;
+        heatColors[(vi + 1) * 3 + 2] = b;
       }
-      const vi = i * 2;
-      heatColors[vi * 3] = r;
-      heatColors[vi * 3 + 1] = g;
-      heatColors[vi * 3 + 2] = b;
-      heatColors[(vi + 1) * 3] = r;
-      heatColors[(vi + 1) * 3 + 1] = g;
-      heatColors[(vi + 1) * 3 + 2] = b;
+      const heatGeo = ribbonGeo.clone();
+      heatGeo.setAttribute("color", new Float32BufferAttribute(heatColors, 3));
+      const heatMesh = new Mesh(heatGeo, createTrackOverlayMaterial(0.55));
+      heatMesh.position.y += 0.01;
+      return freezeObjectTransform(heatMesh);
     }
-    const heatGeo = ribbonGeo.clone();
-    heatGeo.setAttribute("color", new Float32BufferAttribute(heatColors, 3));
-    const heatMesh = new Mesh(heatGeo, createTrackOverlayMaterial(0.55));
-    heatMesh.position.y += 0.01;
-    scene.add(freezeObjectTransform(heatMesh));
-  }
 
-  if (vizMode === "brake" && brakeArr.length > 10) {
-    const brakeColors = new Float32Array(curvePts.length * 2 * 3);
-    for (let i = 0; i < curvePts.length; i++) {
-      const t = i / (curvePts.length - 1);
-      const si = Math.min(Math.floor(t * (brakeArr.length - 1)), brakeArr.length - 1);
-      let brakeVal = 0;
-      for (let w = -2; w <= 2; w++) {
-        const wi = Math.max(0, Math.min(brakeArr.length - 1, si + w));
-        brakeVal += brakeArr[wi];
+    if (mode === "brake" && brakeArr.length > 10) {
+      const brakeColors = new Float32Array(curvePts.length * 2 * 3);
+      for (let i = 0; i < curvePts.length; i++) {
+        const t = i / (curvePts.length - 1);
+        const si = Math.min(Math.floor(t * (brakeArr.length - 1)), brakeArr.length - 1);
+        let brakeVal = 0;
+        for (let w = -2; w <= 2; w++) {
+          const wi = Math.max(0, Math.min(brakeArr.length - 1, si + w));
+          brakeVal += brakeArr[wi];
+        }
+        brakeVal /= 5;
+        const r = brakeVal > 0.3 ? 0.9 : 0.0;
+        const g = brakeVal > 0.3 ? 0.05 : 0.15;
+        const b = brakeVal > 0.3 ? 0.05 : 0.08;
+        const vi = i * 2;
+        brakeColors[vi * 3] = r;
+        brakeColors[vi * 3 + 1] = g;
+        brakeColors[vi * 3 + 2] = b;
+        brakeColors[(vi + 1) * 3] = r;
+        brakeColors[(vi + 1) * 3 + 1] = g;
+        brakeColors[(vi + 1) * 3 + 2] = b;
       }
-      brakeVal /= 5;
-      const r = brakeVal > 0.3 ? 0.9 : 0.0;
-      const g = brakeVal > 0.3 ? 0.05 : 0.15;
-      const b = brakeVal > 0.3 ? 0.05 : 0.08;
-      const vi = i * 2;
-      brakeColors[vi * 3] = r;
-      brakeColors[vi * 3 + 1] = g;
-      brakeColors[vi * 3 + 2] = b;
-      brakeColors[(vi + 1) * 3] = r;
-      brakeColors[(vi + 1) * 3 + 1] = g;
-      brakeColors[(vi + 1) * 3 + 2] = b;
+      const brakeGeo = ribbonGeo.clone();
+      brakeGeo.setAttribute("color", new Float32BufferAttribute(brakeColors, 3));
+      const brakeMesh = new Mesh(brakeGeo, createTrackOverlayMaterial(0.6));
+      brakeMesh.position.y += 0.01;
+      return freezeObjectTransform(brakeMesh);
     }
-    const brakeGeo = ribbonGeo.clone();
-    brakeGeo.setAttribute("color", new Float32BufferAttribute(brakeColors, 3));
-    const brakeMesh = new Mesh(brakeGeo, createTrackOverlayMaterial(0.6));
-    brakeMesh.position.y += 0.01;
-    scene.add(freezeObjectTransform(brakeMesh));
+    return null;
   }
+  function setViz(mode, data) {
+    if (overlay) {
+      scene.remove(overlay);
+      overlay.geometry.dispose();
+      overlay.material.dispose();
+    }
+    overlay = makeOverlay(mode, data);
+    if (overlay) scene.add(overlay);
+  }
+  setViz(vizMode, { speedArr, brakeArr });
 
   // Neutral track edges. Sector boundaries and turn numbers are not drawn: OpenF1 does not provide
   // their positions, and equal-thirds sectors or curvature-detected "turns" would imply false data.
@@ -160,6 +176,7 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
     0.8
   );
   if (edgeLines) scene.add(freezeObjectTransform(edgeLines));
+  const edgeColor = new Color();
 
   const sf = curve.getPointAt(0);
   const sfTan = curve.getTangentAt(0);
@@ -168,11 +185,20 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
   sfL.y += 0.03;
   const sfR = sf.clone().sub(sfPerp.clone().multiplyScalar(trackW / 2));
   sfR.y += 0.03;
-  scene.add(
-    freezeObjectTransform(
-      new Line(new BufferGeometry().setFromPoints([sfL, sfR]), createStartLineMaterial(theme.signal))
-    )
-  );
+  const startMaterial = createStartLineMaterial(theme.signal);
+  scene.add(freezeObjectTransform(new Line(new BufferGeometry().setFromPoints([sfL, sfR]), startMaterial)));
 
-  return { curve, seg };
+  // Theme change in place: recolour the road, edges and start line.
+  function applyTheme(next) {
+    ribbonMaterial.color.set(next.trackColor);
+    startMaterial.color.set(next.signal);
+    if (edgeLines) {
+      edgeColor.set(next.edgeColor);
+      const colors = edgeLines.geometry.attributes.color;
+      for (let i = 0; i < colors.count; i++) colors.setXYZ(i, edgeColor.r, edgeColor.g, edgeColor.b);
+      colors.needsUpdate = true;
+    }
+  }
+
+  return { curve, seg, setViz, applyTheme };
 }

@@ -47,7 +47,8 @@ export function disposeScene(root) {
   const disposedMaterials = new Set();
   const disposedTextures = new Set();
   root.traverse((obj) => {
-    if (obj.geometry && !disposedGeometries.has(obj.geometry)) {
+    // Shared geometry (the cached car model) outlives any one scene.
+    if (obj.geometry && !obj.geometry.userData.shared && !disposedGeometries.has(obj.geometry)) {
       disposedGeometries.add(obj.geometry);
       obj.geometry.dispose();
     }
@@ -60,6 +61,10 @@ export function disposeScene(root) {
     });
   });
   root.clear();
+}
+
+function makeFog(isDark, theme) {
+  return isDark ? new FogExp2(theme.sceneBg, 0.006) : new Fog(theme.sceneBg, 120, 350);
 }
 
 export function createSceneRenderer({ container, isDark, onContextLost }) {
@@ -88,7 +93,7 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
 
     scene = new Scene();
     scene.background = new Color(theme.sceneBg);
-    scene.fog = isDark ? new FogExp2(theme.sceneBg, 0.006) : new Fog(theme.sceneBg, 120, 350);
+    scene.fog = makeFog(isDark, theme);
 
     const camera = new PerspectiveCamera(50, width / height, 0.1, 500);
     renderer = new WebGLRenderer({
@@ -127,6 +132,14 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
       isLowDetail,
       initialPixelRatio,
       theme,
+      // Theme change in place: same renderer and canvas, new background, fog and exposure. Returns the palette.
+      applyTheme(dark) {
+        const next = dark ? SCENE_THEME.dark : SCENE_THEME.light;
+        scene.background = new Color(next.sceneBg);
+        scene.fog = makeFog(dark, next);
+        renderer.toneMappingExposure = dark ? 1.1 : 1.0;
+        return next;
+      },
       dispose() {
         if (canvas && handleContextLost) canvas.removeEventListener("webglcontextlost", handleContextLost);
         if (container && renderer?.domElement && container.contains(renderer.domElement)) {

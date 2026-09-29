@@ -413,3 +413,46 @@ test("recorded Suzuka fixture loads a real circuit in 2D", async ({ page }) => {
   await expect(brief(page)).toContainText("Lando Norris");
   expect(errors).toEqual([]);
 });
+
+test("theme and colouring change the live scene: same canvas, one WebGL context, one model download", async ({
+  page,
+}) => {
+  const errors = collectPageErrors(page);
+  const modelRequests = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("f1car.glb")) modelRequests.push(request.url());
+  });
+  await page.addInitScript(() => {
+    window.__glContexts = 0;
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      if (/webgl/.test(type)) window.__glContexts++;
+      return getContext.call(this, type, ...rest);
+    };
+  });
+  await setPreferences(page, { trackView: "3d", theme: "light" });
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expectSceneRendered(page);
+  await page.waitForFunction(() => window.__ghostcar3d?.ready === true);
+
+  await page.evaluate(() => {
+    window.__canvas = document.querySelector(".stage canvas");
+    window.__glContexts = 0;
+  });
+  await page.keyboard.press("d");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  for (const label of ["Ταχύτητα", "Φρενάρισμα", "Χωρίς χρωματισμό"]) {
+    await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
+    await page.getByRole("menuitemradio", { name: label }).click();
+  }
+  await page.keyboard.press("d");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expectSceneRendered(page);
+
+  const sameCanvas = await page.evaluate(() => document.querySelector(".stage canvas") === window.__canvas);
+  expect(sameCanvas).toBe(true);
+  expect(await page.evaluate(() => window.__glContexts)).toBe(0);
+  expect(modelRequests).toHaveLength(1);
+  expect(errors).toEqual([]);
+});

@@ -14,7 +14,7 @@ import {
   SRGBColorSpace,
   Vector3,
 } from "three";
-import { disposeScene } from "./createRenderer.js";
+import { loadCarTemplate } from "./carModel.js";
 import {
   createCarShadowMaterial,
   createFallbackCarMaterial,
@@ -62,36 +62,55 @@ function drawLabel(ctx, { label, color, isDark }) {
   ctx.fillText(label, 107, 43);
 }
 
+// One label plate per car: the canvas is redrawn in place when the theme, colour or name change.
+function createLabel({ label, color, isDark }) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 200;
+  canvas.height = 80;
+  const ctx = canvas.getContext("2d");
+  const texture = new CanvasTexture(canvas);
+  // Canvas pixels are sRGB; untagged, three treats them as linear and the colours wash out.
+  texture.colorSpace = SRGBColorSpace;
+  const state = { args: { label, color, isDark } };
+  const draw = () => {
+    drawLabel(ctx, state.args);
+    texture.needsUpdate = true;
+  };
+  draw();
+  // Barlow may still be loading when the scene is built; redraw once it has, and the next frame uploads it.
+  if (!document.fonts.check(LABEL_FONT)) {
+    document.fonts
+      .load(LABEL_FONT)
+      .then(draw)
+      .catch(() => {});
+  }
+  return {
+    texture,
+    update(args) {
+      state.args = args;
+      draw();
+    },
+  };
+}
+
 function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) {
   const group = new Group();
   let sprite = null;
+  let labelPlate = null;
 
   const shadow = new Mesh(new CircleGeometry(1.0, 24), createCarShadowMaterial());
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.01;
   group.add(freezeObjectTransform(shadow));
 
-  if (label && !isLowDetail) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 200;
-    canvas.height = 80;
-    const ctx = canvas.getContext("2d");
-    drawLabel(ctx, { label, color, isDark });
+  // Shown at once and replaced when the shared model arrives (or kept if it never does).
+  const placeholder = new Mesh(new BoxGeometry(0.4, 0.15, 1.2), createFallbackCarMaterial({ color, isGhost }));
+  placeholder.position.y = 0.15;
+  group.add(freezeObjectTransform(placeholder));
 
-    const texture = new CanvasTexture(canvas);
-    // Barlow may still be loading when the scene is built; redraw once it has, and the next frame uploads it.
-    if (!document.fonts.check(LABEL_FONT)) {
-      document.fonts
-        .load(LABEL_FONT)
-        .then(() => {
-          drawLabel(ctx, { label, color, isDark });
-          texture.needsUpdate = true;
-        })
-        .catch(() => {});
-    }
-    // Canvas pixels are sRGB; untagged, three treats them as linear and the colours wash out.
-    texture.colorSpace = SRGBColorSpace;
-    sprite = new Sprite(createSpriteLabelMaterial(texture));
+  if (label && !isLowDetail) {
+    labelPlate = createLabel({ label, color, isDark });
+    sprite = new Sprite(createSpriteLabelMaterial(labelPlate.texture));
     sprite.position.set(0, 1.6, 0);
     // Anchored at the plate's bottom edge and lifted one plate per slot, in screen space, so the labels
     // of cars running together stack instead of overlapping at any zoom.
@@ -99,22 +118,40 @@ function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) 
     group.add(freezeObjectTransform(sprite));
   }
 
-  group.userData = { color, isGhost, modelLoaded: false, label: sprite };
+  group.userData = { color, isGhost, modelLoaded: false, label: sprite, labelPlate, placeholder };
   return group;
 }
 
-function addFallbackCars(carGroups) {
-  carGroups.filter(Boolean).forEach((group) => {
-    if (group.userData.modelLoaded) return;
-    const color = new Color(group.userData.color);
-    const mesh = new Mesh(
-      new BoxGeometry(0.4, 0.15, 1.2),
-      createFallbackCarMaterial({ color, isGhost: group.userData.isGhost })
-    );
-    mesh.position.y = 0.15;
-    group.add(freezeObjectTransform(mesh));
-    group.userData.modelLoaded = true;
-  });
+// Colours of one car material by role: the team colour on the body, a darker tint on the trim.
+function materialRole(name) {
+  const lower = (name || "").toLowerCase();
+  if (["base", "2nd", "bloody", "red"].some((key) => lower.includes(key))) return "body";
+  if (lower.includes("3rd")) return "trim";
+  if (lower.includes("mirror")) return "mirror";
+  return "other";
+}
+
+function paintMaterial(mat, color, isGhost) {
+  const role = mat.userData.role;
+  if (role === "body") {
+    mat.color.copy(color);
+    if (mat.emissive) {
+      mat.emissive.copy(color);
+      mat.emissiveIntensity = isGhost ? 0.4 : 0.15;
+    }
+  } else if (role === "trim") {
+    mat.color.copy(color).multiplyScalar(0.6);
+    if (mat.emissive) {
+      mat.emissive.copy(color);
+      mat.emissiveIntensity = 0.1;
+    }
+  } else if (role === "mirror") {
+    mat.color.setHex(0x888888);
+  }
+  if (isGhost) {
+    mat.transparent = true;
+    mat.opacity = 0.5;
+  }
 }
 
 function applyModelToCar(template, carGroup) {
@@ -131,70 +168,39 @@ function applyModelToCar(template, carGroup) {
   const isGhost = carGroup.userData.isGhost;
   clone.traverse((child) => {
     if (child.isMesh && child.material) {
-      try {
-        const mat = child.material.clone();
-        const name = (mat.name || "").toLowerCase();
-        if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) {
-          mat.color.copy(color);
-          if (mat.emissive) {
-            mat.emissive.copy(color);
-            mat.emissiveIntensity = isGhost ? 0.4 : 0.15;
-          }
-        } else if (name.includes("3rd")) {
-          mat.color.copy(color).multiplyScalar(0.6);
-          if (mat.emissive) {
-            mat.emissive.copy(color);
-            mat.emissiveIntensity = 0.1;
-          }
-        } else if (name.includes("mirror")) {
-          mat.color.setHex(0x888888);
-        }
-        if (isGhost) {
-          mat.transparent = true;
-          mat.opacity = 0.5;
-        }
-        child.material = mat;
-      } catch {
-        // Keep original imported material if the GLTF child is not cloneable.
-      }
+      // Geometry stays shared with the template; the material is this car's own.
+      const mat = child.material.clone();
+      mat.userData.role = materialRole(mat.name);
+      paintMaterial(mat, color, isGhost);
+      child.material = mat;
     }
   });
 
+  const { placeholder } = carGroup.userData;
+  if (placeholder) {
+    carGroup.remove(placeholder);
+    placeholder.geometry.dispose();
+    placeholder.material.dispose();
+    carGroup.userData.placeholder = null;
+  }
   carGroup.add(clone);
   carGroup.userData.modelLoaded = true;
 }
 
-function loadDetailedCarModels({ carGroups, isActive, isContextLost }) {
-  const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
-  Promise.all([
-    import("three/examples/jsm/loaders/GLTFLoader.js"),
-    import("three/examples/jsm/libs/meshopt_decoder.module.js"),
-  ])
-    .then(([{ GLTFLoader }, { MeshoptDecoder }]) => {
-      if (!isActive() || isContextLost()) return;
-      const loader = new GLTFLoader();
-      loader.setMeshoptDecoder(MeshoptDecoder);
-      loader.load(
-        basePath,
-        (gltf) => {
-          if (!isActive()) {
-            disposeScene(gltf.scene);
-            return;
-          }
-          const template = gltf.scene;
-          carGroups.forEach((carGroup) => applyModelToCar(template, carGroup));
-        },
-        undefined,
-        () => {
-          if (!isActive()) return;
-          addFallbackCars(carGroups);
-        }
-      );
-    })
-    .catch(() => {
-      if (!isActive()) return;
-      addFallbackCars(carGroups);
-    });
+// Recolour and relabel a car in place (theme, colour or acronym changed; the paths did not).
+function restyleCar(carGroup, { color, label, isDark }) {
+  if (!carGroup) return;
+  const paint = new Color(color);
+  const { isGhost, labelPlate, placeholder } = carGroup.userData;
+  carGroup.userData.color = color;
+  labelPlate?.update({ label, color, isDark });
+  if (placeholder) {
+    placeholder.material.color.copy(paint);
+    placeholder.material.emissive.copy(paint);
+  }
+  carGroup.traverse((child) => {
+    if (child.isMesh && child.material?.userData.role) paintMaterial(child.material, paint, isGhost);
+  });
 }
 
 function makeTrail({ scene, color, ghost, isMob }) {
@@ -220,44 +226,45 @@ function makeTrail({ scene, color, ghost, isMob }) {
 
 export function buildCars({
   scene,
+  drivers,
   isLowDetail,
   isDark,
   isMob,
-  l3,
-  l4,
-  c1,
-  c2,
-  c3,
-  c4,
-  lab1,
-  lab2,
-  lab3,
-  lab4,
   isActive = () => true,
   isContextLost = () => false,
 }) {
-  const car1 = makeCarGroup({ color: c1, label: lab1, isGhost: false, isLowDetail, isDark });
-  const car2 = makeCarGroup({ color: c2, label: lab2, isGhost: true, isLowDetail, isDark, tier: 1 });
-  scene.add(car1);
-  scene.add(car2);
+  // drivers: one { path, color, label } per slot; slots 1 and 2 always exist, 3 and 4 only with a path.
+  const cars = drivers.map((driver, index) =>
+    index < 2 || driver?.path?.length > 0
+      ? makeCarGroup({
+          color: driver.color,
+          label: driver.label,
+          isGhost: index > 0,
+          isLowDetail,
+          isDark,
+          tier: index,
+        })
+      : null
+  );
+  cars.forEach((car) => car && scene.add(car));
+  const trails = cars.map((car, index) =>
+    car ? makeTrail({ scene, color: drivers[index].color, ghost: index > 0, isMob }) : null
+  );
 
-  const car3 =
-    l3?.length > 0 && lab3
-      ? makeCarGroup({ color: c3, label: lab3, isGhost: true, isLowDetail, isDark, tier: 2 })
-      : null;
-  const car4 =
-    l4?.length > 0 && lab4
-      ? makeCarGroup({ color: c4, label: lab4, isGhost: true, isLowDetail, isDark, tier: 3 })
-      : null;
-  if (car3) scene.add(car3);
-  if (car4) scene.add(car4);
+  // Settles once the shared model is on the cars (or has failed: the placeholders stay).
+  const settled = loadCarTemplate()
+    .then((template) => {
+      if (isActive() && !isContextLost()) cars.forEach((car) => applyModelToCar(template, car));
+    })
+    .catch(() => {});
 
-  loadDetailedCarModels({ carGroups: [car1, car2, car3, car4], isActive, isContextLost });
+  function restyle(next, dark) {
+    cars.forEach((car, index) => {
+      if (!car) return;
+      restyleCar(car, { color: next[index].color, label: next[index].label, isDark: dark });
+      trails[index].mesh.material.uniforms.uColor.value.set(next[index].color);
+    });
+  }
 
-  const tr1 = makeTrail({ scene, color: c1, ghost: false, isMob });
-  const tr2 = makeTrail({ scene, color: c2, ghost: true, isMob });
-  const tr3 = car3 ? makeTrail({ scene, color: c3, ghost: true, isMob }) : null;
-  const tr4 = car4 ? makeTrail({ scene, color: c4, ghost: true, isMob }) : null;
-
-  return { car1, car2, car3, car4, tr1, tr2, tr3, tr4 };
+  return { cars, trails, restyle, settled };
 }
