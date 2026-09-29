@@ -355,3 +355,15 @@ test("old share links open the matching page tab", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Τομείς" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("table", { name: "Χρόνοι τομέων" })).toBeVisible();
 });
+
+// Share links write tv=3d (the non-default); covered in test/helpers.test.js.
+test("a first visit opens in 2D; choosing 3D is remembered", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expect(trackMap(page)).toBeVisible();
+  await expect(page.locator(".stage canvas")).toHaveCount(0);
+  await page.getByRole("button", { name: "3D", exact: true }).click();
+  await expectSceneRendered(page);
+  await page.reload();
+  await expectSceneRendered(page);
+});

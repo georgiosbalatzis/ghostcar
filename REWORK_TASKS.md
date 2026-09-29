@@ -163,13 +163,13 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 | File | Assertion | Breaks in | Update to |
 |---|---|---|---|
 | `redesign.test.js` | `normalizeRailTab` values `live/telemetry/sectors/laps` | T6.1 ✅ | `normalizePageTab`: `replay/sectors/laps/season` plus the legacy map in §4 |
-| `helpers.test.js` | `encodeURL({ trackView: "3d" })` → decoded `null` (only `tv=2d` is written) | T7.3 | once 2D is the default, write `tv=3d` instead and omit `2d`. Old `tv=2d` links still decode correctly. |
+| `helpers.test.js` | `encodeURL({ trackView: "3d" })` → decoded `null` (only `tv=2d` is written) | T7.3 ✅ | once 2D is the default, write `tv=3d` instead and omit `2d`. Old `tv=2d` links still decode correctly. |
 
 **Findings and decisions** (1 and 2 accepted 29 Sep 2026)
 
 1. **Mobile stage position (Phase 2). ✅ Decided: collapse the hero on loaded phones (folded into T2.3).** redesign-v2 had a rule, backed by a test, that the replay comes first on phones (`.stage` top < 120 px). In mockup A the loaded hero, the band and the tabs push the stage to about 550 px at 390 px wide. On phones with a comparison loaded, collapse the hero to a one-line `GHOST CAR.` with the event line, and move driver and lap details into the Δελτίο. Then change the test to "the stage and the play button are both inside the first viewport (844 px)".
 2. **Builder utilities (Phase 2). ✅ Decided: text row under the presets link (folded into T2.6).** Once T2.6 moves the `⋯` menu into the loaded tab row, the builder page has no way to reach Saved comparisons, Showreel or Shortcuts (`?` still works). Add a quiet text row under the presets link: `Αποθηκευμένες · Αυτόματη προβολή · Συντομεύσεις`.
-3. **3D default in URLs (Phase 7).** T7.3 flips the default view. `encodeURL` must switch from writing `tv=2d` to writing `tv=3d`, otherwise shared 3D links open in 2D. This is listed in the `test/` table above.
+3. **3D default in URLs (Phase 7). ✅ Done in T7.3.** T7.3 flips the default view. `encodeURL` must switch from writing `tv=2d` to writing `tv=3d`, otherwise shared 3D links open in 2D. This is listed in the `test/` table above.
 
 ### Phase 1: Foundations (tokens, fonts, primitives)
 
@@ -332,15 +332,21 @@ The loaded page now follows `a-desk-loaded.png`. Checked on the fixtures at 390,
 - **Tests:** 43 unit and 26 e2e. The new e2e tests cover the coloured track + gap chart + seek-by-distance, the refused-gap path, and legacy `tab` links.
 - **Size:** initial JS 40.95 kB gz, +6.8 kB over the Phase 1 baseline (budget +10); CSS 9.04 kB gz.
 
-### Phase 7: 3D restyle (colours only)
+### Phase 7: 3D restyle (colours only) ✅
 
-- **T7.1** In `scene/createRenderer.js`, `buildTrack.js`, `buildEnvironment.js` and `materials.js`, make the palettes match the tokens:
-  - Light: bg `#e9e3d6`, road `#d6cfbf`, edge `#c8c8b9`.
-  - Dark: bg `#242321`, road `#2e2c29`, edge `#4b5146`.
-  - Tune the lights for paper so it doesn't look washed out. Leave camera, fog, quality and disposal logic alone. Fix the stray `0x44aaff` line material.
-- **T7.2** Car labels (`buildRaceOverlays.js`): canvas chips drawn in the same style as the 2D chips. Wait for `document.fonts.load('700 20px "Barlow Condensed"')` before drawing.
-- **T7.3** Default view is 2D: in `useTrackViewPreference.js`, the fallback becomes `"2d"`. `?tv=3d` and a stored `3d` still win. Embed stays 2D.
-  *Done when:* switching 2D↔3D keeps the clock, and the 3D e2e test (rendered pixels) still passes.
+- **T7.1 ✅** `SCENE_THEME` (in `createRenderer.js`) now mirrors the stage panel's tokens, so the canvas reads as the panel it sits in:
+  - light: background `#e9e3d6`, road `#d6cfbf`, edges `#8c897b`;
+  - dark: background `#242321`, road `#36342f`, edges `#6d6861`;
+  - lines in theme ink; start line in signal `#ed4c32` (the old white line vanished on paper).
+
+  The stray `0x44aaff` racing line and the white delta line now use theme ink, and the lines aren't tone-mapped. Camera, fog, lights, quality and disposal are unchanged. The lights read well on paper as they are, so I didn't tune them.
+- **T7.2 ✅** The 3D name tags use the 2D chip style: ink plate (paper-coloured in dark mode), a team-colour edge, and the acronym in Barlow Condensed 700. If Barlow hasn't loaded when the scene is built, the tag is redrawn once it has and re-uploaded on the next frame.
+- **T7.3 ✅** 2D is the default view: `useTrackViewPreference` falls back to `2d`, and a stored `3d` or `?tv=3d` still wins.
+  - `encodeURL` now writes `tv=3d` and omits `2d`. Old `tv=2d` links still open in 2D. Old links **without** `tv` (which meant 3D) now open in 2D, as the plan expected.
+  - Tests: `helpers.test.js` updated, plus a new e2e test: a first visit gets 2D with no canvas, choosing 3D renders, and a reload keeps 3D.
+- **Checked:** fixtures in both themes at 1440 and 390 px; live Suzuka 2025 Q in light (orbit) and dark (follow camera). No page errors.
+- **Still open (pre-existing, documented in redesign-v2):** two tiny coloured dots near the 3D scene. The trail buffers start empty and follow the cars, so they aren't the obvious source. I left this for a separate investigation.
+- **Size:** initial JS unchanged; 3D chunk +0.13 kB gz.
 
 ### Phase 8: Secondary surfaces
 

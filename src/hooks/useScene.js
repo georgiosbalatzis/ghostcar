@@ -180,7 +180,7 @@ export default function useScene(
       const cars = [car1, car2, car3, car4];
       sizeCarLabels(cars, el.clientHeight, camera.fov);
 
-      const { spot1, spot2, deltaLine, deltaPos } = buildRaceOverlays({ scene, curve, seg, isLowDetail });
+      const { spot1, spot2, deltaLine, deltaPos } = buildRaceOverlays({ scene, curve, seg, isLowDetail, theme: T });
 
       R.current = {
         scene,

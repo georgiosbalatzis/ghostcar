@@ -150,7 +150,7 @@ export function encodeURL(s, options = {}) {
   if (s.l3) p.set("l3", s.l3);
   if (s.l4) p.set("l4", s.l4);
   if (s.numDrivers && Number(s.numDrivers) > 2) p.set("nd", s.numDrivers);
-  if (s.trackView === "2d") p.set("tv", "2d");
+  if (s.trackView === "3d") p.set("tv", "3d"); // 2D is the default view
   if (s.cam && s.cam !== "orbit") p.set("cam", s.cam);
   if (s.vizMode && s.vizMode !== "normal") p.set("vz", s.vizMode);
   if (s.theme === "dark" || s.theme === "light") p.set("th", s.theme);

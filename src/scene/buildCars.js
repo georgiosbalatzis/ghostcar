@@ -44,6 +44,24 @@ export function sizeCarLabels(cars, viewportHeight, fov) {
   }
 }
 
+// Name chips as in 2D: an ink plate with a team-colour edge and the acronym in Barlow Condensed.
+const LABEL_FONT = '700 46px "Barlow Condensed", "IBM Plex Sans", sans-serif';
+const LABEL_INK = { dark: { plate: "#eee8db", text: "#1b1a19" }, light: { plate: "#20251f", text: "#f2eee4" } };
+
+function drawLabel(ctx, { label, color, isDark }) {
+  const ink = LABEL_INK[isDark ? "dark" : "light"];
+  ctx.clearRect(0, 0, 200, 80);
+  ctx.fillStyle = ink.plate;
+  ctx.fillRect(0, 0, 200, 80);
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 14, 80);
+  ctx.fillStyle = ink.text;
+  ctx.font = LABEL_FONT;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, 107, 43);
+}
+
 function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) {
   const group = new Group();
   let sprite = null;
@@ -58,18 +76,19 @@ function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) 
     canvas.width = 200;
     canvas.height = 80;
     const ctx = canvas.getContext("2d");
-    // Flat label plate: page colour, a narrow driver-colour key, the acronym in the UI face.
-    ctx.fillStyle = isDark ? "rgba(12,14,15,0.88)" : "rgba(241,239,233,0.92)";
-    ctx.fillRect(0, 0, 200, 80);
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 10, 80);
-    ctx.fillStyle = isDark ? "#f1efea" : "#1b1e1d";
-    ctx.font = '600 40px "IBM Plex Sans", system-ui, sans-serif';
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(label, 106, 42);
+    drawLabel(ctx, { label, color, isDark });
 
     const texture = new CanvasTexture(canvas);
+    // Barlow may still be loading when the scene is built; redraw once it has, and the next frame uploads it.
+    if (!document.fonts.check(LABEL_FONT)) {
+      document.fonts
+        .load(LABEL_FONT)
+        .then(() => {
+          drawLabel(ctx, { label, color, isDark });
+          texture.needsUpdate = true;
+        })
+        .catch(() => {});
+    }
     // Canvas pixels are sRGB; untagged, three treats them as linear and the colours wash out.
     texture.colorSpace = SRGBColorSpace;
     sprite = new Sprite(createSpriteLabelMaterial(texture));

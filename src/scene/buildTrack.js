@@ -155,9 +155,8 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
 
   // Neutral track edges. Sector boundaries and turn numbers are not drawn: OpenF1 does not provide
   // their positions, and equal-thirds sectors or curvature-detected "turns" would imply false data.
-  const edgeColor = isDark ? 0x5a6062 : 0x8f8a80;
   const edgeLines = buildColoredLineSegments(
-    [leftEdgePts, rightEdgePts].map((points) => ({ points, color: edgeColor })),
+    [leftEdgePts, rightEdgePts].map((points) => ({ points, color: theme.edgeColor })),
     0.8
   );
   if (edgeLines) scene.add(freezeObjectTransform(edgeLines));
@@ -169,7 +168,11 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
   sfL.y += 0.03;
   const sfR = sf.clone().sub(sfPerp.clone().multiplyScalar(trackW / 2));
   sfR.y += 0.03;
-  scene.add(freezeObjectTransform(new Line(new BufferGeometry().setFromPoints([sfL, sfR]), createStartLineMaterial())));
+  scene.add(
+    freezeObjectTransform(
+      new Line(new BufferGeometry().setFromPoints([sfL, sfR]), createStartLineMaterial(theme.signal))
+    )
+  );
 
   return { curve, seg };
 }

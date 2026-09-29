@@ -1,9 +1,10 @@
 import { ACESFilmicToneMapping, Color, Fog, FogExp2, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 
-// Scene colours mirror the UI tokens (--page, --surface, --track) so the canvas reads as the page itself.
+// Scene colours mirror the stage panel's tokens (tokens.css) so the canvas reads as the panel it sits in:
+// background --surface, road between --surface-2 and --surface-3, edges --rule-strong, lines --text, start --signal.
 export const SCENE_THEME = {
-  dark: { sceneBg: 0x0c0e0f, trackColor: 0x2c3133 },
-  light: { sceneBg: 0xf1efe9, trackColor: 0xc9c4b8 },
+  dark: { sceneBg: 0x242321, trackColor: 0x36342f, edgeColor: 0x6d6861, ink: 0xeee8db, signal: 0xed4c32 },
+  light: { sceneBg: 0xe9e3d6, trackColor: 0xd6cfbf, edgeColor: 0x8c897b, ink: 0x20251f, signal: 0xed4c32 },
 };
 
 export function getSceneSupportError() {
