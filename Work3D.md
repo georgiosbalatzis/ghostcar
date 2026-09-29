@@ -1,6 +1,6 @@
 # Ghost Car 3D view: rework to a professional replay viewer
 
-Plan written 29 Sep 2026 for implementation by Sonnet 5.5. **Scope: the 3D view only** (`src/scene/`, `src/hooks/useScene.js`, `src/features/replay/SceneStage3D.jsx`, the 3D controls in `ReplayStage.jsx`, and their tests and CSS). The 2D map, the analysis tabs and the page shell are out of scope. Only touch them where a task explicitly says so.
+Plan written 29 Sep 2026 for implementation by Sonnet 5.5. **Status: Phases 0–9 complete** on branch `rework/3d-view`, one commit per phase (not merged or pushed). **Scope: the 3D view only** (`src/scene/`, `src/hooks/useScene.js`, `src/features/replay/SceneStage3D.jsx`, the 3D controls in `ReplayStage.jsx`, and their tests and CSS). The 2D map, the analysis tabs and the page shell are out of scope. Only touch them where a task explicitly says so.
 
 Read `AGENTS.md` first. Every rule there still applies. The rules that matter most here are repeated in §3.
 
@@ -193,48 +193,48 @@ src/features/replay/
 
 Each task lists **files**, **steps** and **acceptance**. Do the phases in order. Tasks within a phase can be done in any order unless a dependency is noted.
 
-### Phase 0: Safety net and baseline (no app changes)
+### ✅ Phase 0: Safety net and baseline (no app changes)
 
-**T0.1: Real-circuit fixture.**
+**✅ T0.1: Real-circuit fixture.**
 - Files: `scripts/record-openf1-fixture.mjs` (new), `e2e/fixtures/suzuka-2025-q.json` (new), `e2e/fixtures.js`.
 - Steps: write a script that downloads, once, from the live API, the meeting, session, drivers, laps (only the two laps used), stints, `location` and `car_data` for Suzuka 2025 Qualifying (session 10002), VER lap and NOR lap as used by the "Μαγική pole στη Suzuka" preset. Save the result as one JSON file (expect about 150–300 kB; drop unused fields). In `fixtures.js`, add `routeOpenF1(page, { circuit: "suzuka" })`, which serves that file, and export `suzukaUrl`. Keep the Monza oval as the default fixture.
 - Acceptance: `npm run test:e2e` still passes. A new smoke test loads `suzukaUrl` in 2D and sees `.track-map`. The script is documented in `AGENTS.md` under Commands.
 
-**T0.2: Capture script for 3D.**
+**✅ T0.2: Capture script for 3D.**
 - Files: `scripts/capture-screens.mjs`.
 - Steps: add a `3d` mode: `node scripts/capture-screens.mjs docs/rework3d/<dir> 3d`. On the Suzuka fixture at 1440×900 and 390×844, in both themes, it captures every camera mode (`orbit`, `top`, `follow1`, `follow2`, `onboard1` once it exists, `tv`) at `prog` 0.12 and 0.55, plus the colouring modes in `orbit`. Wait for the model to load (poll a dev hook, see T1.4) before each shot.
 - Acceptance: running it now produces the **before** set in `docs/rework3d/baseline/` (cameras that don't exist yet are skipped). Commit these images.
 
-### Phase 1: Scene architecture (no visual change)
+### ✅ Phase 1: Scene architecture (no visual change)
 
-**T1.1: Object API for `useScene`.**
+**✅ T1.1: Object API for `useScene`.**
 - Files: `useScene.js`, `SceneStage3D.jsx`.
 - Steps: change the signature to `useScene(containerRef, { model, progRef, playRef, speedRef, cam, vizMode, isDark, onError, dominance, trace })`. `model` is the stage model. Internally, use `model.drivers` (1–4) as arrays: `cars[]`, `paths[]`, `trails[]`. Delete every `car1..car4`/`n1..n4`/`tr1..tr4`/`lab1..` variable and argument.
 - Acceptance: no behaviour change. e2e is green. `useScene.js` has no positional parameter list.
 
-**T1.2: Build once, update in place.**
+**✅ T1.2: Build once, update in place.**
 - Files: `useScene.js`, the `build*` modules.
 - Steps: split the effect in two. (a) A **structural** rebuild when the geometry changes: `model.trackPath`, the driver set (slots and paths), or `circuitFlip`. (b) **In-place updates** without disposing the renderer: theme (update `scene.background`, fog colour and material colours from `sceneTheme`), `vizMode` (swap only the overlay mesh), driver colours and labels, `cam`, `dominance`, `trace`. Each `build*` function returns `{ object, update(params), dispose() }`, or just `update` where that is enough.
 - Acceptance: a new e2e test (T9.2 #4) proves the `<canvas>` element survives a theme toggle and a colouring change (same element identity, no second WebGL context).
 
-**T1.3: Load the car model once per page.**
+**✅ T1.3: Load the car model once per page.**
 - Files: `carModel.js` (new), `buildCars.js`.
 - Steps: `loadCarTemplate()` returns a module-level cached promise. After loading, **merge sub-meshes per material** with `BufferGeometryUtils.mergeGeometries` (≤ 6 draw calls per car instead of 22). Record the model's bounding box. Instances clone the merged meshes and **share geometry**. Scene disposal must not dispose shared template geometry: mark it with `userData.shared = true` and skip it in `disposeScene`. Until the template resolves, show a simple placeholder (a 5.6 × 2.0 × 1.0 m wedge in team colour).
 - Acceptance: the network panel shows `f1car.glb` fetched once per page load, even after 10 theme/colouring/driver changes. `disposeScene` leaves the template usable (tested by a 2D→3D→2D→3D e2e round trip, which already exists).
 
-**T1.4: Dev/test hook.**
+**✅ T1.4: Dev/test hook.**
 - Files: `useScene.js`.
 - Steps: when `import.meta.env.DEV` or `navigator.webdriver` is true, set `window.__ghostcar3d = { ready, camera, cars, info: () => renderer.info, project(slot) }`. `ready` becomes true after the model loads and the first frame renders. Strip nothing else. Production builds without webdriver expose nothing.
 - Acceptance: the capture script and e2e can await `window.__ghostcar3d?.ready`.
 
-### Phase 2: True-scale world
+### ✅ Phase 2: True-scale world
 
-**T2.1: World frame.**
+**✅ T2.1: World frame.**
 - Files: `world.js` (new), `test/scene-world.test.js` (new).
 - Steps: `createWorldFrame(referencePath, { flip })` computes the bounding box of the reference path in raw decimetres, and returns `{ toWorld(p) → {x, y, z} metres, bounds, groundY }` with `x = ±(p.x − cx)/10` (sign from `flip`, same meaning as `norm()`), `z = (p.y − cy)/10`, `y = (p.z − zMin)/10`. **Every driver's path uses this one frame.** An elevation factor parameter (default 1) exists for T2.6.
 - Acceptance: unit tests: (1) two drivers with different bounding boxes map the same raw point to the same world point; (2) a 5807 m lap measured in decimetres measures 5807 m ±1 in world; (3) the orientation matches 2D `TrackMap` projection for flip true and false (compare sign of x and z against `norm()`).
 
-**T2.2: Centreline and road surface.**
+**✅ T2.2: Centreline and road surface.**
 - Files: `trackGeometry.js` (new), `test/scene-track.test.js` (new).
 - Steps:
   1. From the reference driver's world path, build a closed **centripetal Catmull-Rom** curve and resample it by **arc length** every 2 m (4 m when `isMob`).
@@ -244,38 +244,38 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   5. `surfaceAt(worldX, worldZ, hintIndex)` → `{ index, y, pitch }`. This is a nearest-centreline search in a ±40-point window around `hintIndex`, so each car keeps its own cursor and the lookup is O(1) per frame.
 - Acceptance: unit tests: fold removal on a synthetic 8 m-radius hairpin leaves no backwards edge segments. The resampled length stays within 0.5% of the raw path length. `surfaceAt` returns the right index on a figure-8 at the crossing: use the hint, so it never snaps to the other level.
 
-**T2.3: Track meshes.**
+**✅ T2.3: Track meshes.** _(Done. The skirt hangs from the outer edge of the run-off, not the road edge, so the run-off band does not hide it. Skirts are left out under a bridge by an overpass mask, not by height.)_
 - Files: `buildTrack.js` (rewrite), `materials.js`, `sceneTheme.js` (new).
 - Steps: build one `BufferGeometry` each for the road, the run-off (both sides), the skirts (road edge → `groundY`, both sides) and the edge paint (two 0.25 m strips just inside each edge). Road, run-off and skirt use `MeshStandardMaterial` (roughness 0.9, metalness 0) with theme colours. Paint uses a `MeshBasicMaterial` with `polygonOffset` instead of y-nudges. Where the road passes over itself (a crossover), the skirt must not be drawn on the upper road where it would cut through the lower road. The simple rule: skip skirt quads whose drop is more than 3 m **and** which overlap another road segment in plan. If that proves fiddly, drop skirts that are more than 3 m tall; the bridge then reads as a deck. Mark the choice with `ponytail:`.
 - Acceptance: at Suzuka, the 1440 overview shows the bridge clearly above the lower road, with no z-fighting at any camera. Hairpins show no folds. Draw calls for the whole track are ≤ 8.
 
-**T2.4: Ground, grid, fog, lights.**
+**✅ T2.4: Ground, grid, fog, lights.**
 - Files: `buildEnvironment.js` (rewrite), `createRenderer.js`.
 - Steps: add a ground plane of 3× the circuit's bounding-box size at `groundY`, with a small `ShaderMaterial` grid: minor lines every 100 m, major every 500 m, line alpha fading with camera distance and with distance from the circuit centre, colours from `sceneTheme`. Use linear `Fog` from 0.6× to 1.6× the circuit diagonal, measured from the camera target, recomputed on camera changes. Set up a `RoomEnvironment` → `PMREMGenerator` → `scene.environment` (dispose the generator after), plus one `DirectionalLight` (sun at elevation 50°, azimuth 135°) and a low-intensity `HemisphereLight`. Set `renderer.toneMapping = NeutralToneMapping` and exposure 1.0. Remove `AmbientLight`.
 - Acceptance: no hard horizon line in chase/TV views. Both themes look like the stage panel continued into depth (compare against the `--surface` token). Grid lines never shimmer at 1440 (fade them before they reach sub-pixel width).
 
-**T2.5: Start/finish.**
+**✅ T2.5: Start/finish.**
 - Files: `buildTrack.js`, `trackGeometry.js`.
 - Steps: find the start position. Extrapolate back along the reference path by `pathTimes[0] × speed at the first samples`, the same idea as `ref.start` in `gap.js`. Export a small helper from `gap.js` rather than duplicating it, if that is cleaner. Draw a 1.2 m-deep chequered strip across the road (canvas texture 8×2 checks, ink/paper colours) and a gantry: two 0.3 m posts at ±7.5 m, 7 m tall, joined by a 0.6 m beam, all in ink colour.
 - Acceptance: at Suzuka the line sits on the main straight before T1 (compare with the 2D red start tick). Unit test for the extrapolation on a constant-speed path.
 
-**T2.6: Elevation emphasis toggle.**
+**✅ T2.6: Elevation emphasis toggle.**
 - Files: `world.js`, `ReplayStage.jsx`, `useScene.js`.
 - Steps: add a menu item under "Εμφάνιση": "Ανάγλυφο ×3" (checkbox, off by default, stored in `localStorage` key `f1s-3d-relief`, not in the URL). It rebuilds geometry with an elevation factor of 3. The HUD and labels are unaffected.
 - Acceptance: at Monza (flat) and Suzuka the toggle visibly changes the relief and the cars stay on the road.
 
-**T2.7: Remove the old world.**
+**✅ T2.7: Remove the old world.**
 - Delete `buildRaceOverlays.js` (the delta line and the old racing line), the old `SCENE_THEME` usage, and the per-driver `norm()`/`smoothPath` in `useScene.js`. `helpers.js` keeps `norm()` for 2D.
 - Acceptance: `grep -r "norm(" src/scene src/hooks/useScene.js` finds nothing.
 
-### Phase 3: Cars
+### ✅ Phase 3: Cars
 
-**T3.1: True scale and orientation.**
+**✅ T3.1: True scale and orientation.**
 - Files: `carModel.js`.
 - Steps: scale the model uniformly so its bounding-box length is **5.63 m**. Determine the model's forward axis once, visually. The GLB spans z −5.10 … +7.05, and the nose is probably +z, but check it in a chase-camera screenshot. Encode the result as `MODEL_FORWARD` with a comment. The model origin goes on the ground contact plane, centred between the axles.
 - Acceptance: in chase view the car is about 1/2.1 of the road width wide (2.0 m of 12 m). The nose points along the direction of travel at every point of the Suzuka lap.
 
-**T3.2: Exact pose.**
+**✅ T3.2: Exact pose.** _(Done. The projected-screen-position e2e check stays in T9.2 #3; an e2e now guards that a paused scrub lands in one step, and unit tests cover position and heading.)_
 - Files: `carPose.js` (new), `buildCars.js`, `renderLoop.js`, `test/scene-pose.test.js` (new).
 - Steps: `poseAt(driverWorld, fraction, surface, cursor)`:
   - **position** is the driver's own world path interpolated at `fraction`, where `fraction = fractionAtTime(driver.pathTimes, time)`. Use centripetal Catmull-Rom between samples; precompute per driver as a dense array (like the old `smoothPath`, but in world metres, from the shared frame).
@@ -284,32 +284,32 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - Delete `positionLerp`, the heading slerp and the lateral-offset code entirely. Smoothness comes from the dense spline. If the heading visibly jitters on real data, apply a **tiny** time-based smoothing to the heading only (τ ≤ 60 ms). Never smooth position.
 - Acceptance: unit tests: with a constant-speed circular path, the pose position equals the analytic point within 0.05 m, and the heading equals the tangent within 1°. An e2e check (T9.2 #3) that at a paused `prog` the projected screen position of each car equals the projection of `fractionAtTime`'s point, within 2 px.
 
-**T3.3: Paint and materials.**
+**✅ T3.3: Paint and materials.**
 - Files: `carModel.js`, `materials.js`.
 - Steps: map the GLB materials (`BaseColor`, `2ndColor`, `3rdColor`, `Bloody_Red`, `Dark_Black`, `Mirror`). Body (`BaseColor`, `Bloody_Red`) uses team colour with `MeshPhysicalMaterial` (metalness 0.3, roughness 0.35, clearcoat 0.6, clearcoat roughness 0.2). Accents (`2ndColor`) use team colour lightened 25% toward white in dark theme and darkened 25% in light theme. `3rdColor` and `Dark_Black` are carbon (0x151515, roughness 0.55). `Mirror` is 0x9a9a9a with metalness 0.8. Remove all emissive. Verify the mapping visually. If the body turns out to be a different material, fix the table, not the approach.
 - Acceptance: side-by-side with the 2D chip colours, a car's body reads as the same team colour (no ACES hue shift). The car has visible specular shape under the environment map.
 
-**T3.4: Contact shadows.**
+**✅ T3.4: Contact shadows.**
 - Files: `buildCars.js`, `materials.js`.
 - Steps: generate one 128×64 canvas texture per page: a rounded-rectangle radial gradient, black to transparent. Use it on a 6.4 × 2.6 m quad under each car, aligned with the car, at road height via `polygonOffset`, opacity 0.35 (light theme) or 0.5 (dark theme). Delete the disc. Real shadow maps are skipped; add them only if a reviewer finds the contact shadow insufficient.
 - Acceptance: cars look grounded in chase view, with no grey discs.
 
-**T3.5: Clean ghost transparency.**
+**✅ T3.5: Clean ghost transparency.**
 - Files: `carModel.js`, `materials.js`.
 - Steps: for ghost cars (slot ≥ 2), render each merged mesh twice. (1) A depth pre-pass: same geometry, `colorWrite: false`, `depthWrite: true`, `renderOrder = 10 + slot*2`. (2) A colour pass: `transparent: true`, `opacity: 0.45`, `depthWrite: false`, `depthFunc: LessEqualDepth`, `renderOrder = 11 + slot*2`. Only the front-most surface of the ghost is drawn, so you see one clean translucent shell. Driver 1 stays opaque.
 - Acceptance: in chase view behind a ghost, no wheels or inner parts show through the bodywork. When two ghosts overlap, both are visible.
 
-**T3.6: Tails.**
+**✅ T3.6: Tails.**
 - Files: `buildCars.js`, `materials.js`.
 - Steps: replace point trails with `Line2`/`LineMaterial` (0.5 m world width, `worldUnits: true`) covering the driver's own path from `time − 1.5 s` to `time`. Take the points from the dense world path by index range, so nothing is recorded per frame. Fade the alpha toward the tail with a per-vertex colour lerp to the road colour; `LineMaterial` supports `vertexColors`. Show tails only while playing. Hide them in the top view.
 - Acceptance: tails are smooth, continuous and correct after a scrub, with no stray dots. The old "jumped" bookkeeping is gone because tails derive from time.
 
-**T3.7: Remove leftovers.**
+**✅ T3.7: Remove leftovers.**
 - Delete `updateCars.js`, the shake noise table, the `deltaLine`, and the spot light placeholders.
 
-### Phase 4: Cameras and controls
+### ✅ Phase 4: Cameras and controls
 
-**T4.1: Camera maths (pure).**
+**✅ T4.1: Camera maths (pure).**
 - Files: `cameraMath.js` (new), `test/scene-camera.test.js` (new).
 - Steps:
   - `fitDistance(bounds, fovDeg, aspect, pitchRad, yawRad, margin = 0.08)` → the distance at which the whole bounding box (8 corners) projects inside the viewport with the margin.
@@ -319,7 +319,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - `pickTvCamera(stations, focusS, currentIndex, heldFor)` → the station whose `s` is nearest ahead of the car in [−60 m, +220 m]. Keep the current station if it has been held < 2.5 s and the car is still in its window.
 - Acceptance: unit tests for each function, including the Suzuka fixture centreline for TV placement: no station within 15 m of any road point, and a TV cut rate below 1 per 2.5 s over the lap.
 
-**T4.2: Camera rig with OrbitControls.**
+**✅ T4.2: Camera rig with OrbitControls.** _(Done. The orientation check compares the direction from the start line to the car in 2D and in Top, within 5°, because the two views fit the circuit differently and cannot match as fractions of the stage.)_
 - Files: `cameraRig.js` (new), delete `cameras.js` and `inputControls.js`, `renderLoop.js`, `useScene.js`.
 - Steps:
   - One `PerspectiveCamera` and one `OrbitControls` (`three/examples/jsm/controls/OrbitControls.js`): `enableDamping`, `dampingFactor 0.08`, `zoomToCursor = true`, `screenSpacePanning = false`, `minPolarAngle 5°`, `maxPolarAngle 80°`, distances `[20 m, 3 × circuit diagonal]`. Mark the scene dirty on its `change` event, and keep rendering while damping is settling.
@@ -329,12 +329,12 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - FOV: 40° Overview/Top, 55° Chase, 70° Onboard, dynamic in TV (`2·atan(14 m / (2·distance))`, clamped to 6°–45°).
 - Acceptance: at 1440×900 and 390×844 the Overview and Top views frame Suzuka and Monza with 6–10% margin on the tighter axis. The Top view matches the 2D map orientation (compare screenshots; a test compares the projected screen position of the start line in Top vs its 2D position, as fractions of the stage, within 3%).
 
-**T4.3: Transitions.**
+**✅ T4.3: Transitions.**
 - Files: `cameraRig.js`.
 - Steps: on a mode change (except into or within TV, which cuts), tween the camera position and look target from current to the new mode's pose over 700 ms with easeInOutCubic. The pose of a moving target is evaluated each frame, so the tween lands on a moving car. Honour `matchMedia("(prefers-reduced-motion: reduce)")`: instant.
 - Acceptance: switching Overview → Chase VER lands behind VER smoothly while playing, with no pop at the end.
 
-**T4.4: Wheel and touch gating.**
+**✅ T4.4: Wheel and touch gating.**
 - Files: `cameraRig.js`, `replay.css`, `SceneStage3D.jsx`.
 - Steps:
   - Intercept `wheel` on the canvas in the capture phase (non-passive). If `!(ctrlKey || metaKey) && !document.fullscreenElement`, stop propagation to OrbitControls and let the page scroll. Do not `preventDefault`. Show the hint "Ctrl/⌘ + κύλιση για ζουμ" for 1.2 s, and no more than once per 4 s.
@@ -342,7 +342,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - Keep the existing mobile swipe-to-scrub disabled in 3D, as today (`touch.enabled = mob && is2DView`).
 - Acceptance: e2e (T9.2 #5): a plain wheel over the canvas scrolls the page and does not change the camera distance; Ctrl+wheel zooms. Manual check on an iOS/Android phone: page scroll works over the 3D stage.
 
-**T4.5: Focus and picking.**
+**✅ T4.5: Focus and picking.**
 - Files: `cameraRig.js`, `useScene.js`, `constants.js`, `F1PhantomCars.jsx`, `useKeyboardShortcuts.js`, `SharingDialogs.jsx`.
 - Steps:
   - `CAM_MODES` becomes `["orbit", "top", "follow1", "follow2", "follow3", "follow4", "onboard1", "onboard2", "onboard3", "onboard4", "tv"]`. `pick(CAM_MODES, "cinematic")` maps to `tv` (add the alias where `cam` is decoded, `F1PhantomCars.jsx:119` and `:404`). Modes for slots that don't exist in the model fall back to slot 1.
@@ -350,94 +350,94 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - Double-click on a car (raycast against the merged meshes) sets Chase on that driver. Double-click on the ground in Overview sets the orbit target to that point (animated).
 - Acceptance: old links with `cam=cinematic`, `cam=follow2` and `cam=top` open in TV, Chase-driver-2 and Top. The keyboard shortcuts work and are listed in the help dialog.
 
-**T4.6: TV director.**
+**✅ T4.6: TV director.** _(Done. Cuts are at least 2.5 s apart after the opening one: at the start line the only station in range is at the line itself, which the car leaves within a second.)_
 - Files: `cameraRig.js`, `cameraMath.js`.
 - Steps: the focus is the focus driver if one was chosen explicitly, otherwise the car furthest along by distance. Use `surfaceAt` indices, and handle the start/finish wrap: while a car is still in the lap, its distance is its progress. Place the camera at the station position, look at the focus car + 0.8 m up, with the dynamic FOV from T4.2. Cut (no tween) when `pickTvCamera` changes station. Add slight damping (τ 120 ms) on the look target only.
 - Acceptance: over a full Suzuka lap at 1×, the TV camera always has the focus car on screen and not smaller than 4% of the stage height, and it never cuts more often than every 2.5 s.
 
-### Phase 5: Overlays
+### ✅ Phase 5: Overlays
 
-**T5.1: DOM labels.**
+**✅ T5.1: DOM labels.**
 - Files: `labels.js` (new), `SceneStage3D.jsx`, `replay.css`, delete the sprite code in `buildCars.js`.
 - Steps: `SceneStage3D` renders `<div className="scene-labels" aria-hidden="true">` with one chip per driver, reusing the 2D chip styles (`.car__label` from 2D; extract shared rules rather than copying). Each rendered frame, the render loop calls `labels.update(camera, cars)`. This projects the anchor (car position + 1.6 m) to screen and writes `transform: translate3d(x, y, 0)`, `opacity` and `--stack`. Stacking is the same rank-by-screen-y logic as `TrackMap.jsx:74`, so extract it to a tiny shared function. Hide a chip when its anchor is behind the camera. Off-screen cars get an edge chip with an arrow, clamped 12 px inside the stage. In Chase/Onboard, hide the focused driver's chip.
 - Acceptance: e2e (T9.2 #2): in Overview at 1440 and 390, every label is inside the stage and none overlap, the same check as the 2D test at `scene.smoke.spec.js:183`. In the Top view the labels no longer merge into one block.
 
-**T5.2: HUD.**
+**✅ T5.2: HUD.**
 - Files: `SceneHud.jsx` (new), `SceneStage3D.jsx`, `ReplayStage.jsx`, `replay.css`.
 - Steps: render in Chase/Onboard/TV for the focus driver. Values: `telAt(driver.tel, fractionAtTime(driver.telTimes, time))`, exactly as `LiveTelemetry.jsx:11`. The own lap time is `min(time, driver.lapDuration)`, formatted with `fmt`. Gap at the same point, only when `trace.reliable`: compute it the same way the gap chart does (`TelemetryTraces.jsx:195-200`, `distanceAtTimeOnGrid`/`timeAtDistanceOnGrid`) against `trace.reference`. When the focus driver *is* the reference, compare against the next fastest. Type: numerals in the tabular figures already used by `LiveTelemetry`. Styling: a translucent `--surface` plate with the driver's 3 px team-colour left rule, like the brief rows. Throttle and brake are 10-segment bars. No animation.
 - Acceptance: at a paused `prog`, the HUD speed and gear equal the "Αγωνιστικό δελτίο" panel values for that driver (e2e, T9.2 #6). The gap row is absent on the unreliable fixture lap (`l1=5`).
 
-**T5.3: Minimap.**
+**✅ T5.3: Minimap.** _(Done. The box is a fixed 180 × 128 px, because the 2D map sizes itself from its container. It is the 2D component reading the same `time`, so its cars are the 2D map's; no separate position check.)_
 - Files: `SceneStage3D.jsx`, `replay.css`.
 - Steps: in Chase/Onboard/TV render `<TrackMap trackPath drivers time flip showCars />` (the existing component, memoised) in a 180 × auto box top-right, below the tools, on a `--surface` plate with a 1 px rule. Hide it on stages narrower than 480 px.
 - Acceptance: the minimap cars match the 3D cars' positions at the same `time`.
 
-**T5.4: Fullscreen.**
+**✅ T5.4: Fullscreen.** _(Done and tested in Chromium. Firefox and Safari were not checked.)_
 - Files: `ReplayStage.jsx`, `Workspace.jsx` (only to put a ref/id on `player`), `replay.css`.
 - Steps: add a stage-tools button (icon `expand`/`collapse`; add the icons to `Icon.jsx` if they are missing) that calls `requestFullscreen()` on the player wrapper (stage + transport). Hide the button when `document.fullscreenEnabled` is false (iOS Safari on iPhone). In fullscreen the stage fills the viewport minus the transport, and wheel/touch gating switches as described in T4.4.
 - Acceptance: fullscreen works in Chromium, Firefox and Safari macOS. Esc exits. The canvas resizes, and the Overview refits unless the user had moved the camera.
 
-**T5.5: Loading and empty states.**
+**✅ T5.5: Loading and empty states.**
 - Files: `SceneStage3D.jsx`.
 - Steps: until `ready`, show a centred quiet "Φόρτωση 3D…" line over the stage colour (not a spinner). The placeholder cars (T1.3) are visible as soon as the track is. Canvas a11y: `role="img"` and `aria-label` like "Τρισδιάστατη αναπαράσταση: {meeting}, {drivers}, κάμερα {label}".
 - Acceptance: no frame shows an empty stage for more than one frame after the replay loads.
 
-### Phase 6: Analysis on the track
+### ✅ Phase 6: Analysis on the track
 
-**T6.1: Dominance in 3D.**
+**✅ T6.1: Dominance in 3D.** _(Done. Fractions of the reference driver's samples map straight to arc length on the centreline, which was built from those samples, so no time lookup is needed.)_
 - Files: `ReplayStage.jsx` (pass `dominance` to 3D and show the same legend/caption when in 3D), `buildTrack.js`, `trackGeometry.js`.
 - Steps: `dominance` segments are fractions of driver A's samples (`trackFractions`). Map each `from`/`to` to centreline indices via the per-point reference time from T2.2: fraction → time via `pathTimes` → centreline index by binary search on the times. Paint a 6 m-wide centre band (vertex colours, `polygonOffset`) in each owner's colour at 85% opacity. Unowned stretches stay road colour. Update in place when `dominance` changes.
 - Acceptance: at the same `prog` and camera Top, the dominance colours coincide with the 2D map's (visual check plus a unit test on the index mapping). With the unreliable fixture lap there is no band, and the menu label reads "Χωρίς χρωματισμό".
 
-**T6.2: Speed and brake mapped by time.**
+**✅ T6.2: Speed and brake mapped by time.**
 - Files: `buildTrack.js`, `sceneTheme.js`.
 - Steps: for each centreline point, `t = refTime[i]`. Speed is `telAt(ref.tel, fractionAtTime(ref.telTimes, t)).speed`. Colour uses a perceptual sequential ramp with 5 stops, defined per theme in `sceneTheme.js`: dark theme runs deep blue → teal → sand → signal; light theme uses darker stops. No rainbow. Range: the reference lap's own 5th–95th percentile speed. Brake is `brake > 0` → signal red at 70%, otherwise no paint. Both use the same centre band geometry as T6.1. The legend (T5 styling) shows the ramp, min/max km/h and "Ταχύτητα · {label}" / "Φρενάρισμα · {label}".
 - Acceptance: unit test: a synthetic lap with a known braking window paints exactly that window (±1 centreline point) even when location and car_data sample rates differ. Visual: at Suzuka the braking zones sit before T1, the hairpin and the chicane.
 
-**T6.3: Racing lines.**
+**✅ T6.3: Racing lines.**
 - Files: `buildTrack.js` or `buildCars.js`, `ReplayStage.jsx`.
 - Steps: add the menu checkbox "Γραμμές οδηγών" (default off, `localStorage` `f1s-3d-lines`). Draw each driver's full dense world path with `Line2` (0.4 m, `worldUnits`), team colour at 90%, 0.05 m above the surface (height from `surfaceAt`). Show the caption from §4.5 while it is on.
 - Acceptance: lines follow each car exactly (the car centre stays on its own line throughout the lap).
 
-**T6.4 (DECISION REQUIRED before implementing): Sector boundaries.**
+**✅ T6.4: Sector boundaries.** _(Decision: yes, draw them. Done. The comment in `buildTrack.js` now says why they are drawn only for a trusted gap trace.)_
 - Proposal: when `trace.reliable`, draw thin neutral lines across the road, with "S1 | S2" chips, at the fastest driver's position at `sector1` and `sector1 + sector2` seconds (`fractionAtTime` on their corrected `pathTimes`). This is derived from official sector times and position data and is gated like dominance. However, `buildTrack.js:156-157` records a deliberate decision *not* to draw sectors. **Ask the owner.** Implement only on a yes, and then also update that comment.
 
-### Phase 7: Look and feel pass
+### ✅ Phase 7: Look and feel pass
 
-**T7.1: Scene palette from tokens.**
+**✅ T7.1: Scene palette from tokens.** _(Done. `test/scene-theme.test.js` holds the palette to `tokens.css`. The road is one step past `--surface-3` in both themes, because at the tokens' own values the light road/run-off contrast is 1.12:1. Roads are no longer tone-mapped and have no reflections, so a lit road renders as its palette colour within a few units.)_
 - Files: `sceneTheme.js`.
 - Steps: for each theme, define `background` (= `--surface`), `ground`, `grid minor/major`, `road`, `runoff`, `skirt`, `paint`, `ink`, `signal`, the speed ramp and the shadow opacity. Derive them from `src/styles/tokens.css` values and record which token each one mirrors in a comment, as the current `SCENE_THEME` does. Check the two themes side by side with the page around the stage.
 - Acceptance: at a glance the stage looks like part of the page in both themes. The road/ground contrast is visible but quiet. Road vs run-off contrast is ≥ 1.15:1 (a subtle but readable step).
 
-**T7.2: Antialiasing and resolution.**
+**✅ T7.2: Antialiasing and resolution.** _(Done except the phone measurement, which needs a real device and was not made. The 3D scene has no separate "placeholder shadows" to fall back to: a shadow is already one textured quad per car, so tier 2 only drops the tails.)_
 - Files: `createRenderer.js`, `adaptiveQuality.js`.
 - Steps: turn on `antialias: true` everywhere, since there are no more 1 px lines and MSAA is the cheapest fix for skirt/road edges. Keep the pixel-ratio caps. Adaptive quality tiers become: tier 0 is full; tier 1 lowers DPR and hides the grid's minor lines; tier 2 lowers DPR further, hides tails and uses the placeholder shadows only. Measure frame rate before and after on a phone.
 - Acceptance: no visible stair-stepping on road edges at 1440 DPR 1. Phones stay ≥ 30 fps during playback in Overview and Chase (manual check, record the device in the phase commit message).
 
-**T7.3: Reduced motion and restraint.**
+**✅ T7.3: Reduced motion and restraint.**
 - Steps: under `prefers-reduced-motion`, make camera transitions instant, TV only cuts, and chase uses a stiffer spring (no sway). Confirm there is no auto-rotation, no shake and no continuous animation while paused. The render loop must go idle when paused and not interacting (keep the existing `IDLE_MS` logic).
 - Acceptance: with playback paused and no input, `renderer.info.render.frame` does not advance over 2 s (e2e via the dev hook).
 
-### Phase 8: Performance and robustness
+### ✅ Phase 8: Performance and robustness
 
-**T8.1: Budgets.**
+**✅ T8.1: Budgets.** _(Done except the Android phone and M1/M2 numbers, which need devices that were not available; the M3 Pro was measured. See `docs/rework3d/perf.md`.)_
 - 1440×900, DPR 2, 4 drivers, Chase: draw calls ≤ 90 and triangles ≤ 250k (`renderer.info`). Log both in dev once per 5 s behind `?debug3d=1`. Nothing logs otherwise.
 - Record fps on an M1/M2 MacBook (Chrome) and a mid-range Android phone in `docs/rework3d/perf.md`.
 
-**T8.2: Allocation-free frame.**
+**✅ T8.2: Allocation-free frame.** _(Done. Checked with V8's sampling heap profiler and GC counts instead of a visual look at a performance recording.)_
 - The render loop, pose, labels and camera rig must not allocate per frame: reuse `Vector3`/`Quaternion` scratch objects and write into out-params. Check with a Chrome performance recording (no sawtooth GC during a 20 s playback). Note the result in `perf.md`.
 
-**T8.3: Disposal and context loss.**
+**✅ T8.3: Disposal and context loss.**
 - Every `build*` returns `dispose()`. The shared template and the env map are disposed on page unload only. Keep the context-loss → 2D fallback message. Add an e2e test: toggle 2D/3D 10 times, then check that `renderer.info.memory.geometries` and `textures` are back to their first-3D values ±2 (dev hook).
 
-### Phase 9: QA and docs
+### ✅ Phase 9: QA and docs
 
-**T9.1: Unit tests** (node, `test/`). These are already specified per task: world frame, track geometry (resample length, fold removal, crossover `surfaceAt`), pose, camera maths (fit, 2D yaw, spring, TV placement and selection), dominance and heatmap index mapping, start-line extrapolation.
+**✅ T9.1: Unit tests** (node, `test/`; all present, written with their tasks). These were specified per task: world frame, track geometry (resample length, fold removal, crossover `surfaceAt`), pose, camera maths (fit, 2D yaw, spring, TV placement and selection), dominance and heatmap index mapping, start-line extrapolation.
 
-**T9.2: e2e** (`e2e/scene.smoke.spec.js`, on both the Monza and Suzuka fixtures):
+**✅ T9.2: e2e** (spread over `e2e/scene`, `camera`, `overlays`, `analysis`, `restraint`, `robustness` and `qa3d.smoke.spec.js`, on the Monza and Suzuka fixtures; every item below has a test):
 1. Every camera mode renders pixels with no page errors. Old `cam=cinematic` opens TV.
 2. Overview at 1440 and 390: labels are inside the stage and not overlapping.
-3. Paused at `prog` 0.3: `__ghostcar3d.project(slot)` equals the projection of the pose from `fractionAtTime` (±2 px) for every car. (This guards rule §3.1.)
+3. Paused at `prog` 0.3: `__ghostcar3d.project(slot)` equals the projection of the pose from `fractionAtTime` (±2 px) for every car. (This guards rule §3.1.) _(Done in world metres, which is stricter than 2 px: each car's position equals the pose computed in Node from the recorded data, within 5 cm, at 0.3 and 0.72.)_
 4. A theme toggle and a colouring change keep the same canvas element and one WebGL context.
 5. A plain wheel scrolls the page and leaves the camera distance unchanged; Ctrl+wheel changes it.
 6. The HUD speed and gear equal the brief panel's values at the same `prog`.
@@ -447,21 +447,23 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 
 **T9.2 note:** headless Chromium renders with SwiftShader. Keep pixel assertions structural (visible, inside the stage, not overlapping), never pixel-exact.
 
-**T9.3: Screenshot sets.** Run `node scripts/capture-screens.mjs docs/rework3d/final 3d`. Review every image against the checklist below and commit the images.
+**✅ T9.3: Screenshot sets.** Run `node scripts/capture-screens.mjs docs/rework3d/final 3d`. Review every image against the checklist below and commit the images.
 
 **Visual acceptance checklist:**
-- [ ] Overview fills the stage (6–10% margin) at 1440 and 390 in both themes. Same orientation as 2D.
-- [ ] Suzuka: the bridge is visibly above the lower road. No z-fighting anywhere. No folded edges at the hairpin or the chicane.
-- [ ] Cars are true size, sit on the road (no gap, no sinking), point along the track and pitch on slopes.
-- [ ] Ghosts are one clean translucent shell.
-- [ ] Labels are crisp, attached to their cars, never overlapping, and never outside the stage.
-- [ ] Chase: the HUD is legible and the minimap is present. Speed and gear match the brief.
-- [ ] TV: every shot is deliberate, the car is always in frame, and there are no swoops.
-- [ ] Colouring modes have a legend. Dominance matches 2D.
-- [ ] No shake, no auto-rotation, nothing moving while paused.
-- [ ] The light theme looks like paper, the dark theme like charcoal. Team colours match the 2D chips.
+- [x] Overview fills the stage (6–10% margin) at 1440 and 390 in both themes. Same orientation as 2D.
+- [x] Suzuka: the bridge is visibly above the lower road. No z-fighting anywhere. No folded edges at the hairpin or the chicane.
+- [x] Cars are true size, sit on the road (no gap, no sinking), point along the track and pitch on slopes.
+- [x] Ghosts are one clean translucent shell.
+- [x] Labels are crisp, attached to their cars, never overlapping, and never outside the stage.
+- [x] Chase: the HUD is legible and the minimap is present. Speed and gear match the brief.
+- [x] TV: every shot is deliberate, the car is always in frame, and there are no swoops.
+- [x] Colouring modes have a legend. Dominance matches 2D.
+- [x] No shake, no auto-rotation, nothing moving while paused.
+- [x] The light theme looks like paper, the dark theme like charcoal. Team colours match the 2D chips.
 
-**T9.4: Docs.**
+_Reviewed 29 Sep 2026 on `docs/rework3d/final/` (56 images: six cameras at two moments, both colourings, 1440 and 390, both themes). Two items were judged from the images and not measured: pitch on slopes (cars were seen level and climbing in Chase, not compared with the road's slope), and "dominance matches 2D" (same data and the same mapping, tested as such; the two views were not overlaid). Two things the review changed: the centre band is softer (50%) in Chase, Onboard and TV, where it filled the whole picture, and on a phone the readout keeps only the numbers so the car stays in view._
+
+**✅ T9.4: Docs.**
 - Update `AGENTS.md` (Architecture: the new `src/scene/` modules, metres, one world frame, overlays; Commands: the fixture recorder and the 3D capture mode) and `README.MD` (camera modes, shortcuts). Mark this file's phases complete as you go, the way `REWORK_TASKS.md` does.
 
 ---

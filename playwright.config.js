@@ -2,9 +2,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  // Software-rendered 3D scenes are heavy: a few workers, and room for the slowest test.
+  timeout: 60_000,
+  workers: 3,
   expect: {
-    timeout: 5_000,
+    // A 3D scene builds on a software GPU (SwiftShader) here, and the workers share one CPU.
+    timeout: 10_000,
   },
   fullyParallel: true,
   reporter: [["list"]],

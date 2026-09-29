@@ -1,48 +1,115 @@
 import {
+  CanvasTexture,
   Color,
   DoubleSide,
-  LineBasicMaterial,
   MeshBasicMaterial,
   MeshPhongMaterial,
-  ShaderMaterial,
-  SpriteMaterial,
+  MeshStandardMaterial,
+  NearestFilter,
+  SRGBColorSpace,
 } from "three";
 
-export function createVertexColorLineMaterial(opacity = 1) {
-  return new LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity });
-}
-
-// The road is flat, unlit and not tone-mapped, so the canvas matches the page tokens exactly.
-export function createTrackRibbonMaterial({ theme }) {
-  return new MeshBasicMaterial({ color: theme.trackColor, side: DoubleSide, toneMapped: false });
-}
-
-export function createTrackOverlayMaterial(opacity) {
-  return new MeshBasicMaterial({
-    vertexColors: true,
-    transparent: true,
-    opacity,
+// Road, run-off and skirts are lit, so the relief reads; the colours come from sceneTheme.js.
+export function createRoadMaterial(color) {
+  // Not tone-mapped: the neutral operator lowers dark colours a little, and the road has to be the palette's colour.
+  return new MeshStandardMaterial({
+    color,
+    roughness: 0.95,
+    metalness: 0,
     side: DoubleSide,
-    depthWrite: false,
+    envMapIntensity: 0, // no reflections: the road is lit by the sun and sky alone
+    toneMapped: false,
   });
 }
 
-export function createSpriteLabelMaterial(map) {
-  // Not tone-mapped: the plate shows the exact driver colour and page-white text, like the 2D labels.
-  return new SpriteMaterial({ map, transparent: true, depthWrite: false, sizeAttenuation: false, toneMapped: false });
-}
-
-export function createStartLineMaterial(color) {
-  return new LineBasicMaterial({ color, toneMapped: false });
-}
-
-export function createCarShadowMaterial() {
+// Paint and the start line sit on the road: polygon offset wins the depth test at any distance.
+export function createPaintMaterial(color) {
   return new MeshBasicMaterial({
-    color: 0x000000,
+    color,
+    side: DoubleSide,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+}
+
+// The centre band: RGBA vertex colours, so a stretch with alpha 0 is just the road.
+export function createTrackOverlayMaterial() {
+  return new MeshBasicMaterial({
+    vertexColors: true,
     transparent: true,
-    opacity: 0.2,
     side: DoubleSide,
     depthWrite: false,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+}
+
+// The chequered start strip: 8 × 2 squares, redrawn when the theme changes.
+export function createStartStripMaterial() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 16;
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = NearestFilter;
+  const material = createPaintMaterial(0xffffff);
+  material.map = texture;
+  material.userData.draw = (a, b) => {
+    const ctx = canvas.getContext("2d");
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 8; col++) {
+        ctx.fillStyle = `#${new Color((row + col) % 2 ? a : b).getHexString()}`;
+        ctx.fillRect(col * 8, row * 8, 8, 8);
+      }
+    }
+    texture.needsUpdate = true;
+  };
+  return material;
+}
+
+// A soft car-shaped shadow: black with a gradient alpha (shadowTexture), on the road under the car.
+export function createShadowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  // A rounded rectangle (the car seen from above) blurred by drawing it many times, ever smaller and fainter.
+  for (let i = 0; i < 12; i++) {
+    const inset = 4 + i * 2.6;
+    ctx.fillStyle = "rgba(0,0,0,0.11)";
+    ctx.beginPath();
+    ctx.roundRect(inset, inset * 0.5, 128 - 2 * inset, 64 - inset, 14);
+    ctx.fill();
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+export function createCarShadowMaterial(map) {
+  return new MeshBasicMaterial({
+    map,
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+}
+
+// Writes only depth, a little behind the ghost: the translucent pass then draws just its front surface.
+export function createGhostPrepassMaterial() {
+  return new MeshBasicMaterial({
+    colorWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
   });
 }
 
@@ -53,23 +120,5 @@ export function createFallbackCarMaterial({ color, isGhost }) {
     emissiveIntensity: 0.2,
     transparent: isGhost,
     opacity: isGhost ? 0.5 : 1,
-  });
-}
-
-export function createDeltaLineMaterial(color) {
-  return new LineBasicMaterial({ color, transparent: true, opacity: 0.5, toneMapped: false });
-}
-
-export function createRacingLineMaterial(color) {
-  return new LineBasicMaterial({ color, transparent: true, opacity: 0.12, toneMapped: false });
-}
-
-export function createTrailMaterial({ color, ghost }) {
-  return new ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: { uColor: { value: new Color(color) } },
-    vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
-    fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
   });
 }

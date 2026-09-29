@@ -1,26 +1,31 @@
 import {
   Box3,
   BoxGeometry,
-  BufferAttribute,
-  BufferGeometry,
-  CanvasTexture,
-  CircleGeometry,
   Color,
-  DynamicDrawUsage,
   Group,
+  LessEqualDepth,
   Mesh,
-  Points,
-  Sprite,
-  SRGBColorSpace,
+  MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  PlaneGeometry,
   Vector3,
 } from "three";
-import { disposeScene } from "./createRenderer.js";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { fractionAtTime } from "../domain/timing.js";
+import { loadCarTemplate } from "./carModel.js";
+import { placeOnRoad, poseAt } from "./carPose.js";
 import {
   createCarShadowMaterial,
   createFallbackCarMaterial,
-  createSpriteLabelMaterial,
-  createTrailMaterial,
+  createGhostPrepassMaterial,
+  createShadowTexture,
 } from "./materials.js";
+import { SCENE_THEME } from "./sceneTheme.js";
+import { surfaceAt } from "./trackGeometry.js";
+
+const roadColor = (dark) => (dark ? SCENE_THEME.dark : SCENE_THEME.light).road;
 
 function freezeObjectTransform(object) {
   if (!object) return object;
@@ -29,235 +34,322 @@ function freezeObjectTransform(object) {
   return object;
 }
 
-const LABEL_PX = 24;
-const LABEL_ASPECT = 200 / 80;
-
-// Labels keep one on-screen size at any camera distance (sizeAttenuation is off), so they stay legible
-// on a phone-sized stage and do not balloon in the follow camera. Called on every stage resize.
-export function sizeCarLabels(cars, viewportHeight, fov) {
-  const height = (2 * LABEL_PX * Math.tan((fov * Math.PI) / 360)) / (viewportHeight || 1);
-  for (const car of cars) {
-    const sprite = car?.userData.label;
-    if (!sprite) continue;
-    sprite.scale.set(height * LABEL_ASPECT, height, 1);
-    sprite.updateMatrix();
-  }
-}
-
-// Name chips as in 2D: an ink plate with a team-colour edge and the acronym in Barlow Condensed.
-const LABEL_FONT = '700 46px "Barlow Condensed", "IBM Plex Sans", sans-serif';
-const LABEL_INK = { dark: { plate: "#eee8db", text: "#1b1a19" }, light: { plate: "#20251f", text: "#f2eee4" } };
-
-function drawLabel(ctx, { label, color, isDark }) {
-  const ink = LABEL_INK[isDark ? "dark" : "light"];
-  ctx.clearRect(0, 0, 200, 80);
-  ctx.fillStyle = ink.plate;
-  ctx.fillRect(0, 0, 200, 80);
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, 14, 80);
-  ctx.fillStyle = ink.text;
-  ctx.font = LABEL_FONT;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(label, 107, 43);
-}
-
-function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) {
+const CAR_LENGTH = 5.63; // metres
+function makeCarGroup({ color, isGhost, tier = 0, shadowTexture }) {
   const group = new Group();
-  let sprite = null;
 
-  const shadow = new Mesh(new CircleGeometry(1.0, 24), createCarShadowMaterial());
+  // 2.6 × 6.4 m, a little larger than the car so the soft edge shows.
+  const shadow = new Mesh(new PlaneGeometry(2.6, 6.4), createCarShadowMaterial(shadowTexture));
   shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.01;
+  shadow.position.y = 0.02;
+  shadow.renderOrder = 1;
+  shadow.userData.noPick = true;
   group.add(freezeObjectTransform(shadow));
 
-  if (label && !isLowDetail) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 200;
-    canvas.height = 80;
-    const ctx = canvas.getContext("2d");
-    drawLabel(ctx, { label, color, isDark });
+  // Shown at once and replaced when the shared model arrives (or kept if it never does).
+  const placeholder = new Mesh(new BoxGeometry(2, 0.7, 5.6), createFallbackCarMaterial({ color, isGhost }));
+  placeholder.position.y = 0.35;
+  group.add(freezeObjectTransform(placeholder));
 
-    const texture = new CanvasTexture(canvas);
-    // Barlow may still be loading when the scene is built; redraw once it has, and the next frame uploads it.
-    if (!document.fonts.check(LABEL_FONT)) {
-      document.fonts
-        .load(LABEL_FONT)
-        .then(() => {
-          drawLabel(ctx, { label, color, isDark });
-          texture.needsUpdate = true;
-        })
-        .catch(() => {});
-    }
-    // Canvas pixels are sRGB; untagged, three treats them as linear and the colours wash out.
-    texture.colorSpace = SRGBColorSpace;
-    sprite = new Sprite(createSpriteLabelMaterial(texture));
-    sprite.position.set(0, 1.6, 0);
-    // Anchored at the plate's bottom edge and lifted one plate per slot, in screen space, so the labels
-    // of cars running together stack instead of overlapping at any zoom.
-    sprite.center.set(0.5, -tier * 1.2);
-    group.add(freezeObjectTransform(sprite));
-  }
-
-  group.userData = { color, isGhost, modelLoaded: false, label: sprite };
+  group.userData = { color, isGhost, tier, modelLoaded: false, placeholder, shadow };
   return group;
 }
 
-function addFallbackCars(carGroups) {
-  carGroups.filter(Boolean).forEach((group) => {
-    if (group.userData.modelLoaded) return;
-    const color = new Color(group.userData.color);
-    const mesh = new Mesh(
-      new BoxGeometry(0.4, 0.15, 1.2),
-      createFallbackCarMaterial({ color, isGhost: group.userData.isGhost })
-    );
-    mesh.position.y = 0.15;
-    group.add(freezeObjectTransform(mesh));
-    group.userData.modelLoaded = true;
-  });
+// The model's materials by role. The GLB's own names decide it: paint (BaseColor, Bloody_Red), accent (2ndColor),
+// carbon (3rdColor, Dark_Black) and mirror.
+function materialRole(name) {
+  const lower = (name || "").toLowerCase();
+  if (lower.includes("mirror")) return "mirror";
+  if (lower.includes("2nd")) return "accent";
+  if (lower.includes("3rd") || lower.includes("black")) return "carbon";
+  if (["base", "bloody", "red"].some((key) => lower.includes(key))) return "body";
+  return "other";
 }
 
-function applyModelToCar(template, carGroup) {
+const CARBON = 0x151515;
+const WHITE = new Color(0xffffff);
+const BLACK = new Color(0x000000);
+const GHOST_OPACITY = 0.45;
+
+function createCarMaterial(role, source) {
+  let material;
+  if (role === "body") {
+    material = new MeshPhysicalMaterial({ metalness: 0.3, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.2 });
+  } else if (role === "accent") {
+    material = new MeshPhysicalMaterial({ metalness: 0.3, roughness: 0.4 });
+  } else if (role === "carbon") {
+    material = new MeshStandardMaterial({ color: CARBON, roughness: 0.55, metalness: 0 });
+  } else if (role === "mirror") {
+    material = new MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.3, metalness: 0.8 });
+  } else {
+    material = source.clone();
+  }
+  material.userData.role = role;
+  return material;
+}
+
+// Team colour on the paint; the accent is the same colour lifted toward white on the dark stage and pulled toward
+// black on the paper one, so it stays a separate shade. Ghosts are one translucent layer (see ghostPass).
+function paintMaterial(material, color, isDark, isGhost) {
+  const { role } = material.userData;
+  if (role === "body") material.color.copy(color);
+  else if (role === "accent") material.color.copy(color).lerp(isDark ? WHITE : BLACK, 0.25);
+  if (isGhost) {
+    material.transparent = true;
+    material.opacity = GHOST_OPACITY;
+    material.depthWrite = false;
+    material.depthFunc = LessEqualDepth;
+  }
+}
+
+function applyModelToCar(template, carGroup, shared) {
   if (!carGroup) return;
   const clone = template.clone(true);
-  const modelScale = 0.12;
-  clone.scale.set(modelScale, modelScale, modelScale);
+  // The model's long axis is z (12.15 model units) and its nose points to +z, which is the direction
+  // a pose's heading turns toward; scale it to a real car's length in metres.
+  const modelLength = new Box3().setFromObject(clone).getSize(new Vector3()).z;
+  clone.scale.setScalar(CAR_LENGTH / modelLength);
 
   const box = new Box3().setFromObject(clone);
   const center = box.getCenter(new Vector3());
   clone.position.set(-center.x, -box.min.y + 0.02, -center.z);
 
   const color = new Color(carGroup.userData.color);
-  const isGhost = carGroup.userData.isGhost;
-  clone.traverse((child) => {
-    if (child.isMesh && child.material) {
-      try {
-        const mat = child.material.clone();
-        const name = (mat.name || "").toLowerCase();
-        if (name.includes("base") || name.includes("2nd") || name.includes("bloody") || name.includes("red")) {
-          mat.color.copy(color);
-          if (mat.emissive) {
-            mat.emissive.copy(color);
-            mat.emissiveIntensity = isGhost ? 0.4 : 0.15;
-          }
-        } else if (name.includes("3rd")) {
-          mat.color.copy(color).multiplyScalar(0.6);
-          if (mat.emissive) {
-            mat.emissive.copy(color);
-            mat.emissiveIntensity = 0.1;
-          }
-        } else if (name.includes("mirror")) {
-          mat.color.setHex(0x888888);
-        }
-        if (isGhost) {
-          mat.transparent = true;
-          mat.opacity = 0.5;
-        }
-        child.material = mat;
-      } catch {
-        // Keep original imported material if the GLTF child is not cloneable.
-      }
+  const { isGhost, tier } = carGroup.userData;
+  const meshes = [];
+  clone.traverse((child) => child.isMesh && meshes.push(child));
+  for (const mesh of meshes) {
+    // Geometry stays shared with the template; the material is this car's own.
+    mesh.material = createCarMaterial(materialRole(mesh.material.name), mesh.material);
+    paintMaterial(mesh.material, color, shared.isDark, isGhost);
+    if (isGhost) {
+      // A depth-only copy first, then the colour: only the ghost's front surface is drawn, never its insides.
+      const prepass = new Mesh(mesh.geometry, shared.prepass);
+      prepass.renderOrder = 10 + tier * 2;
+      mesh.renderOrder = 11 + tier * 2;
+      clone.add(prepass);
     }
-  });
+  }
 
+  const { placeholder } = carGroup.userData;
+  if (placeholder) {
+    carGroup.remove(placeholder);
+    placeholder.geometry.dispose();
+    placeholder.material.dispose();
+    carGroup.userData.placeholder = null;
+  }
   carGroup.add(clone);
   carGroup.userData.modelLoaded = true;
 }
 
-function loadDetailedCarModels({ carGroups, isActive, isContextLost }) {
-  const basePath = (import.meta.env.BASE_URL || "/") + "f1car.glb";
-  Promise.all([
-    import("three/examples/jsm/loaders/GLTFLoader.js"),
-    import("three/examples/jsm/libs/meshopt_decoder.module.js"),
-  ])
-    .then(([{ GLTFLoader }, { MeshoptDecoder }]) => {
-      if (!isActive() || isContextLost()) return;
-      const loader = new GLTFLoader();
-      loader.setMeshoptDecoder(MeshoptDecoder);
-      loader.load(
-        basePath,
-        (gltf) => {
-          if (!isActive()) {
-            disposeScene(gltf.scene);
-            return;
-          }
-          const template = gltf.scene;
-          carGroups.forEach((carGroup) => applyModelToCar(template, carGroup));
-        },
-        undefined,
-        () => {
-          if (!isActive()) return;
-          addFallbackCars(carGroups);
-        }
-      );
-    })
-    .catch(() => {
-      if (!isActive()) return;
-      addFallbackCars(carGroups);
-    });
+// Recolour a car in place (theme or colour changed; the paths did not).
+function restyleCar(carGroup, { color, isDark }) {
+  if (!carGroup) return;
+  const paint = new Color(color);
+  const { isGhost, placeholder, shadow } = carGroup.userData;
+  carGroup.userData.color = color;
+  shadow.material.opacity = (isDark ? SCENE_THEME.dark : SCENE_THEME.light).shadow;
+  if (placeholder) {
+    placeholder.material.color.copy(paint);
+    placeholder.material.emissive.copy(paint);
+  }
+  carGroup.traverse((child) => {
+    if (child.isMesh && child.material?.userData.role) paintMaterial(child.material, paint, isDark, isGhost);
+  });
 }
 
-function makeTrail({ scene, color, ghost, isMob }) {
-  const max = isMob ? 72 : 120;
-  const positions = new Float32Array(max * 3);
-  const geometry = new BufferGeometry();
-  const posAttr = new BufferAttribute(positions, 3);
-  posAttr.setUsage(DynamicDrawUsage);
-  geometry.setAttribute("position", posAttr);
+const TAIL_SECONDS = 1.5;
+const TAIL_LIFT = 0.12; // metres above the road
 
-  const alphas = new Float32Array(max);
-  alphas.fill(0);
-  const alphaAttr = new BufferAttribute(alphas, 1);
-  alphaAttr.setUsage(DynamicDrawUsage);
-  geometry.setAttribute("alpha", alphaAttr);
-  geometry.setDrawRange(0, 0);
+// The last TAIL_SECONDS of a driver's own line as a fading ribbon 0.5 m wide. Nothing is recorded per frame:
+// the points are cut from the driver's path by time, so a scrub shows the right tail at once.
+function makeTail({ scene, color, isMob }) {
+  const max = isMob ? 96 : 160; // segments
+  const geometry = new LineGeometry();
+  geometry.setPositions(new Float32Array((max + 1) * 3));
+  geometry.setColors(new Float32Array((max + 1) * 3));
+  geometry.instanceCount = 0;
+  const material = new LineMaterial({ linewidth: 0.5, worldUnits: true, vertexColors: true });
+  const line = new Line2(geometry, material);
+  line.frustumCulled = false;
+  line.visible = false;
+  line.renderOrder = 5;
+  scene.add(line);
+  return {
+    line,
+    max,
+    segments: geometry.attributes.instanceStart.data,
+    colors: geometry.attributes.instanceColorStart.data,
+    color: new Color(color),
+    fade: new Color(),
+    surface: {},
+  };
+}
 
-  const material = createTrailMaterial({ color, ghost });
-  const points = freezeObjectTransform(new Points(geometry, material));
-  scene.add(points);
-  return { mesh: points, positions, alphas, max, count: 0 };
+// Points of the tail: newest first, walked back along the driver's dense path from the car.
+function writeEnd(array, offset, x, y, z) {
+  array[offset] = x;
+  array[offset + 1] = y;
+  array[offset + 2] = z;
+}
+
+function updateTail(tail, path, times, time, centreline, carIndex) {
+  const f1 = fractionAtTime(times, time);
+  const f0 = fractionAtTime(times, time - TAIL_SECONDS);
+  const last = path.count - 1;
+  const i1 = Math.min(last, Math.ceil(f1 * last));
+  const i0 = Math.floor(f0 * last);
+  const stride = Math.max(1, Math.ceil((i1 - i0) / tail.max));
+  const count = Math.floor((i1 - i0) / stride) + 1;
+  if (count < 2) {
+    tail.line.geometry.instanceCount = 0;
+    return;
+  }
+  const points = tail.segments.array;
+  const colors = tail.colors.array;
+  const { color, fade } = tail;
+  let hint = carIndex;
+  for (let k = 0; k < count; k++) {
+    // Newest at k = 0, so the road search follows the path backwards from the car's own place on the road.
+    const p = path.points[Math.max(i0, i1 - k * stride)];
+    surfaceAt(centreline, p.x, p.z, hint, tail.surface, p.y);
+    hint = tail.surface.index;
+    const y = tail.surface.y + TAIL_LIFT;
+    // Segment k runs from point k to point k + 1: each point is the start of one and the end of the previous.
+    // Full colour at the car, fading to the road colour toward the oldest point.
+    const mix = (1 - k / (count - 1)) ** 2;
+    const r = fade.r + (color.r - fade.r) * mix;
+    const g = fade.g + (color.g - fade.g) * mix;
+    const b = fade.b + (color.b - fade.b) * mix;
+    if (k < count - 1) {
+      writeEnd(points, 6 * k, p.x, y, p.z);
+      writeEnd(colors, 6 * k, r, g, b);
+    }
+    if (k > 0) {
+      writeEnd(points, 6 * (k - 1) + 3, p.x, y, p.z);
+      writeEnd(colors, 6 * (k - 1) + 3, r, g, b);
+    }
+  }
+  tail.segments.needsUpdate = true;
+  tail.colors.needsUpdate = true;
+  tail.line.geometry.instanceCount = count - 1;
 }
 
 export function buildCars({
   scene,
-  isLowDetail,
+  drivers,
   isDark,
   isMob,
-  l3,
-  l4,
-  c1,
-  c2,
-  c3,
-  c4,
-  lab1,
-  lab2,
-  lab3,
-  lab4,
+  resolution,
   isActive = () => true,
   isContextLost = () => false,
 }) {
-  const car1 = makeCarGroup({ color: c1, label: lab1, isGhost: false, isLowDetail, isDark });
-  const car2 = makeCarGroup({ color: c2, label: lab2, isGhost: true, isLowDetail, isDark, tier: 1 });
-  scene.add(car1);
-  scene.add(car2);
+  // drivers: one { path, color, label } per slot; slots 1 and 2 always exist, 3 and 4 only with a path.
+  const shared = { isDark, prepass: createGhostPrepassMaterial() };
+  const shadowTexture = createShadowTexture();
+  const cars = drivers.map((driver, index) =>
+    index < 2 || driver?.path?.length > 0
+      ? makeCarGroup({ color: driver.color, isGhost: index > 0, tier: index, shadowTexture })
+      : null
+  );
+  cars.forEach((car) => car && scene.add(car));
+  const tails = cars.map((car, index) => (car ? makeTail({ scene, color: drivers[index].color, isMob }) : null));
+  tails.forEach((tail) => {
+    if (!tail) return;
+    tail.fade.set(roadColor(isDark));
+    tail.line.material.resolution.set(resolution.width, resolution.height);
+  });
 
-  const car3 =
-    l3?.length > 0 && lab3
-      ? makeCarGroup({ color: c3, label: lab3, isGhost: true, isLowDetail, isDark, tier: 2 })
-      : null;
-  const car4 =
-    l4?.length > 0 && lab4
-      ? makeCarGroup({ color: c4, label: lab4, isGhost: true, isLowDetail, isDark, tier: 3 })
-      : null;
-  if (car3) scene.add(car3);
-  if (car4) scene.add(car4);
+  // Settles once the shared model is on the cars (or has failed: the placeholders stay).
+  const settled = loadCarTemplate()
+    .then((template) => {
+      if (isActive() && !isContextLost()) cars.forEach((car) => applyModelToCar(template, car, shared));
+    })
+    .catch(() => {});
 
-  loadDetailedCarModels({ carGroups: [car1, car2, car3, car4], isActive, isContextLost });
+  function restyle(next, dark) {
+    shared.isDark = dark;
+    cars.forEach((car, index) => {
+      if (!car) return;
+      restyleCar(car, { color: next[index].color, isDark: dark });
+      tails[index].color.set(next[index].color);
+      tails[index].fade.set(roadColor(dark));
+    });
+  }
 
-  const tr1 = makeTrail({ scene, color: c1, ghost: false, isMob });
-  const tr2 = makeTrail({ scene, color: c2, ghost: true, isMob });
-  const tr3 = car3 ? makeTrail({ scene, color: c3, ghost: true, isMob }) : null;
-  const tr4 = car4 ? makeTrail({ scene, color: c4, ghost: true, isMob }) : null;
+  function setResolution(width, height) {
+    tails.forEach((tail) => tail?.line.material.resolution.set(width, height));
+  }
 
-  return { car1, car2, car3, car4, tr1, tr2, tr3, tr4 };
+  return {
+    cars,
+    tails,
+    restyle,
+    setResolution,
+    settled,
+    // What the cars own outside the scene graph's own disposal: the shared shadow and ghost pass, and the tails.
+    dispose: () => {
+      shadowTexture.dispose();
+      shared.prepass.dispose();
+      tails.forEach((tail) => {
+        tail?.line.geometry.dispose();
+        tail?.line.material.dispose();
+      });
+    },
+  };
+}
+
+export function createCarState() {
+  return {
+    pose: {},
+    place: { x: 0, y: 0, z: 0, pitch: 0, heading: 0 },
+    last: { x: Infinity, y: 0, z: 0, heading: NaN },
+  };
+}
+
+/**
+ * Place every car for this frame from the shared clock: position on its own line at its own fraction, height and
+ * pitch from the road, heading along its line. Allocation-free; returns whether anything moved.
+ */
+export function placeCars({ sceneState, fractions, time, pathTimes, showTails }) {
+  const { cars, driverPaths, centreline, carStates, tails } = sceneState;
+  let needsRender = false;
+  for (let slot = 0; slot < cars.length; slot++) {
+    const car = cars[slot];
+    const path = driverPaths[slot];
+    if (!car || !path) continue;
+    const state = carStates[slot];
+    const pose = poseAt(path, fractions[slot], state.pose);
+    placeOnRoad(centreline, pose, state);
+    const last = state.last;
+    if (
+      Math.abs(last.x - pose.x) + Math.abs(last.y - state.y) + Math.abs(last.z - pose.z) > 1e-4 ||
+      last.heading !== pose.heading
+    ) {
+      needsRender = true;
+      last.x = pose.x;
+      last.y = state.y;
+      last.z = pose.z;
+      last.heading = pose.heading;
+    }
+    car.position.set(pose.x, state.y, pose.z);
+    // Yaw first, then pitch about the car's own side axis (nose up on a climb).
+    car.rotation.set(-state.pitch, pose.heading, 0, "YXZ");
+    state.place.x = pose.x;
+    state.place.y = state.y;
+    state.place.z = pose.z;
+    state.place.pitch = state.pitch;
+    state.place.heading = pose.heading;
+    const tail = tails[slot];
+    const show = showTails && !!pathTimes[slot]?.length;
+    if (tail.line.visible !== show) {
+      tail.line.visible = show;
+      needsRender = true;
+    }
+    if (show) {
+      updateTail(tail, path, pathTimes[slot], time, centreline, state.index);
+      needsRender = true;
+    }
+  }
+  return needsRender;
 }

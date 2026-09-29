@@ -113,7 +113,7 @@ test("3D replay renders and survives a 2D round trip from a shared link", async 
   await page.goto(comparisonUrl);
   await expectSceneRendered(page);
   await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
-  await page.getByRole("menuitemradio", { name: "Από ψηλά" }).click();
+  await page.getByRole("menuitemradio", { name: "Κάτοψη" }).click();
   await page.getByRole("button", { name: "2D", exact: true }).click();
   await expect(trackMap(page)).toBeVisible();
   await expect(page.locator(".stage canvas")).toHaveCount(0);
@@ -411,5 +411,110 @@ test("recorded Suzuka fixture loads a real circuit in 2D", async ({ page }) => {
   await expect(trackMap(page)).toBeVisible();
   await expect(brief(page)).toContainText("Max Verstappen");
   await expect(brief(page)).toContainText("Lando Norris");
+  expect(errors).toEqual([]);
+});
+
+test("theme and colouring change the live scene: same canvas, one WebGL context, one model download", async ({
+  page,
+}) => {
+  const errors = collectPageErrors(page);
+  const modelRequests = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("f1car.glb")) modelRequests.push(request.url());
+  });
+  await page.addInitScript(() => {
+    window.__glContexts = 0;
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      if (/webgl/.test(type)) window.__glContexts++;
+      return getContext.call(this, type, ...rest);
+    };
+  });
+  await setPreferences(page, { trackView: "3d", theme: "light" });
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expectSceneRendered(page);
+  await page.waitForFunction(() => window.__ghostcar3d?.ready === true);
+
+  await page.evaluate(() => {
+    window.__canvas = document.querySelector(".stage canvas");
+    window.__glContexts = 0;
+  });
+  await page.keyboard.press("d");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  for (const label of ["Ταχύτητα", "Φρενάρισμα", "Κυριαρχία πίστας"]) {
+    await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
+    await page.getByRole("menuitemradio", { name: label }).click();
+  }
+  await page.keyboard.press("d");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expectSceneRendered(page);
+
+  const sameCanvas = await page.evaluate(() => document.querySelector(".stage canvas") === window.__canvas);
+  expect(sameCanvas).toBe(true);
+  expect(await page.evaluate(() => window.__glContexts)).toBe(0);
+  expect(modelRequests).toHaveLength(1);
+  expect(errors).toEqual([]);
+});
+
+test("relief x3 rebuilds the Suzuka scene and is remembered", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page, { circuit: "suzuka" });
+  await page.goto(suzukaUrl);
+  await expectSceneRendered(page);
+  await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
+  const relief = page.getByRole("menuitemcheckbox", { name: "Ανάγλυφο ×3" });
+  await expect(relief).toHaveAttribute("aria-checked", "false");
+  await relief.click();
+  await expectSceneRendered(page);
+  expect(await page.evaluate(() => localStorage.getItem("f1s-3d-relief"))).toBe("3");
+  await page.reload();
+  await expectSceneRendered(page);
+  await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
+  await expect(page.getByRole("menuitemcheckbox", { name: "Ανάγλυφο ×3" })).toHaveAttribute("aria-checked", "true");
+  expect(errors).toEqual([]);
+});
+
+test("a paused scrub puts the cars in place in one step, with no easing afterwards", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page, { circuit: "suzuka" });
+  await page.goto(suzukaUrl);
+  await expectSceneRendered(page);
+  await page.waitForFunction(() => window.__ghostcar3d?.ready === true);
+  const read = () =>
+    page.evaluate(() =>
+      window.__ghostcar3d.cars.filter(Boolean).map((car) => ({
+        x: car.position.x,
+        y: car.position.y,
+        z: car.position.z,
+        yaw: car.rotation.y,
+      }))
+    );
+  await timeline(page).fill("0.3");
+  await page.waitForTimeout(250);
+  const soon = await read();
+  await page.waitForTimeout(1200);
+  const later = await read();
+  // A paused scrub lands in one step: nothing glides afterwards (the old position easing lagged by metres).
+  expect(later).toEqual(soon);
+  // After the same clock time the two cars are near each other on the lap.
+  expect(Math.hypot(soon[0].x - soon[1].x, soon[0].z - soon[1].z)).toBeLessThan(200);
+  expect(errors).toEqual([]);
+});
+
+test("four drivers in 3D: every car, tail and label renders without errors", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page);
+  await page.goto(fourDriverUrl);
+  await expectSceneRendered(page);
+  await page.waitForFunction(() => window.__ghostcar3d?.ready === true);
+  expect(await page.evaluate(() => window.__ghostcar3d.cars.filter(Boolean).length)).toBe(4);
+  await timeline(page).fill("0.4");
+  await page.getByRole("button", { name: "Αναπαραγωγή" }).click();
+  await expect.poll(async () => Number(await timeline(page).inputValue()), { timeout: 8000 }).toBeGreaterThan(0.45);
+  await page.getByRole("button", { name: "Παύση" }).click();
   expect(errors).toEqual([]);
 });

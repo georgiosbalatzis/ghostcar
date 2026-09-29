@@ -1,22 +1,23 @@
-import { ACESFilmicToneMapping, Color, Fog, FogExp2, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { Color, Fog, NeutralToneMapping, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { SCENE_THEME } from "./sceneTheme.js";
 
-// Scene colours mirror the stage panel's tokens (tokens.css) so the canvas reads as the panel it sits in:
-// background --surface, road between --surface-2 and --surface-3, edges --rule-strong, lines --text, start --signal.
-export const SCENE_THEME = {
-  dark: { sceneBg: 0x242321, trackColor: 0x36342f, edgeColor: 0x6d6861, ink: 0xeee8db, signal: 0xed4c32 },
-  light: { sceneBg: 0xe9e3d6, trackColor: 0xd6cfbf, edgeColor: 0x8c897b, ink: 0x20251f, signal: 0xed4c32 },
-};
+const NO_WEBGL = "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
+let supportError;
 
 export function getSceneSupportError() {
   if (typeof window === "undefined") return "";
   if (!window.WebGLRenderingContext) return "Αυτός ο browser δεν υποστηρίζει WebGL.";
+  // Asked once per page: the probe is a real WebGL context, and browsers only allow a handful of them.
+  if (supportError !== undefined) return supportError;
   try {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl2") || canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    return gl ? "" : "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    supportError = gl ? "" : NO_WEBGL;
   } catch {
-    return "Το WebGL είναι απενεργοποιημένο ή μη διαθέσιμο σε αυτή τη συσκευή.";
+    supportError = NO_WEBGL;
   }
+  return supportError;
 }
 
 export function formatSceneError(error) {
@@ -47,7 +48,8 @@ export function disposeScene(root) {
   const disposedMaterials = new Set();
   const disposedTextures = new Set();
   root.traverse((obj) => {
-    if (obj.geometry && !disposedGeometries.has(obj.geometry)) {
+    // Shared geometry (the cached car model) outlives any one scene.
+    if (obj.geometry && !obj.geometry.userData.shared && !disposedGeometries.has(obj.geometry)) {
       disposedGeometries.add(obj.geometry);
       obj.geometry.dispose();
     }
@@ -72,7 +74,7 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
     const width = Math.max(container.clientWidth, 1);
     const height = Math.max(container.clientHeight, 1);
     // A phone is a narrow viewport, not a narrow stage: on desktop the stage shares its row with the analysis
-    // rail and can be under 768px wide, and must still get antialiasing and a readable buffer.
+    // rail and can be under 768px wide, and must still get a readable buffer.
     const isMob = window.innerWidth < 768;
     const connection =
       window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
@@ -88,18 +90,21 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
 
     scene = new Scene();
     scene.background = new Color(theme.sceneBg);
-    scene.fog = isDark ? new FogExp2(theme.sceneBg, 0.006) : new Fog(theme.sceneBg, 120, 350);
+    // Fog range follows the camera (renderLoop): it only softens what is far behind the subject.
+    scene.fog = new Fog(theme.sceneBg, 100, 5000);
 
-    const camera = new PerspectiveCamera(50, width / height, 0.1, 500);
+    const camera = new PerspectiveCamera(50, width / height, 0.3, 20000);
     renderer = new WebGLRenderer({
-      antialias: !isMob,
+      // Every road edge is a hard edge now (no 1 px lines), and multisampling is the cheapest way to smooth them.
+      antialias: true,
       powerPreference: isMob ? "low-power" : "high-performance",
       preserveDrawingBuffer: !isMob,
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(initialPixelRatio);
-    renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isDark ? 1.1 : 1.0;
+    // Neutral keeps team colours as they are in 2D; ACES shifts hues.
+    renderer.toneMapping = NeutralToneMapping;
+    renderer.toneMappingExposure = 1;
 
     container.appendChild(renderer.domElement);
     canvas = renderer.domElement;
@@ -127,11 +132,19 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
       isLowDetail,
       initialPixelRatio,
       theme,
+      // Theme change in place: same renderer and canvas, new background, fog and exposure. Returns the palette.
+      applyTheme(dark) {
+        const next = dark ? SCENE_THEME.dark : SCENE_THEME.light;
+        scene.background = new Color(next.sceneBg);
+        scene.fog.color.setHex(next.sceneBg);
+        return next;
+      },
       dispose() {
         if (canvas && handleContextLost) canvas.removeEventListener("webglcontextlost", handleContextLost);
         if (container && renderer?.domElement && container.contains(renderer.domElement)) {
           container.removeChild(renderer.domElement);
         }
+        scene?.environment?.dispose();
         disposeScene(scene);
         if (renderer) {
           renderer.renderLists?.dispose?.();

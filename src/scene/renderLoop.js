@@ -1,25 +1,14 @@
-import { Quaternion, Vector3 } from "three";
-import {
-  applyCameraMotion,
-  isFollowCameraMode,
-  updateManualCameraTargets,
-  updateReplayCameraTargets,
-} from "./cameras.js";
 import { fractionAtTime } from "../domain/timing.js";
-import { updateCarsAndMarkers } from "./updateCars.js";
+import { placeCars } from "./buildCars.js";
 
 export function startSceneRenderLoop({
   sceneStateRef,
   renderer,
   scene,
   camera,
-  trackPath,
   cameraModeRef,
-  controls,
-  inputControls,
-  targetPosition,
-  targetLook,
-  shakeNoise,
+  focusRef,
+  rig,
   adaptiveQuality,
   isMob,
   isContextLost,
@@ -28,8 +17,6 @@ export function startSceneRenderLoop({
   const ACTIVE_MS = 0; // Let active playback run at the display refresh rate.
   const IDLE_MS = isMob ? 100 : 66;
   const HIDDEN_MS = 220;
-  const prevCameraPos = new Vector3();
-  const prevCameraQuat = new Quaternion();
   let lastFrameTime = 0;
   let lastProg = -1;
   let lastCamMode = cameraModeRef.current;
@@ -37,8 +24,13 @@ export function startSceneRenderLoop({
   let lastSceneVisible = false;
   let hasRendered = false;
   let lastSimTime = 0;
-  let noiseFrame = 0;
   let cancelled = false;
+  // The frame is allocation-free: these are filled in place every frame instead of building new arrays and objects.
+  const carProgress = [0, 0, 0, 0];
+  const carFrame = { sceneState: null, fractions: carProgress, time: 0, pathTimes: null, showTails: false };
+  const rigFrame = { dt: 0, cam: "", focus: 0, carStates: null, driverPaths: null, fractions: carProgress };
+  const labelFrame = { hiddenIndex: -1, width: 0, height: 0 };
+  const noTimes = [];
 
   function animate(now = performance.now()) {
     if (cancelled || isContextLost()) return;
@@ -46,12 +38,12 @@ export function startSceneRenderLoop({
     sceneState.fr = requestAnimationFrame(animate);
     const isSceneVisible = !document.hidden;
     const isPlaying = !!sceneState._playRef?.current;
-    const isActive = !!(isPlaying || inputControls.isActive());
+    const isActive = !!(isPlaying || rig.isActive());
     const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
     if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
     const prevFrameTime = lastFrameTime;
     lastFrameTime = now;
-    adaptiveQuality.recordFrame({ now, previousFrameTime: prevFrameTime, isSceneVisible });
+    adaptiveQuality.recordFrame(now, prevFrameTime, isSceneVisible);
     if (!isSceneVisible) {
       lastSceneVisible = false;
       lastSimTime = 0;
@@ -60,22 +52,17 @@ export function startSceneRenderLoop({
 
     const dt = lastSimTime ? Math.min((now - lastSimTime) / 1000, 0.05) : 1 / 60;
     lastSimTime = now;
-    noiseFrame = (noiseFrame + 1) & 255;
     const prog = sceneState._progRef?.current ?? 0;
     const progChanged = prog !== lastProg;
-    // A seek while paused, a scrub or the loop restarting moves the cars in one step: their trails must start over.
-    const jumped = progChanged && (!sceneState._playRef?.current || Math.abs(prog - lastProg) > 0.01);
     if (progChanged) lastProg = prog;
     // prog is the shared clock (share of the slowest lap); each car's position comes from its own timestamps.
     const timing = sceneState._timingRef?.current;
     const clock = prog * (timing?.duration || 0);
-    const carProgress = [0, 1, 2, 3].map((slot) =>
-      timing?.pathTimes[slot]?.length ? fractionAtTime(timing.pathTimes[slot], clock) : prog
-    );
+    const pathTimes = timing?.pathTimes || noTimes;
+    for (let slot = 0; slot < 4; slot++) {
+      carProgress[slot] = pathTimes[slot]?.length ? fractionAtTime(pathTimes[slot], clock) : prog;
+    }
     const cameraMode = cameraModeRef.current;
-    const playbackSpeed = Math.max(0.25, sceneState._speedRef?.current ?? 1);
-    const followCamera = isFollowCameraMode(cameraMode);
-    const sampleNoise = (offset = 0) => shakeNoise[(noiseFrame + offset) & 255];
     let needsRender =
       !hasRendered ||
       !!sceneState._dirty ||
@@ -86,61 +73,35 @@ export function startSceneRenderLoop({
     lastCamMode = cameraMode;
     lastPlayState = isPlaying;
     lastSceneVisible = true;
-    if (isPlaying) {
-      controls.cinT += 0.0003;
-      needsRender = true;
-    }
+    if (isPlaying) needsRender = true;
 
-    const carUpdate = updateCarsAndMarkers({
-      sceneState,
-      trackPath,
-      carProgress,
-      jumped,
-      isPlaying,
-      deltaTime: dt,
-      playbackSpeed,
-      followCamera,
-    });
-    needsRender = needsRender || carUpdate.needsRender;
+    carFrame.sceneState = sceneState;
+    carFrame.time = clock;
+    carFrame.pathTimes = pathTimes;
+    carFrame.showTails = isPlaying && cameraMode !== "top" && (sceneState.quality ?? 0) < 2;
+    needsRender = placeCars(carFrame) || needsRender;
 
-    updateReplayCameraTargets({
-      cameraMode,
-      p1: carUpdate.p1,
-      p2: carUpdate.p2,
-      progress: prog,
-      carProgress,
-      primaryPath: sceneState.n1,
-      secondaryPath: sceneState.n2,
-      fallbackPath: trackPath,
-      telemetry: sceneState._telData1,
-      curve: sceneState.curve,
-      cinematicTime: controls.cinT,
-      sampleNoise,
-      targetPosition,
-      targetLook,
-    });
-    needsRender =
-      updateManualCameraTargets({
-        cameraMode,
-        controls,
-        isPlaying,
-        targetPosition,
-        targetLook,
-      }) || needsRender;
-    needsRender =
-      applyCameraMotion({
-        camera,
-        targetPosition,
-        targetLook,
-        previousPosition: prevCameraPos,
-        previousQuaternion: prevCameraQuat,
-        followCamera,
-        deltaTime: dt,
-      }) || needsRender;
+    rigFrame.dt = dt;
+    rigFrame.cam = cameraMode;
+    rigFrame.focus = focusRef.current;
+    rigFrame.carStates = sceneState.carStates;
+    rigFrame.driverPaths = sceneState.driverPaths;
+    needsRender = rig.update(rigFrame) || needsRender;
     if (!needsRender) return;
     try {
+      // The name chips are DOM: put them where the cars are in this very frame.
+      if (sceneState.labels) {
+        labelFrame.hiddenIndex = rig.hiddenLabelIndex();
+        labelFrame.width = renderer.domElement.clientWidth;
+        labelFrame.height = renderer.domElement.clientHeight;
+        sceneState.labels.update(labelFrame);
+      }
       renderer.render(scene, camera);
       hasRendered = true;
+      if (!sceneState._rendered) {
+        sceneState._rendered = true;
+        sceneState.onFirstFrame?.();
+      }
       sceneState._dirty = false;
     } catch (error) {
       onRenderError(error);

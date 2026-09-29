@@ -290,3 +290,19 @@ export function sectorTicks(model) {
   if (!(s1 > 0) || !(s2 > 0)) return [];
   return [s1 / model.duration, (s1 + s2) / model.duration];
 }
+
+/**
+ * Where on the replay's track geometry (fractions of driver A's samples) the fastest driver crosses the sector 1
+ * and sector 2 lines: from the official sector times, read on the same distance grid as the gap chart. Only for a
+ * trace that can be trusted; otherwise no lines.
+ */
+export function sectorTrackFractions(trace, model) {
+  if (!trace?.reliable) return [];
+  const fastest = model?.drivers?.find((driver) => driver.slot === trace.reference);
+  const [s1, s2] = fastest?.sectors || [];
+  if (!(s1 > 0) || !(s2 > 0)) return [];
+  const last = trace.d.length - 1;
+  return [s1, s1 + s2].map(
+    (seconds) => trace.trackFractions[Math.round(distanceAtTimeOnGrid(trace, trace.reference, seconds) * last)]
+  );
+}

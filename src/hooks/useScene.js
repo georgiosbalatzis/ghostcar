@@ -1,10 +1,10 @@
 import { useEffect, useRef, useMemo } from "react";
-import { Vector3 } from "three";
-import { getSmoothPathPointCount, norm, smoothPath } from "../helpers.js";
+import { getSmoothPathPointCount, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
-import { buildCars, sizeCarLabels } from "../scene/buildCars.js";
+import { buildCars, createCarState } from "../scene/buildCars.js";
+import { createDriverPath } from "../scene/carPose.js";
+import { buildRacingLines } from "../scene/buildLines.js";
 import { buildEnvironment } from "../scene/buildEnvironment.js";
-import { buildRaceOverlays } from "../scene/buildRaceOverlays.js";
 import { buildTrack } from "../scene/buildTrack.js";
 import {
   attachRendererResize,
@@ -12,79 +12,102 @@ import {
   formatSceneError,
   getSceneSupportError,
 } from "../scene/createRenderer.js";
-import { attachInputControls } from "../scene/inputControls.js";
+import { createCameraRig } from "../scene/cameraRig.js";
+import { parseCam } from "../scene/cameraModes.js";
+import { createLabels } from "../scene/labels.js";
 import { startSceneRenderLoop } from "../scene/renderLoop.js";
+import { createWorldFrame } from "../scene/world.js";
 
-function createShakeNoiseTable(size = 256) {
-  const table = new Float32Array(size);
-  for (let i = 0; i < size; i++) {
-    const t = (i / size) * Math.PI * 2;
-    table[i] = Math.sin(t) * 0.58 + Math.sin(t * 2.13 + 0.7) * 0.27 + Math.sin(t * 5.17 + 1.9) * 0.15;
-  }
-  return table;
-}
+const EMPTY = {};
 
+const SLOTS = 4;
+
+/**
+ * The 3D scene of a replay. `model` is the stage model (buildReplayModel, clock offsets applied).
+ *
+ * The scene is built again only when its geometry changes: the track, a driver's path or the circuit flip.
+ * Theme, track colouring, driver colours and names and the camera update the live scene in place, so the
+ * canvas, the WebGL context and the car model survive them.
+ */
 export default function useScene(
   ref,
-  tp,
-  l1,
-  l2,
-  progRef,
-  playRef,
-  speedRef,
-  c1,
-  c2,
-  cam,
-  lab1,
-  lab2,
-  telData1,
-  vizMode,
-  isDark,
-  l3,
-  l4,
-  c3,
-  c4,
-  lab3,
-  lab4,
-  onError,
-  circuitFlip = false,
-  timing = null
+  {
+    model,
+    progRef,
+    playRef,
+    speedRef,
+    cam,
+    focus,
+    fitSignal,
+    vizMode,
+    dominance,
+    sectors = [],
+    lines = false,
+    isDark,
+    relief = 1,
+    onError,
+    onHint,
+    onPickDriver,
+    onFocusSlot,
+    onReady,
+    labelsRef,
+    ariaLabel,
+  }
 ) {
   const R = useRef({});
+  const drivers = Array.from({ length: SLOTS }, (_, index) => model.drivers[index] || EMPTY);
+  const trackPath = model.trackPath;
+  const circuitFlip = model.circuitFlip;
   // { duration, pathTimes[] } of the replay: the render loop places each car by its own timestamps.
-  const timingRef = useRef(timing);
-  timingRef.current = timing;
-  const CS = useRef({ angle: 0, pitch: 0.85, dist: 50, drag: false, lx: 0, ly: 0, cinT: 0 });
+  const timingRef = useRef(null);
+  timingRef.current = { duration: model.duration, pathTimes: model.drivers.map((driver) => driver.pathTimes) };
   const cmRef = useRef(cam);
-  const camTargetPos = useRef(new Vector3(40, 30, 40));
-  const camTargetLook = useRef(new Vector3(0, 0, 0));
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const callbacksRef = useRef({});
+  callbacksRef.current = { onHint, onPick: onPickDriver, onFocusSlot, onReady };
   const smoothPointCount = useMemo(
     () => getSmoothPathPointCount(typeof window !== "undefined" ? window.innerWidth < 768 : false),
     []
   );
-  const shakeNoise = useMemo(() => createShakeNoiseTable(), []);
-  const n1 = useMemo(
-    () => (l1 ? smoothPath(norm(l1, circuitFlip), smoothPointCount) : null),
-    [l1, circuitFlip, smoothPointCount]
-  );
-  const n2 = useMemo(
-    () => (l2 ? smoothPath(norm(l2, circuitFlip), smoothPointCount) : null),
-    [l2, circuitFlip, smoothPointCount]
-  );
-  const n3 = useMemo(
-    () => (l3 ? smoothPath(norm(l3, circuitFlip), smoothPointCount) : null),
-    [l3, circuitFlip, smoothPointCount]
-  );
-  const n4 = useMemo(
-    () => (l4 ? smoothPath(norm(l4, circuitFlip), smoothPointCount) : null),
-    [l4, circuitFlip, smoothPointCount]
-  );
-  const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
-  const brakeArr = useMemo(() => telData1?.map((t) => (t.brake > 0 ? 1 : 0)) || [], [telData1]);
+  // One world frame for the circuit (metres, real elevation): every driver's path goes through it, so the
+  // same raw point is the same world point for everyone. The first driver's lap is the reference.
+  const [raw1, raw2, raw3, raw4] = drivers.map((driver) => driver.path);
+  const frame = useMemo(() => createWorldFrame(raw1, { flip: circuitFlip, relief }), [raw1, circuitFlip, relief]);
+  const worldPath = (raw) => (raw ? smoothPath(raw.map(frame.toWorld), smoothPointCount) : null);
+  // Rebuilt only when that driver's samples or the frame change.
+  const n1 = useMemo(() => worldPath(raw1), [raw1, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n2 = useMemo(() => worldPath(raw2), [raw2, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n3 = useMemo(() => worldPath(raw3), [raw3, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n4 = useMemo(() => worldPath(raw4), [raw4, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const telData1 = drivers[0].tel;
+  const telTimes1 = drivers[0].telTimes;
+  // What the scene reads when it is built; the in-place effects below keep the live scene in step with it.
+  const style = drivers.map((driver) => ({ color: driver.color, label: driver.label || "" }));
+  const styleKey = JSON.stringify(style);
+  const liveRef = useRef({});
+  liveRef.current = {
+    isDark,
+    vizMode,
+    lines,
+    sectors,
+    // What the centre band draws from: who is faster where, and the reference driver's telemetry.
+    vizData: {
+      dominance,
+      colours: Object.fromEntries(model.drivers.map((driver) => [driver.slot, driver.color])),
+      tel: telData1,
+      telTimes: telTimes1,
+    },
+    frame,
+    referenceTimes: drivers[0].pathTimes,
+    style,
+    slots: model.drivers.map((driver) => driver.slot),
+    ariaLabel,
+  };
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || !tp || tp.length < 10) {
+    if (!el || !trackPath || trackPath.length < 10) {
       onError?.("");
       return;
     }
@@ -102,8 +125,12 @@ export default function useScene(
     let de;
     let scene;
     let camera;
+    let devHook = null;
     let contextLost = false;
     let active = true;
+    let debugTimer = 0;
+    // The scene's builders, each of which frees what it owns; the scene graph and renderer follow.
+    const parts = [];
 
     const clearRenderer = () => {
       if (R.current.fr) cancelAnimationFrame(R.current.fr);
@@ -112,6 +139,11 @@ export default function useScene(
       renderLoopCleanup = null;
       resizeCleanup?.();
       resizeCleanup = null;
+      if (devHook && window.__ghostcar3d === devHook) delete window.__ghostcar3d;
+      devHook = null;
+      clearInterval(debugTimer);
+      parts.forEach((part) => part.dispose?.());
+      R.current.lineSet?.dispose();
       rendererContext?.dispose();
       rendererContext = null;
       scene = null;
@@ -122,14 +154,16 @@ export default function useScene(
     };
 
     const fail = (error) => {
+      console.error("[3D scene]", error);
       clearRenderer();
       onError?.(formatSceneError(error));
     };
 
     try {
+      const live = liveRef.current;
       rendererContext = createSceneRenderer({
         container: el,
-        isDark,
+        isDark: live.isDark,
         onContextLost: () => {
           contextLost = true;
           fail("Το WebGL context χάθηκε. Κάνε ανανέωση ή ενεργοποίησε hardware acceleration.");
@@ -146,82 +180,170 @@ export default function useScene(
       } = rendererContext;
       onError?.("");
 
-      buildEnvironment({ scene, isDark });
-
-      const { curve, seg } = buildTrack({
+      const environment = buildEnvironment({
         scene,
-        tp,
-        speedArr,
-        brakeArr,
-        vizMode,
-        isDark,
-        theme: T,
-        isLowDetail,
+        renderer: ren,
+        isDark: live.isDark,
+        bounds: live.frame.bounds,
+        groundY: live.frame.groundY,
       });
 
-      const { car1, car2, car3, car4, tr1, tr2, tr3, tr4 } = buildCars({
+      parts.push(environment);
+      const track = buildTrack({
         scene,
-        isLowDetail,
-        isDark,
+        reference: { points: drivers[0].path.map(live.frame.toWorld), times: live.referenceTimes },
+        groundY: live.frame.groundY,
+        theme: T,
         isMob,
-        l3,
-        l4,
-        c1,
-        c2,
-        c3,
-        c4,
-        lab1,
-        lab2,
-        lab3,
-        lab4,
+      });
+      track.setViz(live.vizMode, live.vizData);
+
+      parts.push(track);
+      const carSet = buildCars({
+        scene,
+        drivers: live.style.map((driver, index) => ({ ...driver, path: drivers[index].path })),
+        isLowDetail,
+        isDark: live.isDark,
+        isMob,
+        resolution: { width: el.clientWidth || 1, height: el.clientHeight || 1 },
         isActive: () => active,
         isContextLost: () => contextLost,
       });
-      const cars = [car1, car2, car3, car4];
-      sizeCarLabels(cars, el.clientHeight, camera.fov);
+      parts.push(carSet);
+      const { cars, tails } = carSet;
 
-      const { spot1, spot2, deltaLine, deltaPos } = buildRaceOverlays({ scene, curve, seg, isLowDetail, theme: T });
-
+      // Everything the frame loop and the in-place effects touch.
       R.current = {
         scene,
         camera,
         ren,
-        car1,
-        car2,
-        car3,
-        car4,
-        tr1,
-        tr2,
-        tr3,
-        tr4,
-        n1,
-        n2,
-        n3,
-        n4,
-        curve,
-        spot1,
-        spot2,
-        deltaLine,
-        deltaPos,
+        cars,
+        tails,
+        paths: [n1, n2, n3, n4],
+        // Each driver's dense path with its distances, the road under them, and per-car frame state.
+        driverPaths: [n1, n2, n3, n4].map((path) => (path?.length >= 2 ? createDriverPath(path) : null)),
+        centreline: track.centreline,
+        carStates: cars.map(() => createCarState()),
+        curve: track.curve,
+        world: live.frame.bounds,
         fr: null,
         _dirty: true,
+        _rendered: false,
+        _modelSettled: false,
+        api: {
+          setTheme(dark) {
+            const next = rendererContext.applyTheme(dark);
+            environment.applyTheme(dark);
+            track.applyTheme(next);
+            carSet.restyle(liveRef.current.style, dark);
+          },
+          setStyle(dark) {
+            carSet.restyle(liveRef.current.style, dark);
+            R.current.lineSet?.restyle(liveRef.current.style.map((driver) => driver.color));
+          },
+          setViz: track.setViz,
+          // The centre band is data over the road: full strength from above, softer when the camera is close to it
+          // (Chase, Onboard, TV), where it would otherwise fill the whole picture.
+          setCamera(mode) {
+            const { family } = parseCam(mode);
+            track.band.material.opacity = family === "orbit" || family === "top" ? 1 : 0.5;
+          },
+          setQuality(tier) {
+            environment.setDetail(tier === 0);
+            R.current.quality = tier;
+          },
+          setSectors(fractions) {
+            R.current.labels?.setSectors(track.setSectors(fractions));
+          },
+          // Racing lines are built the first time they are switched on.
+          setLines(on) {
+            const state = R.current;
+            if (on && !state.lineSet) {
+              state.lineSet = buildRacingLines({
+                scene,
+                driverPaths: state.driverPaths,
+                centreline: track.centreline,
+                colours: liveRef.current.style.map((driver) => driver.color),
+                resolution: { width: el.clientWidth || 1, height: el.clientHeight || 1 },
+              });
+            }
+            state.lineSet?.setVisible(on);
+          },
+        },
       };
+      carSet.settled.then(() => {
+        if (!active) return;
+        R.current._modelSettled = true;
+        R.current._dirty = true;
+      });
 
-      const cs = CS.current;
-      const inputControls = attachInputControls({
+      const rig = createCameraRig({
+        camera,
         canvas: de,
-        controls: cs,
-        markDirty: () => {
+        fog: scene.fog,
+        world: live.frame.bounds,
+        groundY: live.frame.groundY,
+        centreline: track.centreline,
+        cars,
+        onFovChange: () => {
           R.current._dirty = true;
         },
+        onHint: (kind) => callbacksRef.current.onHint?.(kind),
+        onPick: (slot) => callbacksRef.current.onPick?.(slot),
+        onFocusSlot: (slot) => callbacksRef.current.onFocusSlot?.(slot),
+        onFocusSlot: (slot) => callbacksRef.current.onFocusSlot?.(slot),
       });
+      R.current.api.fit = rig.fit;
+      // Name chips (DOM, in the layer the stage renders) and the canvas' description for assistive technology.
+      if (live.lines) R.current.api.setLines(true);
+      R.current.labels = createLabels({ layer: labelsRef?.current, camera, cars });
+      R.current.api.setSectors(live.sectors);
+      R.current.api.setCamera(cmRef.current);
+      R.current.onFirstFrame = () => callbacksRef.current.onReady?.();
+      de.setAttribute("role", "img");
+      de.setAttribute("aria-label", live.ariaLabel || "");
 
       // Store progRef for render loop access
       R.current._progRef = progRef;
       R.current._timingRef = timingRef;
       R.current._playRef = playRef;
       R.current._speedRef = speedRef;
-      R.current._telData1 = telData1;
+
+      // `?debug3d=1`: what a frame costs, every 5 s. Nothing logs otherwise.
+      if (new URLSearchParams(window.location.search).has("debug3d")) {
+        debugTimer = setInterval(() => {
+          const { calls, triangles } = ren.info.render;
+          console.info(`[3D] ${calls} draw calls, ${triangles} triangles`);
+        }, 5000);
+      }
+
+      // Test and capture hook, not present in production for real visitors.
+      if (import.meta.env.DEV || navigator.webdriver) {
+        const project = (slot) => {
+          const car = cars[liveRef.current.slots.indexOf(slot)];
+          if (!car) return null;
+          const point = car.position.clone().project(camera);
+          return { x: (point.x * 0.5 + 0.5) * el.clientWidth, y: (-point.y * 0.5 + 0.5) * el.clientHeight };
+        };
+        devHook = {
+          get ready() {
+            return !!(R.current._rendered && R.current._modelSettled);
+          },
+          camera,
+          controls: rig.controls,
+          rig,
+          world: live.frame.bounds,
+          start: track.start,
+          band: track.band,
+          tails,
+          setQuality: (tier) => R.current.api?.setQuality(tier),
+          loseContext: () => ren?.forceContextLoss(),
+          cars,
+          info: () => ren?.info,
+          project,
+        };
+        window.__ghostcar3d = devHook;
+      }
 
       const adaptiveQuality = createAdaptiveQualityController({
         renderer: ren,
@@ -239,13 +361,10 @@ export default function useScene(
         renderer: ren,
         scene,
         camera,
-        trackPath: tp,
+        trackPath,
         cameraModeRef: cmRef,
-        controls: cs,
-        inputControls,
-        targetPosition: camTargetPos.current,
-        targetLook: camTargetLook.current,
-        shakeNoise,
+        focusRef,
+        rig,
         adaptiveQuality,
         isMob,
         isContextLost: () => contextLost,
@@ -261,7 +380,9 @@ export default function useScene(
         renderer: ren,
         isContextLost: () => contextLost,
         onResize: () => {
-          sizeCarLabels(cars, el.clientHeight, camera.fov);
+          rig.resize();
+          carSet.setResolution(el.clientWidth, el.clientHeight);
+          R.current.lineSet?.setResolution(el.clientWidth, el.clientHeight);
           R.current._dirty = true;
         },
       });
@@ -271,68 +392,54 @@ export default function useScene(
         renderLoopCleanup = null;
         resizeCleanup?.();
         resizeCleanup = null;
-        inputControls.cleanup();
+        rig.dispose();
         clearRenderer();
       };
     } catch (error) {
       fail(error);
       return;
     }
-  }, [
-    ref,
-    tp,
-    c1,
-    c2,
-    lab1,
-    lab2,
-    vizMode,
-    speedArr,
-    brakeArr,
-    isDark,
-    l3,
-    l4,
-    c3,
-    c4,
-    lab3,
-    lab4,
-    onError,
-    n1,
-    n2,
-    n3,
-    n4,
-    progRef,
-    playRef,
-    speedRef,
-    telData1,
-    shakeNoise,
-  ]);
+    // The scene's geometry: rebuilt only when one of these changes. Everything else is live (effects below).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref, trackPath, raw1, raw2, raw3, raw4, n1, n2, n3, n4, onError, progRef, playRef, speedRef]);
 
+  // ─── In place: no rebuild, same canvas and context ───
   useEffect(() => {
-    R.current.n1 = n1;
+    R.current.api?.setTheme(isDark);
     R.current._dirty = true;
-  }, [n1]);
+  }, [isDark]);
   useEffect(() => {
-    R.current.n2 = n2;
+    R.current.api?.setStyle(liveRef.current.isDark);
     R.current._dirty = true;
-  }, [n2]);
+  }, [styleKey]);
   useEffect(() => {
-    R.current.n3 = n3;
+    R.current.api?.setViz(vizMode, liveRef.current.vizData);
     R.current._dirty = true;
-  }, [n3]);
+  }, [vizMode, dominance, telData1, telTimes1, styleKey]);
   useEffect(() => {
-    R.current.n4 = n4;
+    R.current.api?.setSectors(sectors);
     R.current._dirty = true;
-  }, [n4]);
+  }, [sectors]);
+  useEffect(() => {
+    R.current.api?.setLines(lines);
+    R.current._dirty = true;
+  }, [lines]);
+  useEffect(() => {
+    R.current.ren?.domElement.setAttribute("aria-label", ariaLabel || "");
+  }, [ariaLabel]);
+  // "F": refit the camera to the circuit.
+  useEffect(() => {
+    R.current.api?.fit?.();
+    R.current._dirty = true;
+    // The signal is the trigger: a new value asks for a refit.
+  }, [fitSignal]);
   useEffect(() => {
     cmRef.current = cam;
+    R.current.api?.setCamera(cam);
     R.current._dirty = true;
   }, [cam]);
   useEffect(() => {
     R.current._speedRef = speedRef;
     R.current._dirty = true;
   }, [speedRef]);
-  useEffect(() => {
-    R.current._telData1 = telData1;
-    R.current._dirty = true;
-  }, [telData1]);
 }
