@@ -2,20 +2,74 @@
 // Usage: node scripts/capture-screens.mjs <output dir> [full]
 //   default: builder and loaded replay at 390/768/1440 (+3D at 1440), both themes (docs/rework/baseline)
 //   full:    every width from 320 to 1920, embeds, the other tabs and the edit sheet (docs/rework/final)
+//   3d:      the 3D stage on the recorded Suzuka fixture, both themes, 1440 and 390: every camera mode that exists
+//            at two moments of the lap, and each track colouring in the overview (docs/rework3d/<dir>)
 // Every capture is also checked for horizontal overflow and a clipped display title; problems are listed at the end.
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import { createServer } from "vite";
-import { APP_PATH, comparisonUrl, fourDriverUrl, routeOpenF1 } from "../e2e/fixtures.js";
+import { CAM_MODES } from "../src/constants.js";
+import { APP_PATH, comparisonUrl, fourDriverUrl, routeOpenF1, suzukaUrl } from "../e2e/fixtures.js";
 
 const [outDir, mode] = process.argv.slice(2);
 if (!outDir) {
-  console.error("Usage: node scripts/capture-screens.mjs <output dir> [full]");
+  console.error("Usage: node scripts/capture-screens.mjs <output dir> [full|3d]");
   process.exit(1);
 }
 const full = mode === "full";
 await mkdir(outDir, { recursive: true });
+
+async function capture3d() {
+  // Cameras the app does not have yet are skipped, so the same command makes the before and the after sets.
+  const cameras = ["orbit", "top", "follow1", "follow2", "onboard1", "tv"].filter((cam) => CAM_MODES.includes(cam));
+  const shots = [
+    ...cameras.flatMap((cam) => [0.12, 0.55].map((prog) => ({ cam, viz: "normal", prog }))),
+    ...["heatmap", "brake"].map((viz) => ({ cam: "orbit", viz, prog: 0.3 })),
+  ];
+  const server = await createServer({ server: { host: "127.0.0.1", port: 5174, strictPort: true }, logLevel: "error" });
+  await server.listen();
+  const browser = await chromium.launch();
+  try {
+    for (const theme of ["dark", "light"]) {
+      for (const [width, height] of [
+        [1440, 900],
+        [390, 844],
+      ]) {
+        const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+        await context.addInitScript((th) => {
+          localStorage.setItem("f1s-track-view", "3d");
+          localStorage.setItem("f1s-theme", th);
+        }, theme);
+        const page = await context.newPage();
+        await routeOpenF1(page, { circuit: "suzuka" });
+        for (const { cam, viz, prog } of shots) {
+          await page.goto(`http://127.0.0.1:5174${suzukaUrl}&tv=3d&cam=${cam}&vz=${viz}`);
+          const slider = page.getByRole("slider", { name: "Πρόοδος γύρου" });
+          await slider.waitFor({ timeout: 15_000 });
+          await page.locator(".stage canvas").waitFor();
+          await slider.fill(String(prog));
+          await slider.blur();
+          await page.evaluate(() => document.fonts.ready);
+          // window.__ghostcar3d.ready (Work3D T1.4) replaces the fixed wait once it exists.
+          await page.waitForFunction(() => window.__ghostcar3d?.ready ?? true, null, { timeout: 15_000 });
+          await page.waitForTimeout(2500); // camera easing and the car model
+          const file = path.join(outDir, `${cam}-${viz}-p${Math.round(prog * 100)}-${width}-${theme}.png`);
+          await page.locator(".stage").screenshot({ path: file });
+          console.log("captured", file);
+        }
+        await context.close();
+      }
+    }
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+}
+if (mode === "3d") {
+  await capture3d();
+  process.exit(0);
+}
 
 const viewports = full
   ? [320, 390, 430, 768, 1024, 1280, 1440, 1920].map((width) => [width, width < 768 ? 844 : width < 1100 ? 1024 : 900])

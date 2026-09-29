@@ -1,4 +1,6 @@
 // Deterministic OpenF1 fixtures shared by the Chromium smoke tests. Not live API validation.
+import { readFileSync } from "node:fs";
+
 export const APP_PATH = "/ghostcar/";
 export const MEETING_KEY = 9001;
 export const SESSION_KEY = 9101;
@@ -93,7 +95,28 @@ const stints = byNumber((driver) => [{ driver_number: driver.number, lap_start: 
 const locations = byNumber(buildLocation);
 const telemetry = byNumber(buildTelemetry);
 
-export async function routeOpenF1(page, { status = 200, empty = false, locationDelayMs = 0 } = {}) {
+// A recorded real circuit (scripts/record-openf1-fixture.mjs): Suzuka 2025 Qualifying, VER vs NOR, fastest laps.
+// Read once, on first use (suzukaUrl below triggers it at import; it is 170 kB).
+let suzukaData;
+const suzuka = () =>
+  (suzukaData ??= JSON.parse(readFileSync(new URL("./fixtures/suzuka-2025-q.json", import.meta.url), "utf8")));
+
+function circuitData(circuit) {
+  if (circuit !== "suzuka") return { meeting, session, drivers, laps, stints, locations, telemetry };
+  const data = suzuka();
+  return {
+    meeting: data.meeting,
+    session: data.session,
+    drivers: data.drivers,
+    laps: data.laps,
+    stints: data.stints,
+    locations: data.location,
+    telemetry: data.telemetry,
+  };
+}
+
+export async function routeOpenF1(page, { status = 200, empty = false, locationDelayMs = 0, circuit = "monza" } = {}) {
+  const data = circuitData(circuit);
   await page.route("https://api.openf1.org/v1/**", async (route) => {
     if (status !== 200) {
       await route.fulfill({ status, contentType: "application/json", body: "{}" });
@@ -107,13 +130,13 @@ export async function routeOpenF1(page, { status = 200, empty = false, locationD
     const path = url.pathname;
     let body = [];
     if (!empty) {
-      if (path.endsWith("/meetings")) body = [meeting];
-      if (path.endsWith("/sessions")) body = [session];
-      if (path.endsWith("/drivers")) body = drivers;
-      if (path.endsWith("/laps")) body = laps[driverNumber] || [];
-      if (path.endsWith("/stints")) body = stints[driverNumber] || [];
-      if (path.endsWith("/location")) body = locations[driverNumber] || [];
-      if (path.endsWith("/car_data")) body = telemetry[driverNumber] || [];
+      if (path.endsWith("/meetings")) body = [data.meeting];
+      if (path.endsWith("/sessions")) body = [data.session];
+      if (path.endsWith("/drivers")) body = data.drivers;
+      if (path.endsWith("/laps")) body = data.laps[driverNumber] || [];
+      if (path.endsWith("/stints")) body = data.stints[driverNumber] || [];
+      if (path.endsWith("/location")) body = data.locations[driverNumber] || [];
+      if (path.endsWith("/car_data")) body = data.telemetry[driverNumber] || [];
     }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
@@ -122,6 +145,12 @@ export async function routeOpenF1(page, { status = 200, empty = false, locationD
 export const comparisonUrl = `${APP_PATH}?y=2025&mk=${MEETING_KEY}&sk=${SESSION_KEY}&d1=1&d2=4&l1=7&l2=8&v=2`;
 export const fourDriverUrl = `${APP_PATH}?y=2025&mk=${MEETING_KEY}&sk=${SESSION_KEY}&d1=1&d2=4&d3=16&d4=63&l1=7&l2=8&l3=9&l4=6&nd=4&v=2`;
 export const invalidLapUrl = `${APP_PATH}?y=2025&mk=${MEETING_KEY}&sk=${SESSION_KEY}&d1=1&d2=4&l1=99&l2=42&tv=2d&v=2`;
+
+// The Suzuka fixture's own ids and fastest laps, read from the recording.
+export const suzukaUrl = (() => {
+  const { meeting: m, session: s, lapNumbers } = suzuka();
+  return `${APP_PATH}?y=${m.year}&mk=${m.meeting_key}&sk=${s.session_key}&d1=1&d2=4&l1=${lapNumbers[1]}&l2=${lapNumbers[4]}&v=2`;
+})();
 
 export function collectPageErrors(page) {
   const errors = [];

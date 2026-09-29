@@ -8,6 +8,7 @@ import {
   invalidLapUrl,
   routeOpenF1,
   setPreferences,
+  suzukaUrl,
   timeline,
   trackMap,
 } from "./fixtures.js";
@@ -400,4 +401,15 @@ test("on a phone all four tabs fit, and share sits in the one-line opening", asy
   await expect(page.getByRole("tab", { name: "Κατατακτήριες σεζόν" })).toContainText("Σεζόν");
   await page.getByRole("button", { name: "Κοινοποίηση" }).click();
   await expect(page.getByRole("menuitem", { name: "Αντιγραφή συνδέσμου" })).toBeVisible();
+});
+
+test("recorded Suzuka fixture loads a real circuit in 2D", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page, { circuit: "suzuka" });
+  await page.goto(suzukaUrl);
+  await expect(trackMap(page)).toBeVisible();
+  await expect(brief(page)).toContainText("Max Verstappen");
+  await expect(brief(page)).toContainText("Lando Norris");
+  expect(errors).toEqual([]);
 });

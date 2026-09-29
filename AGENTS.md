@@ -8,6 +8,7 @@ Ghost Car Lab is F1 Stories’ client-only React/Vite/Three.js lap comparison ap
 - Develop: `npm run dev` (open `/ghostcar/`).
 - Check: `npm run lint`, `npm run format:check`, `npm test`.
 - Browser tests: `npm run test:e2e`; install Chromium with `npx playwright install chromium` if missing. Tests use deterministic OpenF1 fixtures, not live API validation.
+- Real-circuit fixture: `e2e/fixtures/suzuka-2025-q.json` (Suzuka 2025 Q, VER vs NOR) is served by `routeOpenF1(page, { circuit: "suzuka" })`; open it with `suzukaUrl`. Re-record with `node scripts/record-openf1-fixture.mjs` (live network, rarely needed). `node scripts/capture-screens.mjs <dir> 3d` captures the 3D stage on it (see `Work3D.md`).
 - Build: `npm run build`; preview: `npm run preview`.
 - Formatting is intentionally scoped. Avoid formatting unrelated application files.
 
