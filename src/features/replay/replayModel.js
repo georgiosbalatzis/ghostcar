@@ -1,6 +1,7 @@
 import { formatSessionLabel } from "../../constants.js";
 import { getDistinctDriverColors, getDriverColor, getDriverFullName } from "../../domain/drivers.js";
 import { getCompoundForLap } from "../../domain/laps.js";
+import { buildTimeIndex } from "../../domain/timing.js";
 
 const FALLBACK_COLORS = ["#4488ff", "#ff4488", "#44cc44", "#ffaa00"];
 
@@ -30,6 +31,9 @@ export function buildReplayModel(replay) {
     compound: getCompoundForLap(slot.stints, slot.lap?.lap_number),
     path: streams[slot.slot].location,
     tel: streams[slot.slot].telemetry,
+    // Seconds from lap start per sample: playback places each driver by their own clock.
+    pathTimes: buildTimeIndex(streams[slot.slot].location, slot.lap?.date_start, Number(slot.lap?.lap_duration)),
+    telTimes: buildTimeIndex(streams[slot.slot].telemetry, slot.lap?.date_start, Number(slot.lap?.lap_duration)),
   }));
   const timed = drivers.filter((driver) => driver.lapDuration);
   const fastest = timed.length ? Math.min(...timed.map((driver) => driver.lapDuration)) : null;
@@ -46,6 +50,8 @@ export function buildReplayModel(replay) {
     trackPath: replay.trackPath,
     circuitFlip: replay.circuitFlip,
     drivers,
+    // Replay length in seconds: the slowest lap (or its last sample when a lap time is missing).
+    duration: Math.max(1, ...drivers.map((driver) => driver.lapDuration || driver.pathTimes.at(-1) || 0)),
     // Final lap-time difference between the first two drivers (not a live gap).
     delta: first?.lapDuration && second?.lapDuration ? first.lapDuration - second.lapDuration : null,
   };

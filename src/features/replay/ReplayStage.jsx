@@ -51,7 +51,7 @@ function ViewControls({ trackView, onTrackView, cam, onCam, vizMode, onVizMode }
 export default function ReplayStage({
   model,
   stageRef,
-  prog,
+  time,
   progRef,
   playRef,
   speedRef,
@@ -91,7 +91,7 @@ export default function ReplayStage({
           onTouchCancel={touch?.onCancel}
         >
           {is2D ? (
-            <TrackMap trackPath={model.trackPath} drivers={model.drivers} prog={prog} flip={model.circuitFlip} />
+            <TrackMap trackPath={model.trackPath} drivers={model.drivers} time={time} flip={model.circuitFlip} />
           ) : (
             <Suspense fallback={null}>
               <SceneStage3D

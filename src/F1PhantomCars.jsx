@@ -96,6 +96,7 @@ export default function App({ embed }) {
     prog,
     setProg,
     progRef,
+    durationRef,
     play,
     setPlay,
     playRef,
@@ -172,6 +173,9 @@ export default function App({ embed }) {
   );
 
   const model = useMemo(() => buildReplayModel(replay), [replay]);
+  // The playback clock runs in real seconds of the loaded replay; prog is time / duration.
+  durationRef.current = model?.duration || durationRef.current;
+  const time = prog * (model?.duration || 0);
   const [driverA, driverB] = model?.drivers || [];
   const season = useSeasonComparison({
     year: model?.year,
@@ -440,7 +444,7 @@ export default function App({ embed }) {
       toggleView: () => replay && setTrackViewMode(is2DView ? "3d" : "2d"),
       nextCamera: () => setCam((mode) => CAM_MODES[(CAM_MODES.indexOf(mode) + 1) % CAM_MODES.length]),
       toggleLoop: () => setLoop((value) => !value),
-      step: (delta) => setProg((value) => Math.max(0, Math.min(1, value + delta))),
+      step: (seconds) => setProg((value) => Math.max(0, Math.min(1, value + seconds / durationRef.current))),
     },
   });
 
@@ -465,7 +469,7 @@ export default function App({ embed }) {
     <ReplayStage
       model={model}
       stageRef={stageRef}
-      prog={prog}
+      time={time}
       progRef={progRef}
       playRef={playRef}
       speedRef={spdRef}
@@ -486,6 +490,7 @@ export default function App({ embed }) {
       play={play}
       loop={loop}
       progress={prog}
+      duration={model?.duration || 0}
       speed={spd}
       speeds={PLAYBACK_SPEEDS}
       onToggle={togglePlay}
@@ -549,7 +554,7 @@ export default function App({ embed }) {
             tab={railTab}
             onTab={setRailTab}
             model={model}
-            prog={prog}
+            time={time}
             onSeek={setProg}
             selection={selection}
             loadedLaps={loadedLaps}

@@ -1,4 +1,5 @@
 import Icon, { IconButton } from "../../components/ui/Icon.jsx";
+import { fmt } from "../../helpers.js";
 
 function formatSpeed(speed) {
   return `${speed}×`;
@@ -6,11 +7,12 @@ function formatSpeed(speed) {
 
 // Transport: play/pause and the timeline are primary; loop and speed are secondary. Play on a finished
 // lap restarts it, so there is no separate restart button (R still does it from the keyboard).
-// The timeline is normalised lap progress; each driver's own lap is mapped onto it.
+// The timeline is real time, from 0 to the slowest lap; each driver runs on their own timestamps.
 export default function PlaybackBar({
   play,
   loop,
   progress,
+  duration = 0,
   speed,
   speeds,
   onToggle,
@@ -34,7 +36,7 @@ export default function PlaybackBar({
         type="range"
         className="timeline"
         aria-label="Πρόοδος γύρου"
-        aria-valuetext={`${Math.round(progress * 100)}% του γύρου`}
+        aria-valuetext={`${(progress * duration).toFixed(1)} από ${duration.toFixed(1)} δευτερόλεπτα`}
         min="0"
         max="1"
         step="0.001"
@@ -42,6 +44,10 @@ export default function PlaybackBar({
         style={{ "--p": progress }}
         onChange={(event) => onSeek(parseFloat(event.target.value))}
       />
+      <span className="transport__time num">
+        <b>{fmt(progress * duration)}</b>
+        <span> / {fmt(duration)}</span>
+      </span>
       {!compact && (
         <div className="transport__secondary">
           <IconButton icon="loop" label="Επανάληψη (L)" pressed={loop} onClick={onLoop} />

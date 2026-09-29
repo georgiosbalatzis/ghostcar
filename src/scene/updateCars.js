@@ -116,7 +116,7 @@ function updateCar({
 export function updateCarsAndMarkers({
   sceneState,
   trackPath,
-  progress,
+  carProgress,
   progressChanged,
   isPlaying,
   deltaTime,
@@ -134,8 +134,9 @@ export function updateCarsAndMarkers({
   const rotationLerp = frameLerp(followCamera ? Math.min(baseRotLerp + 0.02, 0.18) : baseRotLerp, deltaTime);
   const positionLerp = frameLerp(MathUtils.clamp(0.34 - playbackSpeed * 0.04, 0.18, 0.34), deltaTime);
 
-  const rawP1 = lerp(sceneState.n1?.length >= 2 ? sceneState.n1 : trackPath, progress);
-  const rawP2 = lerp(sceneState.n2?.length >= 2 ? sceneState.n2 : trackPath, progress);
+  // carProgress: each car's own position (fraction of its samples) at the shared clock.
+  const rawP1 = lerp(sceneState.n1?.length >= 2 ? sceneState.n1 : trackPath, carProgress[0]);
+  const rawP2 = lerp(sceneState.n2?.length >= 2 ? sceneState.n2 : trackPath, carProgress[1]);
   const dist = Math.sqrt((rawP1.x - rawP2.x) ** 2 + (rawP1.z - rawP2.z) ** 2);
   const closeThreshold = 3.0;
   const maxOffset = 0.7;
@@ -145,7 +146,6 @@ export function updateCarsAndMarkers({
 
   const updateOptions = {
     fallbackPath: trackPath,
-    progress,
     updateTrail: shouldAdvanceTrail,
     deltaTime,
     playbackSpeed,
@@ -156,6 +156,7 @@ export function updateCarsAndMarkers({
   const p1 = updateCar({
     ...updateOptions,
     car: car1,
+    progress: carProgress[0],
     trail: tr1,
     data: sceneState.n1,
     targetLateralOffset: lateralOffset,
@@ -163,6 +164,7 @@ export function updateCarsAndMarkers({
   const p2 = updateCar({
     ...updateOptions,
     car: car2,
+    progress: carProgress[1],
     trail: tr2,
     data: sceneState.n2,
     targetLateralOffset: -lateralOffset,
@@ -173,6 +175,7 @@ export function updateCarsAndMarkers({
     const p3 = updateCar({
       ...updateOptions,
       car: sceneState.car3,
+      progress: carProgress[2],
       trail: sceneState.tr3,
       data: sceneState.n3,
       targetLateralOffset: lateralOffset * 0.5,
@@ -183,6 +186,7 @@ export function updateCarsAndMarkers({
     const p4 = updateCar({
       ...updateOptions,
       car: sceneState.car4,
+      progress: carProgress[3],
       trail: sceneState.tr4,
       data: sceneState.n4,
       targetLateralOffset: -lateralOffset * 0.5,

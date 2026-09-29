@@ -82,6 +82,9 @@ test("replay model describes the loaded snapshot, not the live selection", () =>
   assert.ok(Math.abs(model.drivers[1].gap - 0.153) < 1e-9);
   // Final lap-time difference A − B (negative: A faster).
   assert.ok(Math.abs(model.delta + 0.153) < 1e-9);
+  // Real-time playback: the replay lasts as long as the slowest lap, and each driver has a time index.
+  assert.equal(model.duration, 78.945);
+  assert.equal(model.drivers[0].pathTimes.length, path.length);
 });
 
 test("no replay model without geometry or snapshot", () => {

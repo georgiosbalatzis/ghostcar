@@ -101,7 +101,9 @@ export function ds(a, max) {
 
 export function fmt(s) {
   if (!s || s <= 0) return "0:00.000";
-  const m = Math.floor(s / 60), sec = s - m * 60;
+  // Round to milliseconds first, so 59.9996 s reads 1:00.000 and never 0:60.000.
+  const ms = Math.round(s * 1000);
+  const m = Math.floor(ms / 60000), sec = (ms - m * 60000) / 1000;
   return `${m}:${sec < 10 ? "0" : ""}${sec.toFixed(3)}`;
 }
 

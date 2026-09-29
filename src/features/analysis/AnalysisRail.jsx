@@ -8,7 +8,7 @@ import { RAIL_TABS } from "./railTabs.js";
 import "./analysis.css";
 
 // Only the active tab is mounted, so hidden analysis does no work during playback.
-function AnalysisRail({ tab, onTab, model, prog, onSeek, selection, loadedLaps, isDirty, onApply, compact }) {
+function AnalysisRail({ tab, onTab, model, time, onSeek, selection, loadedLaps, isDirty, onApply, compact }) {
   const activeSlots = selection.slots.slice(0, selection.numDrivers);
   return (
     <aside className="rail" aria-label="Ανάλυση">
@@ -21,9 +21,15 @@ function AnalysisRail({ tab, onTab, model, prog, onSeek, selection, loadedLaps, 
             </button>
           </div>
         )}
-        {tab === "live" && <LiveTelemetry drivers={model.drivers} prog={prog} />}
+        {tab === "live" && <LiveTelemetry drivers={model.drivers} time={time} />}
         {tab === "telemetry" && (
-          <TelemetryTraces drivers={model.drivers} prog={prog} onSeek={onSeek} compact={compact} />
+          <TelemetryTraces
+            drivers={model.drivers}
+            time={time}
+            duration={model.duration}
+            onSeek={onSeek}
+            compact={compact}
+          />
         )}
         {tab === "sectors" && <SectorAnalysis drivers={model.drivers} />}
         {tab === "laps" && (

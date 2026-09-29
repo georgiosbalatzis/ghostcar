@@ -197,6 +197,20 @@
 .transport__play:hover {
   background: var(--text-2);
 }
+.transport__time {
+  flex: none;
+  font-size: var(--text-control);
+  white-space: nowrap;
+}
+.transport__time b {
+  font-weight: 600;
+}
+.transport__time span {
+  color: var(--text-2);
+}
+.transport--compact .transport__time span {
+  display: none;
+}
 .transport__secondary {
   display: flex;
   align-items: center;

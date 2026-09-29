@@ -46,14 +46,18 @@ function lapsFor(driver, index) {
   ];
 }
 
-function buildLocation(driverNumber, index) {
+// Samples are timestamped across each driver's own lap, as OpenF1 returns them for the lap's time range.
+const sampleDate = (driver, index, i) =>
+  new Date(Date.parse(`2025-09-06T14:0${index}:00.000Z`) + (i / 95) * driver.time * 1000).toISOString();
+
+function buildLocation(driver, index) {
   const offset = index * 0.17;
   const points = [];
   for (let i = 0; i < 96; i++) {
     const t = (i / 96) * Math.PI * 2;
     points.push({
-      date: new Date(Date.parse("2025-09-06T14:00:00.000Z") + i * 850).toISOString(),
-      driver_number: driverNumber,
+      date: sampleDate(driver, index, i),
+      driver_number: driver.number,
       x: Math.round(Math.cos(t + offset) * (520 + Math.sin(t * 3) * 24)),
       y: Math.round(Math.sin(t + offset) * (360 + Math.cos(t * 2) * 18)),
       z: Math.round(Math.sin(t * 2 + offset) * 12),
@@ -62,13 +66,13 @@ function buildLocation(driverNumber, index) {
   return points;
 }
 
-function buildTelemetry(driverNumber, index) {
+function buildTelemetry(driver, index) {
   const samples = [];
   for (let i = 0; i < 96; i++) {
     const wave = Math.sin((i / 95) * Math.PI * 2 + index * 0.45);
     samples.push({
-      date: new Date(Date.parse("2025-09-06T14:00:00.000Z") + i * 850).toISOString(),
-      driver_number: driverNumber,
+      date: sampleDate(driver, index, i),
+      driver_number: driver.number,
       speed: Math.round(210 + wave * 58),
       throttle: wave > -0.35 ? 92 : 38,
       brake: wave < -0.68 ? 1 : 0,
@@ -83,8 +87,8 @@ function buildTelemetry(driverNumber, index) {
 const byNumber = (build) => Object.fromEntries(DRIVERS.map((driver, index) => [driver.number, build(driver, index)]));
 const laps = byNumber(lapsFor);
 const stints = byNumber((driver) => [{ driver_number: driver.number, lap_start: 1, lap_end: 20, compound: "SOFT" }]);
-const locations = byNumber((driver, index) => buildLocation(driver.number, index));
-const telemetry = byNumber((driver, index) => buildTelemetry(driver.number, index));
+const locations = byNumber(buildLocation);
+const telemetry = byNumber(buildTelemetry);
 
 export async function routeOpenF1(page, { status = 200, empty = false, locationDelayMs = 0 } = {}) {
   await page.route("https://api.openf1.org/v1/**", async (route) => {

@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { fractionAtTime } from "../../domain/timing.js";
 import { norm } from "../../helpers.js";
 
 const VIEW_WIDTH = 1000;
@@ -17,9 +18,9 @@ function toPath(points, close) {
   return `M${points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("L")}${close ? "Z" : ""}`;
 }
 
-// 2D replay. The SVG carries only geometry (strokes stay 1:1 via non-scaling-stroke);
+// 2D replay at the shared clock `time` (seconds). The SVG carries only geometry (strokes stay 1:1 via non-scaling-stroke);
 // cars and labels are HTML positioned in percentages, so they stay crisp at any size.
-function TrackMap({ trackPath, drivers, prog, flip }) {
+function TrackMap({ trackPath, drivers, time, flip }) {
   const geometry = useMemo(() => {
     if (!trackPath?.length) return null;
     let minX = Infinity;
@@ -53,7 +54,8 @@ function TrackMap({ trackPath, drivers, prog, flip }) {
   if (!geometry) return null;
   const { box } = geometry;
   const cars = drivers.map((driver, index) => {
-    const point = lerpPoint(geometry.paths[index], prog);
+    // Each car by its own timestamps at the shared clock: the faster lap pulls ahead and finishes first.
+    const point = lerpPoint(geometry.paths[index], fractionAtTime(driver.pathTimes, time));
     return { driver, x: (point.x + box.pad) / box.width, y: (point.y + box.pad) / box.height };
   });
   // Labels stack in on-screen order, top car's label highest, so bunched cars never cover each other's names.

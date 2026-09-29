@@ -290,3 +290,28 @@ test("publishing and season analysis preserve the loaded comparison", async ({ p
   await expect.poll(async () => Number(await timeline(page).inputValue())).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+test("real-time replay: the faster lap reaches the line first", async ({ page }) => {
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expect(trackMap(page)).toBeVisible();
+  const lapTimes = page.locator(".live tbody tr").filter({ hasText: "Χρόνος" }).locator("td");
+  const carPositions = () =>
+    page.locator(".car").evaluateAll((cars) => cars.map((car) => `${car.style.left},${car.style.top}`));
+
+  // The clock is the slowest lap (NOR 82.6 s); halfway, both drivers have run the same time.
+  await timeline(page).fill("0.5");
+  await expect(page.locator(".transport__time")).toHaveText("0:41.300 / 1:22.600");
+  await expect(lapTimes).toHaveText(["0:41.300", "0:41.300"]);
+
+  // Just after 82.1 s VER has finished and holds position; NOR is still running.
+  await timeline(page).fill("0.994");
+  await expect(lapTimes).toHaveText(["1:22.100", "1:22.104"]);
+  const justAfter = await carPositions();
+  await timeline(page).fill("1");
+  await expect(lapTimes).toHaveText(["1:22.100", "1:22.600"]);
+  const atEnd = await carPositions();
+  expect(atEnd[0]).toBe(justAfter[0]);
+  expect(atEnd[1]).not.toBe(justAfter[1]);
+});

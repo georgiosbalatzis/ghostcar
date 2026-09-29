@@ -119,6 +119,7 @@ test("normalizeText strips accents and collapses spacing", () => {
 });
 
 test("fmt renders lap durations in minutes and milliseconds", () => {
+  assert.equal(fmt(59.9996), "1:00.000");
   assert.equal(fmt(91.234), "1:31.234");
   assert.equal(fmt(0), "0:00.000");
 });

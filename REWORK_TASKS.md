@@ -151,7 +151,7 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 | cancelled load | `.builder__status` shows `VER γύρος 7 · NOR γύρος 8` + `Ακύρωση` | T2.4 ✅ | the band's `role="status"`; keep the copy and the Ακύρωση button |
 | loaded at 320/390/768 | `.stage` top < 120 px | T2.3 ✅ | stage and play button both inside the first viewport (finding 1) |
 | loaded at 320/390 | `.timeline` width > 250 px | T6.6 (the mobile mockup puts play, scrubber and time on one row) | keep > 250: give the time its own row under the scrubber on < 480 px |
-| loaded at…, primary flow, publishing | `timeline.fill("0.45")`, value grows on play, `ArrowRight` > 0 | T4.2 | keep: the slider stays a 0–1 `prog`; assert the time text as well |
+| loaded at…, primary flow, publishing | `timeline.fill("0.45")`, value grows on play, `ArrowRight` > 0 | T4.2 ✅ (unchanged, still green) | keep: the slider stays a 0–1 `prog`; assert the time text as well |
 | loaded at… | `/Επανάληψη/` has `aria-pressed` | T6.6 | keep: the `↻ Επανάληψη` button stays a toggle |
 | mobile embed | link `/Άνοιγμα στο F1 Stories Ghost Car/` | T8.3 | keep this accessible name even if the visible text is shortened |
 | publishing & season | `Περισσότερα` → menuitem `/Κατατακτήριες σεζόν 2025/` → dialog `Κατατακτήριες 2025` | T6.1 (Season becomes a tab) | `tab "Κατατακτήριες σεζόν"` → a row `/Monza GP/` in its panel |
@@ -231,27 +231,37 @@ On both surfaces the page now reads: f1stories masthead → crumb + `GHOST CAR.`
 - **Tests:** checked visually at 390, 768 and 1440 px in both themes, with 2 and 4 drivers, plus the sheet and dialog. The removable driver's column lines up with its neighbours. All 22 e2e tests pass.
 - **Size:** JS +0.15 kB gz.
 
-### Phase 4: Real-time playback engine ⟶ (blocks Phases 5 and 6)
+### Phase 4: Real-time playback engine ✅
 
-The progress clock is normalised today: `prog += dt · 0.015 · speed` in `usePlaybackController.js`. Every driver is sampled at index fraction `prog` (`helpers.lerp`, `telAt`), so both cars always finish together.
+The replay now runs in real time. The clock goes from 0 to the slowest lap, and each car is placed by its own OpenF1 timestamps, so the faster car pulls ahead and reaches the line first. The finished car holds its position and its values.
 
-- **T4.1** `src/domain/timing.js` (new, pure):
-  - `buildTimeIndex(samples, lapStartIso)` returns seconds from lap start for each sample, taken from OpenF1 `date`.
-  - `fractionAtTime(index, t)` does a binary search and returns a fractional sample index in `[0,1]`, clamped past the driver's finish.
-  - Build the indices once in `buildReplayModel` (`driver.pathTimes`, `driver.telTimes`) and add `model.duration = max(lapDuration)`.
-  - *Tests (`test/timing.test.js`):* monotonic mapping; clamp at start and end; uneven sample spacing; a driver finishes at `t = lapDuration` (±1 sample).
-- **T4.2** Change `usePlaybackController` so the clock runs in **seconds**: `t += dt · speed`, end at `model.duration`, and apply loop/restart at the end. Keep `prog = t / duration` as a derived value for sliders. Seeking takes seconds, and the keyboard seek steps become ±1 s / ±5 s. Showreel timing is unaffected.
-- **T4.3** Switch every consumer to `fractionAtTime(driver.*Times, t)` instead of the raw `prog`:
-  - `features/replay/TrackMap.jsx`
-  - `scene/updateCars.js`
-  - `scene/cameras.js` (follow cameras)
-  - `scene/renderLoop.js`
-  - `hooks/useScene.js`
-  - `features/analysis/LiveTelemetry.jsx`
-  - `features/analysis/TelemetryTraces.jsx` (playhead)
-  - `features/replay/ReplayStage.jsx` and `F1PhantomCars.jsx` (props)
-- **T4.4** Transport display: `m:ss.mmm / m:ss.mmm` (current / slowest lap). The `aria-valuetext` reads seconds.
-  *Done when:* in the e2e fixture, the faster car reaches the line first and the other car arrives `|delta|` seconds later (±0.05 s). 2D and 3D stay in sync. Unit and e2e tests pass.
+- **T4.1 ✅** `src/domain/timing.js`:
+  - `buildTimeIndex(samples, lapStart, lapDuration)` gives seconds from lap start per sample. It uses `date_start` when it's within 2 s of the first sample, otherwise the first sample, and spreads samples evenly if they have no dates.
+  - `fractionAtTime(times, t)` does a binary search and returns a clamped fraction.
+  - `driverFractions(driver, t)` gives a driver's path and telemetry fractions.
+  - `buildReplayModel` adds `driver.pathTimes` / `driver.telTimes` and `model.duration`: the slowest lap, or the last sample when a lap time is missing.
+  - `test/timing.test.js` (5 tests) covers lap-start matching, the fallback, undated samples, uneven spacing, clamping, and finish order. `redesign.test.js` also checks `duration`.
+- **T4.2 ✅** `usePlaybackController` advances `prog += dt·speed / duration` through a `durationRef` that the app keeps in step with the loaded replay; 1× is real time.
+  - The slider, URL and keyboard stay on `prog` (0–1 of the clock), so nothing else about shared links changed.
+  - ← / → now step 1 s, and a double ← steps 5 s. The shortcuts dialog copy is updated.
+- **T4.3 ✅** Every consumer reads per-driver fractions at `time = prog · duration`:
+  - `TrackMap` (2D cars).
+  - The 3D render loop, via a `timingRef` passed through `useScene` (no scene rebuild), so `updateCars` gets a `carProgress[]` and the follow cameras use the followed car's own progress.
+  - `LiveTelemetry`: values at each driver's own time; the time column stops at each lap time.
+  - `TelemetryTraces`: interim x-axis is **real time** (samples placed at `t / duration`, axis `0:00 … slowest lap`, playhead = the clock, click/drag seeks). T6.8 moves it to distance.
+- **T4.4 ✅** The transport shows `m:ss.mmm / m:ss.mmm`; compact embeds show only the current time. The slider's `aria-valuetext` reads seconds.
+- **Found along the way**
+  - `fmt(59.9996)` rendered `0:60.000`. It now rounds to milliseconds first, with a unit test.
+  - The e2e fixtures stamped every driver's samples from the same instant, unlike OpenF1. They now start at each driver's own `date_start` and span the lap.
+- **Verified**
+  - 35 unit and 23 e2e tests pass, including a new e2e test: at 82.104 s VER shows 1:22.100 and is stopped on the line, while NOR shows 1:22.104 and is still moving.
+  - Live OpenF1 check (Suzuka 2025 Q, VER L13 vs NOR L11, and a 2024 race lap):
+    - samples start 0.02–0.28 s after `date_start` and end within 0.33 s of the lap time;
+    - at 87.256 s VER is on the line and NOR is not;
+    - 2 s at 1× advanced the clock 1.98–2.10 s;
+    - 2D and 3D both run with no page errors.
+- **Known, pre-existing, left for T6.8:** the brake lanes are narrower than their chart (their labels take space), so the playhead doesn't line up with the brake bands.
+- **Size:** JS +0.46 kB gz; the 3D chunk is unchanged.
 
 ### Phase 5: Derived analysis data (pure domain + tests)
 
