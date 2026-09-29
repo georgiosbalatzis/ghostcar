@@ -4,6 +4,26 @@
   min-height: 100dvh;
 }
 
+/* Keyboard users can skip the site nav; the link shows only when focused. */
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 60;
+  padding: var(--space-2) var(--space-4);
+  background: var(--text);
+  color: var(--page);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+main:focus {
+  outline: none;
+}
+
 /* ─── Masthead: mirrors the f1stories.gr site nav ─── */
 .masthead {
   display: flex;

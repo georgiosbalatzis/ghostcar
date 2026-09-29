@@ -79,6 +79,9 @@ function SiteMasthead({ isDark, onToggleTheme }) {
   const themeLabel = isDark ? "Φωτεινό θέμα" : "Σκούρο θέμα";
   return (
     <header className="masthead">
+      <a className="skip-link" href="#content">
+        Μετάβαση στο περιεχόμενο
+      </a>
       <a className="masthead__brand" href={`${SITE}/`} aria-label="Αρχική σελίδα F1 Stories">
         <img src={`${import.meta.env.BASE_URL}logo-nav.webp`} alt="" width="48" height="48" />
         <span aria-hidden="true">

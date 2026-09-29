@@ -369,27 +369,36 @@ The loaded page now follows `a-desk-loaded.png`. Checked on the fixtures at 390,
 - **Tests:** 43 unit and 28 e2e.
 - **Size:** initial JS 41.62 kB gz (+0.67 kB, the share card); CSS 9.00 kB gz.
 
-### Phase 9: QA
+### Phase 9: QA ✅
 
-- **T9.1** Update the e2e suites (`e2e/app.smoke.spec.js`, `e2e/scene.smoke.spec.js`) for the new structure, tabs, time display and default 2D. Add tests for:
-  - real-time finish order;
-  - drag-to-seek on a chart;
-  - hamburger menu at 390;
-  - legacy `tab` values;
-  - gap marked "unreliable" hides the chart.
-- **T9.2** Visual pass at 320, 390, 430, 768, 1024, 1280, 1440 and 1920, in both themes, plus embed at 390 and 800. Save to `docs/rework/final/` and compare side by side with `docs/rework/mockups/`. Fix any overflow; the Barlow hero must never wrap mid-word.
-- **T9.3** Accessibility:
-  - team colours on paper with the `--ink` darkening applied (text ≥ 4.5:1, marks ≥ 3:1);
-  - keyboard through masthead, tabs, transport and charts;
-  - focus rings;
-  - `prefers-reduced-motion` (tab underline, band);
-  - landmarks (the masthead `nav` has a label).
-- **T9.4** Performance check against the redesign-v2 numbers in `docs/redesign-v2/architecture.md`:
-  - initial JS ≤ +10 kB gz;
-  - no new dependencies;
-  - dominance paths memoised;
-  - no long tasks during playback at 4× CPU throttle.
-- **T9.5** `npm run lint`, `npm run format:check`, `npm test`, `npm run build`, `npm run test:e2e` all green.
+- **T9.1 ✅ E2E coverage.** Covered as phases landed: real-time finish order (Phase 4); drag-to-seek, legacy `tab` links and the refused gap (Phase 6); phone hamburger (Phase 2); the 2D default (Phase 7); the SVG export (Phase 8). Phase 9 adds a skip-link test. **29 e2e, 43 unit.**
+- **T9.2 ✅ Visual pass.** `node scripts/capture-screens.mjs docs/rework/final full` produces 56 captures:
+  - builder, loaded 2D at 320/390/430/768/1024/1280/1440/1920 px;
+  - 3D at 390 and 1440; four drivers; the Τομείς, Γύροι and Season tabs; the edit sheet; embeds at 390 and 800 px;
+  - all in both themes.
+
+  The script checks every capture for horizontal overflow and a clipped `GHOST CAR.` title. **No problems at any width.** Fixes from the review: below desktop the Δελτίο is capped at 720 px (it was sprawling at 1024), and the telemetry crumb's right half is hidden on phones (it wrapped at 320). The set is 8.2 MB of PNGs, in line with how redesign-v2 kept its evidence.
+- **T9.3 ✅ Accessibility**
+  - **axe-core WCAG 2.1 A/AA** (loaded from jsDelivr only for the audit, not a dependency): builder, replay, four drivers, all tabs, featured dialog, edit sheet and embed, at 1440 and 390 px in both themes (36 audits). **0 violations.** A control page with planted problems confirmed the harness detects them.
+  - **Keyboard walk:** 22 tab stops in reading order, every one with a visible focus ring, arrow keys between page tabs, no traps.
+  - **Added:** a "Μετάβαση στο περιεχόμενο" skip link, visible only when focused, that jumps to `main#content`.
+  - Team-colour and token contrast was measured in Phase 1. `prefers-reduced-motion` is honoured by the global rule in `base.css`.
+- **T9.4 ✅ Performance** (production build via `vite preview`, fixtures, 4× CPU throttle, DPR 2):
+
+  | | redesign-v2 (its doc) | Now |
+  |---|---|---|
+  | Initial JS | 80.0 kB gz (app + React) | 87.4 kB gz (41.7 + 45.8): **+7.5 kB**, within the +10 kB budget |
+  | Cold builder at 390 px | 345 kB, 7 requests | **171 kB, 8 requests** (the extra request is the 2.7 kB site logo) |
+  | FCP / LCP | 136 / 136 ms | 160 / 160 ms (masthead and display title) |
+  | CLS | 0.026 | **0.011** |
+  | Builder long tasks | 0 | 0 |
+  | 2D playback long tasks (5 s) | 0 | **0** |
+  | 3D playback long tasks (5 s) | 0 | 1 × ~55 ms at play start |
+
+  The 3D figure is **not a regression**. The Phase 0 build (redesign-v2 code), measured in a worktree with the same script, shows 1–3 long tasks of 50–68 ms at the same moment. The earlier "0" came from a different harness.
+
+  No dependencies were added. The 3D scene still loads lazily, and Three.js still isn't loaded before a 3D replay.
+- **T9.5 ✅** `lint`, `format:check`, `npm test` (43), `build` and `test:e2e` (29) all green.
 
 ### Phase 10: Cleanup and docs
 

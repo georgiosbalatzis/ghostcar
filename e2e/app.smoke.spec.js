@@ -130,3 +130,14 @@ test("phone masthead folds the site links into a menu", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
 });
+
+test("keyboard users can skip the site navigation", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Μετάβαση στο περιεχόμενο" });
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeInViewport();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main#content")).toBeFocused();
+});

@@ -555,7 +555,7 @@ export default function App({ embed }) {
           <span className="num">{describeResult(model)}</span>
         </SignalBand>
         {notice}
-        <main className="workspace__main">
+        <main id="content" className="workspace__main" tabIndex={-1}>
           <Workspace
             tab={pageTab}
             onTab={setPageTab}
@@ -593,7 +593,7 @@ export default function App({ embed }) {
           <span className="band__minor">2 έως 4 οδηγοί ανά σύγκριση</span>
         </SignalBand>
         {notice}
-        <main className="builder-page__main">
+        <main id="content" className="builder-page__main" tabIndex={-1}>
           <ComparisonBuilder idPrefix="cb" onCompare={loadData} {...builderProps} />
           <BuilderUtilities actions={actions} showreel={showreel.active} presetCount={PLAYABLE_PRESETS.length} />
         </main>

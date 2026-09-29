@@ -52,6 +52,15 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "player" "facts" "brief" "traces";
   }
+  /* A report column, not a full-width table, when it no longer sits beside the replay. */
+  .brief {
+    max-width: 720px;
+  }
+}
+@media (max-width: 767px) {
+  .desk__traces .crumb span:last-child {
+    display: none;
+  }
 }
 /* Below desktop the actions become icons, so all four tabs keep their room. */
 @media (max-width: 1099px) {
