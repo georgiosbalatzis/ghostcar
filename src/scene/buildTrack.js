@@ -1,6 +1,7 @@
 import {
   BoxGeometry,
   BufferGeometry,
+  Color,
   Float32BufferAttribute,
   Group,
   Mesh,
@@ -14,6 +15,7 @@ import {
   createStartStripMaterial,
   createTrackOverlayMaterial,
 } from "./materials.js";
+import { brakeBand, dominanceBand, speedBand } from "./trackColouring.js";
 import { buildCentreline, offsetEdge, overpassMask, startLine } from "./trackGeometry.js";
 
 // Schematic widths in metres (OpenF1 has no track width): the road is 12 m, with 4 m of run-off each side and
@@ -21,6 +23,7 @@ import { buildCentreline, offsetEdge, overpassMask, startLine } from "./trackGeo
 const ROAD_HALF = 6;
 const RUNOFF_HALF = 10;
 const PAINT_WIDTH = 0.25;
+const BAND_HALF = 3;
 
 function freezeObjectTransform(object) {
   object.updateMatrix();
@@ -58,7 +61,7 @@ function stripGeometry(strips) {
 
 const UP = () => [0, 1, 0];
 
-export function buildTrack({ scene, reference, groundY, speedArr, brakeArr, vizMode, theme, isMob }) {
+export function buildTrack({ scene, reference, groundY, theme, isMob }) {
   const c = buildCentreline(reference.points, reference.times, { spacing: isMob ? 4 : 2 });
   const edges = {
     left: offsetEdge(c, ROAD_HALF),
@@ -126,46 +129,44 @@ export function buildTrack({ scene, reference, groundY, speedArr, brakeArr, vizM
   startGroup.add(strip, gantry);
   scene.add(freezeObjectTransform(startGroup));
 
-  // The colouring overlay is the one part that changes without a rebuild: setViz swaps it in place.
-  let overlay = null;
-  function makeOverlay(mode, { speedArr: speeds = [], brakeArr: brakes = [] }) {
-    const source = mode === "heatmap" ? speeds : mode === "brake" ? brakes : [];
-    if (source.length <= 10) return null;
-    const colors = new Float32Array(c.count * 2 * 3);
-    for (let i = 0; i < c.count; i++) {
-      const t = i / (c.count - 1);
-      const si = Math.min(Math.floor(t * (source.length - 1)), source.length - 1);
-      let r;
-      let g;
-      let b;
-      if (mode === "heatmap") {
-        const ratio = Math.max(0, Math.min(1, (source[si] - 50) / 300));
-        if (ratio < 0.25) [r, g, b] = [0, ratio * 4, 1];
-        else if (ratio < 0.5) [r, g, b] = [0, 1, 1 - (ratio - 0.25) * 4];
-        else if (ratio < 0.75) [r, g, b] = [(ratio - 0.5) * 4, 1, 0];
-        else [r, g, b] = [1, 1 - (ratio - 0.75) * 4, 0];
-      } else {
-        let brake = 0;
-        for (let w = -2; w <= 2; w++) brake += source[Math.max(0, Math.min(source.length - 1, si + w))];
-        brake /= 5;
-        [r, g, b] = brake > 0.3 ? [0.9, 0.05, 0.05] : [0, 0.15, 0.08];
-      }
-      for (let side = 0; side < 2; side++) colors.set([r, g, b], (i * 2 + side) * 3);
+  // The centre band shows one thing at a time (who is faster where, speed, braking) and changes without a
+  // rebuild: setViz repaints its vertex colours. Six metres wide, on the middle of the road.
+  const bandGeometry = stripGeometry([{ a: offsetEdge(c, BAND_HALF), b: offsetEdge(c, -BAND_HALF), normal: UP }]);
+  bandGeometry.setAttribute("color", new Float32BufferAttribute(new Float32Array(c.count * 8), 4));
+  const band = new Mesh(bandGeometry, createTrackOverlayMaterial());
+  band.visible = false;
+  scene.add(freezeObjectTransform(band));
+  const linear = new Map();
+  const linearOf = (hex) => {
+    if (!linear.has(hex)) linear.set(hex, new Color(hex));
+    const { r, g, b } = linear.get(hex);
+    return [r, g, b];
+  };
+  let current = { mode: "normal", data: {} };
+  let palette = theme;
+  function paintBand() {
+    const { mode, data } = current;
+    let colours = null;
+    if (mode === "normal") {
+      const hexOf = (slot) => data.colours?.[slot];
+      colours = data.dominance?.length
+        ? dominanceBand(c, data.dominance, (slot) => (hexOf(slot) ? linearOf(hexOf(slot)) : null))
+        : null;
+    } else if (mode === "heatmap") {
+      colours = speedBand(c, data.tel, data.telTimes, palette.ramp.map(linearOf));
+    } else if (mode === "brake") {
+      colours = brakeBand(c, data.tel, data.telTimes, linearOf(palette.signal));
     }
-    const geometry = roadGeometry.clone();
-    geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-    return freezeObjectTransform(new Mesh(geometry, createTrackOverlayMaterial(mode === "heatmap" ? 0.55 : 0.6)));
+    band.visible = !!colours;
+    if (!colours) return;
+    const attribute = bandGeometry.attributes.color;
+    attribute.array.set(colours);
+    attribute.needsUpdate = true;
   }
   function setViz(mode, data) {
-    if (overlay) {
-      scene.remove(overlay);
-      overlay.geometry.dispose();
-      overlay.material.dispose();
-    }
-    overlay = makeOverlay(mode, data);
-    if (overlay) scene.add(overlay);
+    current = { mode, data };
+    paintBand();
   }
-  setViz(vizMode, { speedArr, brakeArr });
 
   // Theme change in place: recolour everything the palette touches.
   function applyTheme(next) {
@@ -175,8 +176,10 @@ export function buildTrack({ scene, reference, groundY, speedArr, brakeArr, vizM
     paint.material.color.set(next.paint);
     gantryMaterial.color.set(next.ink);
     stripMaterial.userData.draw(next.checkA, next.checkB);
+    palette = next;
+    paintBand();
   }
   applyTheme(theme);
 
-  return { centreline: c, curve: c.curve, start, setViz, applyTheme };
+  return { centreline: c, curve: c.curve, start, band, setViz, applyTheme };
 }

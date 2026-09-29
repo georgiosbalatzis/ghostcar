@@ -15,6 +15,8 @@ export const SCENE_THEME = {
     checkB: 0x1b1a19,
     ink: 0xeee8db,
     signal: 0xed4c32,
+    // Speed, slow to fast: deep blue, teal, sand, signal red. A sequential ramp, not a rainbow.
+    ramp: [0x2a3c8f, 0x1f8a99, 0x6fb39a, 0xd8c88d, 0xed4c32],
   },
   light: {
     sceneBg: 0xe9e3d6,
@@ -29,5 +31,6 @@ export const SCENE_THEME = {
     checkB: 0xf2eee4,
     ink: 0x20251f,
     signal: 0xed4c32,
+    ramp: [0x1c2a6b, 0x0f6f7c, 0x4c8f78, 0xb89b4a, 0xc2361f],
   },
 };

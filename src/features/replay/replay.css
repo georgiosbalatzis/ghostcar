@@ -249,6 +249,39 @@
   stroke-width: 5px;
 }
 
+/* What the coloured track means (bottom right), and the note on the racing lines (top left). */
+.scene-legend {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  font-size: var(--text-small);
+  color: var(--text-2);
+  pointer-events: none;
+}
+.scene-legend__ramp {
+  width: 96px;
+  height: 8px;
+}
+.scene-legend__swatch {
+  width: 10px;
+  height: 10px;
+}
+.scene-caption {
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-3);
+  margin: 0;
+  font-size: var(--text-small);
+  color: var(--text-2);
+  pointer-events: none;
+}
+
 /* Full screen: the stage takes what the transport leaves. */
 #replay-player:fullscreen {
   display: flex;

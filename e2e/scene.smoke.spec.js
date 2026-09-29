@@ -442,7 +442,7 @@ test("theme and colouring change the live scene: same canvas, one WebGL context,
   });
   await page.keyboard.press("d");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  for (const label of ["Ταχύτητα", "Φρενάρισμα", "Χωρίς χρωματισμό"]) {
+  for (const label of ["Ταχύτητα", "Φρενάρισμα", "Κυριαρχία πίστας"]) {
     await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
     await page.getByRole("menuitemradio", { name: label }).click();
   }

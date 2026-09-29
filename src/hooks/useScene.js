@@ -3,6 +3,7 @@ import { getSmoothPathPointCount, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
 import { buildCars, createCarState } from "../scene/buildCars.js";
 import { createDriverPath } from "../scene/carPose.js";
+import { buildRacingLines } from "../scene/buildLines.js";
 import { buildEnvironment } from "../scene/buildEnvironment.js";
 import { buildTrack } from "../scene/buildTrack.js";
 import {
@@ -38,6 +39,8 @@ export default function useScene(
     focus,
     fitSignal,
     vizMode,
+    dominance,
+    lines = false,
     isDark,
     relief = 1,
     onError,
@@ -76,9 +79,7 @@ export default function useScene(
   const n3 = useMemo(() => worldPath(raw3), [raw3, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const n4 = useMemo(() => worldPath(raw4), [raw4, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const telData1 = drivers[0].tel;
-  const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
-  const brakeArr = useMemo(() => telData1?.map((t) => (t.brake > 0 ? 1 : 0)) || [], [telData1]);
-
+  const telTimes1 = drivers[0].telTimes;
   // What the scene reads when it is built; the in-place effects below keep the live scene in step with it.
   const style = drivers.map((driver) => ({ color: driver.color, label: driver.label || "" }));
   const styleKey = JSON.stringify(style);
@@ -86,8 +87,14 @@ export default function useScene(
   liveRef.current = {
     isDark,
     vizMode,
-    speedArr,
-    brakeArr,
+    lines,
+    // What the centre band draws from: who is faster where, and the reference driver's telemetry.
+    vizData: {
+      dominance,
+      colours: Object.fromEntries(model.drivers.map((driver) => [driver.slot, driver.color])),
+      tel: telData1,
+      telTimes: telTimes1,
+    },
     frame,
     referenceTimes: drivers[0].pathTimes,
     style,
@@ -138,6 +145,7 @@ export default function useScene(
     };
 
     const fail = (error) => {
+      console.error("[3D scene]", error);
       clearRenderer();
       onError?.(formatSceneError(error));
     };
@@ -175,12 +183,10 @@ export default function useScene(
         scene,
         reference: { points: drivers[0].path.map(live.frame.toWorld), times: live.referenceTimes },
         groundY: live.frame.groundY,
-        speedArr: live.speedArr,
-        brakeArr: live.brakeArr,
-        vizMode: live.vizMode,
         theme: T,
         isMob,
       });
+      track.setViz(live.vizMode, live.vizData);
 
       const carSet = buildCars({
         scene,
@@ -221,8 +227,23 @@ export default function useScene(
           },
           setStyle(dark) {
             carSet.restyle(liveRef.current.style, dark);
+            R.current.lineSet?.restyle(liveRef.current.style.map((driver) => driver.color));
           },
           setViz: track.setViz,
+          // Racing lines are built the first time they are switched on.
+          setLines(on) {
+            const state = R.current;
+            if (on && !state.lineSet) {
+              state.lineSet = buildRacingLines({
+                scene,
+                driverPaths: state.driverPaths,
+                centreline: track.centreline,
+                colours: liveRef.current.style.map((driver) => driver.color),
+                resolution: { width: el.clientWidth || 1, height: el.clientHeight || 1 },
+              });
+            }
+            state.lineSet?.setVisible(on);
+          },
         },
       };
       carSet.settled.then(() => {
@@ -249,6 +270,7 @@ export default function useScene(
       });
       R.current.api.fit = rig.fit;
       // Name chips (DOM, in the layer the stage renders) and the canvas' description for assistive technology.
+      if (live.lines) R.current.api.setLines(true);
       R.current.labels = createLabels({ layer: labelsRef?.current, camera, cars });
       R.current.onFirstFrame = () => callbacksRef.current.onReady?.();
       de.setAttribute("role", "img");
@@ -277,6 +299,7 @@ export default function useScene(
           rig,
           world: live.frame.bounds,
           start: track.start,
+          band: track.band,
           cars,
           info: () => ren?.info,
           project,
@@ -321,6 +344,7 @@ export default function useScene(
         onResize: () => {
           rig.resize();
           carSet.setResolution(el.clientWidth, el.clientHeight);
+          R.current.lineSet?.setResolution(el.clientWidth, el.clientHeight);
           R.current._dirty = true;
         },
       });
@@ -351,9 +375,13 @@ export default function useScene(
     R.current._dirty = true;
   }, [styleKey]);
   useEffect(() => {
-    R.current.api?.setViz(vizMode, { speedArr, brakeArr });
+    R.current.api?.setViz(vizMode, liveRef.current.vizData);
     R.current._dirty = true;
-  }, [vizMode, speedArr, brakeArr]);
+  }, [vizMode, dominance, telData1, telTimes1, styleKey]);
+  useEffect(() => {
+    R.current.api?.setLines(lines);
+    R.current._dirty = true;
+  }, [lines]);
   useEffect(() => {
     R.current.ren?.domElement.setAttribute("aria-label", ariaLabel || "");
   }, [ariaLabel]);

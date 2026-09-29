@@ -26,13 +26,14 @@ export function createPaintMaterial(color) {
   });
 }
 
-export function createTrackOverlayMaterial(opacity) {
+// The centre band: RGBA vertex colours, so a stretch with alpha 0 is just the road.
+export function createTrackOverlayMaterial() {
   return new MeshBasicMaterial({
     vertexColors: true,
     transparent: true,
-    opacity,
     side: DoubleSide,
     depthWrite: false,
+    toneMapped: false,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CAM_LABELS } from "../../constants.js";
+import { SCENE_THEME } from "../../scene/sceneTheme.js";
+import { speedRange } from "../../scene/trackColouring.js";
 import useScene from "../../hooks/useScene.js";
 import { parseCam } from "../../scene/cameraModes.js";
 import SceneHud from "./SceneHud.jsx";
@@ -7,6 +9,34 @@ import TrackMap from "./TrackMap.jsx";
 
 const HINTS = { wheel: "Ctrl/⌘ + κύλιση για ζουμ", touch: "Δύο δάχτυλα για την κάμερα" };
 const MINIMAP_MIN_WIDTH = 480;
+const hex = (value) => `#${value.toString(16).padStart(6, "0")}`;
+
+// What the coloured track means: the speed scale, or the braking colour, for the reference (first) driver.
+function Legend({ vizMode, driver, isDark }) {
+  const theme = isDark ? SCENE_THEME.dark : SCENE_THEME.light;
+  if (vizMode === "brake") {
+    return (
+      <p className="scene-legend">
+        <span className="scene-legend__swatch" style={{ background: hex(theme.signal) }} aria-hidden="true" />
+        Φρενάρισμα · {driver.label}
+      </p>
+    );
+  }
+  const range = speedRange(driver.tel);
+  if (!range) return null;
+  return (
+    <p className="scene-legend">
+      <span>Ταχύτητα · {driver.label}</span>
+      <span className="num">{Math.round(range.lo)}</span>
+      <span
+        className="scene-legend__ramp"
+        style={{ background: `linear-gradient(90deg, ${theme.ramp.map(hex).join(", ")})` }}
+        aria-hidden="true"
+      />
+      <span className="num">{Math.round(range.hi)} km/h</span>
+    </p>
+  );
+}
 
 // The 3D view's DOM around the canvas: name chips (moved every frame by the render loop), the hint the camera
 // controls can raise, and, when the camera is on a driver, the readout and the minimap.
@@ -23,6 +53,8 @@ export default function SceneStage3D({
   fitSignal,
   onPickDriver,
   vizMode,
+  dominance,
+  lines,
   isDark,
   relief,
   onError,
@@ -66,6 +98,8 @@ export default function SceneStage3D({
     focus,
     fitSignal,
     vizMode,
+    dominance,
+    lines,
     isDark,
     relief,
     onError,
@@ -95,6 +129,10 @@ export default function SceneStage3D({
           Φόρτωση 3D…
         </p>
       )}
+      {(vizMode === "heatmap" || vizMode === "brake") && (
+        <Legend vizMode={vizMode} driver={model.drivers[0]} isDark={isDark} />
+      )}
+      {lines && <p className="scene-caption">Ενδεικτικές γραμμές · δείγματα θέσης ~4 Hz</p>}
       {hint && (
         <p className="scene-hint" role="status">
           {hint}

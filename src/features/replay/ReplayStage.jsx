@@ -43,7 +43,31 @@ function useFullscreen() {
   return { supported: !!document.fullscreenEnabled, active, toggle };
 }
 
-const VIZ_LABELS = { normal: "Χωρίς χρωματισμό", heatmap: "Ταχύτητα", brake: "Φρενάρισμα" };
+// The racing lines of each driver's samples: a viewer's choice, kept in this browser (not in share links).
+const LINES_KEY = "f1s-3d-lines";
+function useLines() {
+  const [lines, setLines] = useState(() => {
+    try {
+      return localStorage.getItem(LINES_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const choose = (value) => {
+    setLines(value);
+    try {
+      localStorage.setItem(LINES_KEY, value ? "1" : "0");
+    } catch {}
+  };
+  return [lines, choose];
+}
+
+// With no trusted gap there is nothing to colour by, and the track stays plain.
+const vizLabels = (reliable) => ({
+  normal: reliable ? "Κυριαρχία πίστας" : "Χωρίς χρωματισμό",
+  heatmap: "Ταχύτητα",
+  brake: "Φρενάρισμα",
+});
 
 function FullscreenButton() {
   const { supported, active, toggle } = useFullscreen();
@@ -66,8 +90,11 @@ function ViewControls({
   onFocus,
   vizMode,
   onVizMode,
+  reliable,
   relief,
   onRelief,
+  lines,
+  onLines,
 }) {
   const { family, slot } = parseCam(cam);
   // The driver behind Ακολούθηση, Onboard and Τηλεοπτική: the one in the camera's name, else the chosen one.
@@ -105,7 +132,7 @@ function ViewControls({
             },
             {
               label: "Χρωματισμός πίστας",
-              items: Object.entries(VIZ_LABELS).map(([mode, label]) => ({
+              items: Object.entries(vizLabels(reliable)).map(([mode, label]) => ({
                 label,
                 checked: vizMode === mode,
                 onSelect: () => onVizMode(mode),
@@ -119,6 +146,12 @@ function ViewControls({
                   checkbox: true,
                   checked: relief === 3,
                   onSelect: () => onRelief(relief === 3 ? 1 : 3),
+                },
+                {
+                  label: "Γραμμές οδηγών",
+                  checkbox: true,
+                  checked: lines,
+                  onSelect: () => onLines(!lines),
                 },
               ],
             },
@@ -153,8 +186,10 @@ export default function ReplayStage({
   embed = false,
 }) {
   const [relief, setRelief] = useRelief();
+  const [lines, setLines] = useLines();
   const is2D = trackView === "2d";
-  const showDominance = is2D && dominance.length > 0;
+  // Who is faster where shows on the 2D map always, and in 3D while the track is not coloured by something else.
+  const showDominance = dominance.length > 0 && (is2D || vizMode === "normal");
   return (
     <section className={embed ? "stage" : "stage stage-panel"} aria-label="Αναπαράσταση γύρου">
       <div className="stage__head">
@@ -185,8 +220,11 @@ export default function ReplayStage({
             onFocus={onFocus}
             vizMode={vizMode}
             onVizMode={onVizMode}
+            reliable={!!trace?.reliable}
             relief={relief}
             onRelief={setRelief}
+            lines={lines}
+            onLines={setLines}
           />
         )}
       </div>
@@ -223,6 +261,8 @@ export default function ReplayStage({
                 vizMode={vizMode}
                 isDark={isDark}
                 relief={relief}
+                lines={lines}
+                dominance={dominance}
                 onError={onSceneError}
               />
             </Suspense>

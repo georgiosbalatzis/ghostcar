@@ -384,17 +384,17 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 
 ### Phase 6: Analysis on the track
 
-**T6.1: Dominance in 3D.**
+**✅ T6.1: Dominance in 3D.** _(Done. Fractions of the reference driver's samples map straight to arc length on the centreline, which was built from those samples, so no time lookup is needed.)_
 - Files: `ReplayStage.jsx` (pass `dominance` to 3D and show the same legend/caption when in 3D), `buildTrack.js`, `trackGeometry.js`.
 - Steps: `dominance` segments are fractions of driver A's samples (`trackFractions`). Map each `from`/`to` to centreline indices via the per-point reference time from T2.2: fraction → time via `pathTimes` → centreline index by binary search on the times. Paint a 6 m-wide centre band (vertex colours, `polygonOffset`) in each owner's colour at 85% opacity. Unowned stretches stay road colour. Update in place when `dominance` changes.
 - Acceptance: at the same `prog` and camera Top, the dominance colours coincide with the 2D map's (visual check plus a unit test on the index mapping). With the unreliable fixture lap there is no band, and the menu label reads "Χωρίς χρωματισμό".
 
-**T6.2: Speed and brake mapped by time.**
+**✅ T6.2: Speed and brake mapped by time.**
 - Files: `buildTrack.js`, `sceneTheme.js`.
 - Steps: for each centreline point, `t = refTime[i]`. Speed is `telAt(ref.tel, fractionAtTime(ref.telTimes, t)).speed`. Colour uses a perceptual sequential ramp with 5 stops, defined per theme in `sceneTheme.js`: dark theme runs deep blue → teal → sand → signal; light theme uses darker stops. No rainbow. Range: the reference lap's own 5th–95th percentile speed. Brake is `brake > 0` → signal red at 70%, otherwise no paint. Both use the same centre band geometry as T6.1. The legend (T5 styling) shows the ramp, min/max km/h and "Ταχύτητα · {label}" / "Φρενάρισμα · {label}".
 - Acceptance: unit test: a synthetic lap with a known braking window paints exactly that window (±1 centreline point) even when location and car_data sample rates differ. Visual: at Suzuka the braking zones sit before T1, the hairpin and the chicane.
 
-**T6.3: Racing lines.**
+**✅ T6.3: Racing lines.**
 - Files: `buildTrack.js` or `buildCars.js`, `ReplayStage.jsx`.
 - Steps: add the menu checkbox "Γραμμές οδηγών" (default off, `localStorage` `f1s-3d-lines`). Draw each driver's full dense world path with `Line2` (0.4 m, `worldUnits`), team colour at 90%, 0.05 m above the surface (height from `surfaceAt`). Show the caption from §4.5 while it is on.
 - Acceptance: lines follow each car exactly (the car centre stays on its own line throughout the lap).
