@@ -263,6 +263,24 @@
   stroke-width: 5px;
 }
 
+/* A phone's stage is short: the readout keeps the numbers and gives up the rest, so the car stays in view. */
+@media (max-width: 767px) {
+  .scene-hud {
+    left: var(--space-2);
+    bottom: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+  }
+  .scene-hud__name,
+  .scene-hud__drs,
+  .scene-hud__bar,
+  .scene-hud__gap span:first-child {
+    display: none;
+  }
+  .scene-hud__speed {
+    font-size: 22px;
+  }
+}
+
 /* What the coloured track means (bottom right), and the note on the racing lines (top left). */
 .scene-legend {
   position: absolute;

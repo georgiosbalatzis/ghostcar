@@ -13,6 +13,7 @@ import {
   getSceneSupportError,
 } from "../scene/createRenderer.js";
 import { createCameraRig } from "../scene/cameraRig.js";
+import { parseCam } from "../scene/cameraModes.js";
 import { createLabels } from "../scene/labels.js";
 import { startSceneRenderLoop } from "../scene/renderLoop.js";
 import { createWorldFrame } from "../scene/world.js";
@@ -241,6 +242,12 @@ export default function useScene(
             R.current.lineSet?.restyle(liveRef.current.style.map((driver) => driver.color));
           },
           setViz: track.setViz,
+          // The centre band is data over the road: full strength from above, softer when the camera is close to it
+          // (Chase, Onboard, TV), where it would otherwise fill the whole picture.
+          setCamera(mode) {
+            const { family } = parseCam(mode);
+            track.band.material.opacity = family === "orbit" || family === "top" ? 1 : 0.5;
+          },
           setQuality(tier) {
             environment.setDetail(tier === 0);
             R.current.quality = tier;
@@ -291,6 +298,7 @@ export default function useScene(
       if (live.lines) R.current.api.setLines(true);
       R.current.labels = createLabels({ layer: labelsRef?.current, camera, cars });
       R.current.api.setSectors(live.sectors);
+      R.current.api.setCamera(cmRef.current);
       R.current.onFirstFrame = () => callbacksRef.current.onReady?.();
       de.setAttribute("role", "img");
       de.setAttribute("aria-label", live.ariaLabel || "");
@@ -427,6 +435,7 @@ export default function useScene(
   }, [fitSignal]);
   useEffect(() => {
     cmRef.current = cam;
+    R.current.api?.setCamera(cam);
     R.current._dirty = true;
   }, [cam]);
   useEffect(() => {

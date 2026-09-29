@@ -1,6 +1,6 @@
 # Ghost Car 3D view: rework to a professional replay viewer
 
-Plan written 29 Sep 2026 for implementation by Sonnet 5.5. **Scope: the 3D view only** (`src/scene/`, `src/hooks/useScene.js`, `src/features/replay/SceneStage3D.jsx`, the 3D controls in `ReplayStage.jsx`, and their tests and CSS). The 2D map, the analysis tabs and the page shell are out of scope. Only touch them where a task explicitly says so.
+Plan written 29 Sep 2026 for implementation by Sonnet 5.5. **Status: Phases 0–9 complete** on branch `rework/3d-view`, one commit per phase (not merged or pushed). **Scope: the 3D view only** (`src/scene/`, `src/hooks/useScene.js`, `src/features/replay/SceneStage3D.jsx`, the 3D controls in `ReplayStage.jsx`, and their tests and CSS). The 2D map, the analysis tabs and the page shell are out of scope. Only touch them where a task explicitly says so.
 
 Read `AGENTS.md` first. Every rule there still applies. The rules that matter most here are repeated in §3.
 
@@ -430,14 +430,14 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 **✅ T8.3: Disposal and context loss.**
 - Every `build*` returns `dispose()`. The shared template and the env map are disposed on page unload only. Keep the context-loss → 2D fallback message. Add an e2e test: toggle 2D/3D 10 times, then check that `renderer.info.memory.geometries` and `textures` are back to their first-3D values ±2 (dev hook).
 
-### Phase 9: QA and docs
+### ✅ Phase 9: QA and docs
 
-**T9.1: Unit tests** (node, `test/`). These are already specified per task: world frame, track geometry (resample length, fold removal, crossover `surfaceAt`), pose, camera maths (fit, 2D yaw, spring, TV placement and selection), dominance and heatmap index mapping, start-line extrapolation.
+**✅ T9.1: Unit tests** (node, `test/`; all present, written with their tasks). These were specified per task: world frame, track geometry (resample length, fold removal, crossover `surfaceAt`), pose, camera maths (fit, 2D yaw, spring, TV placement and selection), dominance and heatmap index mapping, start-line extrapolation.
 
-**T9.2: e2e** (`e2e/scene.smoke.spec.js`, on both the Monza and Suzuka fixtures):
+**✅ T9.2: e2e** (spread over `e2e/scene`, `camera`, `overlays`, `analysis`, `restraint`, `robustness` and `qa3d.smoke.spec.js`, on the Monza and Suzuka fixtures; every item below has a test):
 1. Every camera mode renders pixels with no page errors. Old `cam=cinematic` opens TV.
 2. Overview at 1440 and 390: labels are inside the stage and not overlapping.
-3. Paused at `prog` 0.3: `__ghostcar3d.project(slot)` equals the projection of the pose from `fractionAtTime` (±2 px) for every car. (This guards rule §3.1.)
+3. Paused at `prog` 0.3: `__ghostcar3d.project(slot)` equals the projection of the pose from `fractionAtTime` (±2 px) for every car. (This guards rule §3.1.) _(Done in world metres, which is stricter than 2 px: each car's position equals the pose computed in Node from the recorded data, within 5 cm, at 0.3 and 0.72.)_
 4. A theme toggle and a colouring change keep the same canvas element and one WebGL context.
 5. A plain wheel scrolls the page and leaves the camera distance unchanged; Ctrl+wheel changes it.
 6. The HUD speed and gear equal the brief panel's values at the same `prog`.
@@ -447,21 +447,23 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 
 **T9.2 note:** headless Chromium renders with SwiftShader. Keep pixel assertions structural (visible, inside the stage, not overlapping), never pixel-exact.
 
-**T9.3: Screenshot sets.** Run `node scripts/capture-screens.mjs docs/rework3d/final 3d`. Review every image against the checklist below and commit the images.
+**✅ T9.3: Screenshot sets.** Run `node scripts/capture-screens.mjs docs/rework3d/final 3d`. Review every image against the checklist below and commit the images.
 
 **Visual acceptance checklist:**
-- [ ] Overview fills the stage (6–10% margin) at 1440 and 390 in both themes. Same orientation as 2D.
-- [ ] Suzuka: the bridge is visibly above the lower road. No z-fighting anywhere. No folded edges at the hairpin or the chicane.
-- [ ] Cars are true size, sit on the road (no gap, no sinking), point along the track and pitch on slopes.
-- [ ] Ghosts are one clean translucent shell.
-- [ ] Labels are crisp, attached to their cars, never overlapping, and never outside the stage.
-- [ ] Chase: the HUD is legible and the minimap is present. Speed and gear match the brief.
-- [ ] TV: every shot is deliberate, the car is always in frame, and there are no swoops.
-- [ ] Colouring modes have a legend. Dominance matches 2D.
-- [ ] No shake, no auto-rotation, nothing moving while paused.
-- [ ] The light theme looks like paper, the dark theme like charcoal. Team colours match the 2D chips.
+- [x] Overview fills the stage (6–10% margin) at 1440 and 390 in both themes. Same orientation as 2D.
+- [x] Suzuka: the bridge is visibly above the lower road. No z-fighting anywhere. No folded edges at the hairpin or the chicane.
+- [x] Cars are true size, sit on the road (no gap, no sinking), point along the track and pitch on slopes.
+- [x] Ghosts are one clean translucent shell.
+- [x] Labels are crisp, attached to their cars, never overlapping, and never outside the stage.
+- [x] Chase: the HUD is legible and the minimap is present. Speed and gear match the brief.
+- [x] TV: every shot is deliberate, the car is always in frame, and there are no swoops.
+- [x] Colouring modes have a legend. Dominance matches 2D.
+- [x] No shake, no auto-rotation, nothing moving while paused.
+- [x] The light theme looks like paper, the dark theme like charcoal. Team colours match the 2D chips.
 
-**T9.4: Docs.**
+_Reviewed 29 Sep 2026 on `docs/rework3d/final/` (56 images: six cameras at two moments, both colourings, 1440 and 390, both themes). Two items were judged from the images and not measured: pitch on slopes (cars were seen level and climbing in Chase, not compared with the road's slope), and "dominance matches 2D" (same data and the same mapping, tested as such; the two views were not overlaid). Two things the review changed: the centre band is softer (50%) in Chase, Onboard and TV, where it filled the whole picture, and on a phone the readout keeps only the numbers so the car stays in view._
+
+**✅ T9.4: Docs.**
 - Update `AGENTS.md` (Architecture: the new `src/scene/` modules, metres, one world frame, overlays; Commands: the fixture recorder and the 3D capture mode) and `README.MD` (camera modes, shortcuts). Mark this file's phases complete as you go, the way `REWORK_TASKS.md` does.
 
 ---
