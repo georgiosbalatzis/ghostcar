@@ -10,8 +10,9 @@ export default function SceneStage3D({
   cam,
   vizMode,
   isDark,
+  relief,
   onError,
 }) {
-  useScene(containerRef, { model, progRef, playRef, speedRef, cam, vizMode, isDark, onError });
+  useScene(containerRef, { model, progRef, playRef, speedRef, cam, vizMode, isDark, relief, onError });
   return null;
 }

@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from "three";
+import { MathUtils, Quaternion, Vector3 } from "three";
 import {
   applyCameraMotion,
   isFollowCameraMode,
@@ -39,6 +39,29 @@ export function startSceneRenderLoop({
   let lastSimTime = 0;
   let noiseFrame = 0;
   let cancelled = false;
+
+  // Near, far and fog follow the camera's distance to what it looks at: a chase camera 12 m from a car and an
+  // overview 2 km from the circuit both keep their depth precision. Returns true when they changed.
+  function updateClipping() {
+    const { diagonal } = sceneStateRef.current.world;
+    const distance = camera.position.distanceTo(targetLook);
+    const near = MathUtils.clamp(distance * 0.005, 0.3, 30);
+    let changed = false;
+    if (Math.abs(near - camera.near) > camera.near * 0.1) {
+      camera.near = near;
+      camera.far = Math.max(2000, diagonal * 6);
+      camera.updateProjectionMatrix();
+      changed = true;
+    }
+    const fog = scene.fog;
+    const fogNear = distance + 0.6 * diagonal;
+    if (fog && Math.abs(fog.near - fogNear) > 0.01 * fogNear) {
+      fog.near = fogNear;
+      fog.far = distance + 1.6 * diagonal;
+      changed = true;
+    }
+    return changed;
+  }
 
   function animate(now = performance.now()) {
     if (cancelled || isContextLost()) return;
@@ -126,6 +149,8 @@ export function startSceneRenderLoop({
         isPlaying,
         targetPosition,
         targetLook,
+        world: sceneState.world,
+        camera,
       }) || needsRender;
     needsRender =
       applyCameraMotion({
@@ -137,6 +162,7 @@ export function startSceneRenderLoop({
         followCamera,
         deltaTime: dt,
       }) || needsRender;
+    needsRender = updateClipping() || needsRender;
     if (!needsRender) return;
     try {
       renderer.render(scene, camera);

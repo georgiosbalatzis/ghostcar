@@ -1,10 +1,9 @@
 import { useEffect, useRef, useMemo } from "react";
 import { Vector3 } from "three";
-import { getSmoothPathPointCount, norm, smoothPath } from "../helpers.js";
+import { getSmoothPathPointCount, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
 import { buildCars, sizeCarLabels } from "../scene/buildCars.js";
 import { buildEnvironment } from "../scene/buildEnvironment.js";
-import { buildRaceOverlays } from "../scene/buildRaceOverlays.js";
 import { buildTrack } from "../scene/buildTrack.js";
 import {
   attachRendererResize,
@@ -14,6 +13,7 @@ import {
 } from "../scene/createRenderer.js";
 import { attachInputControls } from "../scene/inputControls.js";
 import { startSceneRenderLoop } from "../scene/renderLoop.js";
+import { createWorldFrame } from "../scene/world.js";
 
 function createShakeNoiseTable(size = 256) {
   const table = new Float32Array(size);
@@ -25,6 +25,7 @@ function createShakeNoiseTable(size = 256) {
 }
 
 const EMPTY = {};
+
 const SLOTS = 4;
 
 /**
@@ -34,7 +35,10 @@ const SLOTS = 4;
  * Theme, track colouring, driver colours and names and the camera update the live scene in place, so the
  * canvas, the WebGL context and the car model survive them.
  */
-export default function useScene(ref, { model, progRef, playRef, speedRef, cam, vizMode, isDark, onError }) {
+export default function useScene(
+  ref,
+  { model, progRef, playRef, speedRef, cam, vizMode, isDark, relief = 1, onError }
+) {
   const R = useRef({});
   const drivers = Array.from({ length: SLOTS }, (_, index) => model.drivers[index] || EMPTY);
   const trackPath = model.trackPath;
@@ -51,24 +55,16 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
     []
   );
   const shakeNoise = useMemo(() => createShakeNoiseTable(), []);
-  // Each driver's path on the scene's scale. Rebuilt only when that driver's samples (or the flip) change.
+  // One world frame for the circuit (metres, real elevation): every driver's path goes through it, so the
+  // same raw point is the same world point for everyone. The first driver's lap is the reference.
   const [raw1, raw2, raw3, raw4] = drivers.map((driver) => driver.path);
-  const n1 = useMemo(
-    () => (raw1 ? smoothPath(norm(raw1, circuitFlip), smoothPointCount) : null),
-    [raw1, circuitFlip, smoothPointCount]
-  );
-  const n2 = useMemo(
-    () => (raw2 ? smoothPath(norm(raw2, circuitFlip), smoothPointCount) : null),
-    [raw2, circuitFlip, smoothPointCount]
-  );
-  const n3 = useMemo(
-    () => (raw3 ? smoothPath(norm(raw3, circuitFlip), smoothPointCount) : null),
-    [raw3, circuitFlip, smoothPointCount]
-  );
-  const n4 = useMemo(
-    () => (raw4 ? smoothPath(norm(raw4, circuitFlip), smoothPointCount) : null),
-    [raw4, circuitFlip, smoothPointCount]
-  );
+  const frame = useMemo(() => createWorldFrame(raw1, { flip: circuitFlip, relief }), [raw1, circuitFlip, relief]);
+  const worldPath = (raw) => (raw ? smoothPath(raw.map(frame.toWorld), smoothPointCount) : null);
+  // Rebuilt only when that driver's samples or the frame change.
+  const n1 = useMemo(() => worldPath(raw1), [raw1, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n2 = useMemo(() => worldPath(raw2), [raw2, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n3 = useMemo(() => worldPath(raw3), [raw3, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  const n4 = useMemo(() => worldPath(raw4), [raw4, frame, smoothPointCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const telData1 = drivers[0].tel;
   const speedArr = useMemo(() => telData1?.map((t) => t.speed || 0) || [], [telData1]);
   const brakeArr = useMemo(() => telData1?.map((t) => (t.brake > 0 ? 1 : 0)) || [], [telData1]);
@@ -83,6 +79,8 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
     speedArr,
     brakeArr,
     telData1,
+    frame,
+    referenceTimes: drivers[0].pathTimes,
     style,
     slots: model.drivers.map((driver) => driver.slot),
   };
@@ -155,19 +153,24 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
       } = rendererContext;
       onError?.("");
 
-      const environment = buildEnvironment({ scene, isDark: live.isDark });
+      const environment = buildEnvironment({
+        scene,
+        renderer: ren,
+        isDark: live.isDark,
+        bounds: live.frame.bounds,
+        groundY: live.frame.groundY,
+      });
 
       const track = buildTrack({
         scene,
-        tp: trackPath,
+        reference: { points: drivers[0].path.map(live.frame.toWorld), times: live.referenceTimes },
+        groundY: live.frame.groundY,
         speedArr: live.speedArr,
         brakeArr: live.brakeArr,
         vizMode: live.vizMode,
-        isDark: live.isDark,
         theme: T,
-        isLowDetail,
+        isMob,
       });
-      const { curve, seg } = track;
 
       const carSet = buildCars({
         scene,
@@ -181,8 +184,6 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
       const { cars, trails } = carSet;
       sizeCarLabels(cars, el.clientHeight, camera.fov);
 
-      const overlays = buildRaceOverlays({ scene, curve, seg, isLowDetail, theme: T });
-
       // Everything the frame loop and the in-place effects touch.
       R.current = {
         scene,
@@ -191,11 +192,8 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
         cars,
         trails,
         paths: [n1, n2, n3, n4],
-        curve,
-        spot1: overlays.spot1,
-        spot2: overlays.spot2,
-        deltaLine: overlays.deltaLine,
-        deltaPos: overlays.deltaPos,
+        curve: track.curve,
+        world: live.frame.bounds,
         fr: null,
         _dirty: true,
         _rendered: false,
@@ -205,7 +203,6 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
             const next = rendererContext.applyTheme(dark);
             environment.applyTheme(dark);
             track.applyTheme(next);
-            overlays.applyTheme(next);
             carSet.restyle(liveRef.current.style, dark);
           },
           setStyle(dark) {
@@ -221,6 +218,14 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
       });
 
       const cs = CS.current;
+      // Zoom limits and the opening distance follow the circuit's size; a rebuild for the same circuit keeps the zoom.
+      const { diagonal } = live.frame.bounds;
+      cs.minDist = 30;
+      cs.maxDist = 3 * diagonal;
+      if (cs.fitDiagonal !== diagonal) {
+        cs.fitDiagonal = diagonal;
+        cs.dist = diagonal;
+      }
       const inputControls = attachInputControls({
         canvas: de,
         controls: cs,
@@ -249,6 +254,7 @@ export default function useScene(ref, { model, progRef, playRef, speedRef, cam, 
             return !!(R.current._rendered && R.current._modelSettled);
           },
           camera,
+          controls: cs,
           cars,
           info: () => ren?.info,
           project,

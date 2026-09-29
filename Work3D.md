@@ -193,48 +193,48 @@ src/features/replay/
 
 Each task lists **files**, **steps** and **acceptance**. Do the phases in order. Tasks within a phase can be done in any order unless a dependency is noted.
 
-### Phase 0: Safety net and baseline (no app changes)
+### ✅ Phase 0: Safety net and baseline (no app changes)
 
-**T0.1: Real-circuit fixture.**
+**✅ T0.1: Real-circuit fixture.**
 - Files: `scripts/record-openf1-fixture.mjs` (new), `e2e/fixtures/suzuka-2025-q.json` (new), `e2e/fixtures.js`.
 - Steps: write a script that downloads, once, from the live API, the meeting, session, drivers, laps (only the two laps used), stints, `location` and `car_data` for Suzuka 2025 Qualifying (session 10002), VER lap and NOR lap as used by the "Μαγική pole στη Suzuka" preset. Save the result as one JSON file (expect about 150–300 kB; drop unused fields). In `fixtures.js`, add `routeOpenF1(page, { circuit: "suzuka" })`, which serves that file, and export `suzukaUrl`. Keep the Monza oval as the default fixture.
 - Acceptance: `npm run test:e2e` still passes. A new smoke test loads `suzukaUrl` in 2D and sees `.track-map`. The script is documented in `AGENTS.md` under Commands.
 
-**T0.2: Capture script for 3D.**
+**✅ T0.2: Capture script for 3D.**
 - Files: `scripts/capture-screens.mjs`.
 - Steps: add a `3d` mode: `node scripts/capture-screens.mjs docs/rework3d/<dir> 3d`. On the Suzuka fixture at 1440×900 and 390×844, in both themes, it captures every camera mode (`orbit`, `top`, `follow1`, `follow2`, `onboard1` once it exists, `tv`) at `prog` 0.12 and 0.55, plus the colouring modes in `orbit`. Wait for the model to load (poll a dev hook, see T1.4) before each shot.
 - Acceptance: running it now produces the **before** set in `docs/rework3d/baseline/` (cameras that don't exist yet are skipped). Commit these images.
 
-### Phase 1: Scene architecture (no visual change)
+### ✅ Phase 1: Scene architecture (no visual change)
 
-**T1.1: Object API for `useScene`.**
+**✅ T1.1: Object API for `useScene`.**
 - Files: `useScene.js`, `SceneStage3D.jsx`.
 - Steps: change the signature to `useScene(containerRef, { model, progRef, playRef, speedRef, cam, vizMode, isDark, onError, dominance, trace })`. `model` is the stage model. Internally, use `model.drivers` (1–4) as arrays: `cars[]`, `paths[]`, `trails[]`. Delete every `car1..car4`/`n1..n4`/`tr1..tr4`/`lab1..` variable and argument.
 - Acceptance: no behaviour change. e2e is green. `useScene.js` has no positional parameter list.
 
-**T1.2: Build once, update in place.**
+**✅ T1.2: Build once, update in place.**
 - Files: `useScene.js`, the `build*` modules.
 - Steps: split the effect in two. (a) A **structural** rebuild when the geometry changes: `model.trackPath`, the driver set (slots and paths), or `circuitFlip`. (b) **In-place updates** without disposing the renderer: theme (update `scene.background`, fog colour and material colours from `sceneTheme`), `vizMode` (swap only the overlay mesh), driver colours and labels, `cam`, `dominance`, `trace`. Each `build*` function returns `{ object, update(params), dispose() }`, or just `update` where that is enough.
 - Acceptance: a new e2e test (T9.2 #4) proves the `<canvas>` element survives a theme toggle and a colouring change (same element identity, no second WebGL context).
 
-**T1.3: Load the car model once per page.**
+**✅ T1.3: Load the car model once per page.**
 - Files: `carModel.js` (new), `buildCars.js`.
 - Steps: `loadCarTemplate()` returns a module-level cached promise. After loading, **merge sub-meshes per material** with `BufferGeometryUtils.mergeGeometries` (≤ 6 draw calls per car instead of 22). Record the model's bounding box. Instances clone the merged meshes and **share geometry**. Scene disposal must not dispose shared template geometry: mark it with `userData.shared = true` and skip it in `disposeScene`. Until the template resolves, show a simple placeholder (a 5.6 × 2.0 × 1.0 m wedge in team colour).
 - Acceptance: the network panel shows `f1car.glb` fetched once per page load, even after 10 theme/colouring/driver changes. `disposeScene` leaves the template usable (tested by a 2D→3D→2D→3D e2e round trip, which already exists).
 
-**T1.4: Dev/test hook.**
+**✅ T1.4: Dev/test hook.**
 - Files: `useScene.js`.
 - Steps: when `import.meta.env.DEV` or `navigator.webdriver` is true, set `window.__ghostcar3d = { ready, camera, cars, info: () => renderer.info, project(slot) }`. `ready` becomes true after the model loads and the first frame renders. Strip nothing else. Production builds without webdriver expose nothing.
 - Acceptance: the capture script and e2e can await `window.__ghostcar3d?.ready`.
 
-### Phase 2: True-scale world
+### ✅ Phase 2: True-scale world
 
-**T2.1: World frame.**
+**✅ T2.1: World frame.**
 - Files: `world.js` (new), `test/scene-world.test.js` (new).
 - Steps: `createWorldFrame(referencePath, { flip })` computes the bounding box of the reference path in raw decimetres, and returns `{ toWorld(p) → {x, y, z} metres, bounds, groundY }` with `x = ±(p.x − cx)/10` (sign from `flip`, same meaning as `norm()`), `z = (p.y − cy)/10`, `y = (p.z − zMin)/10`. **Every driver's path uses this one frame.** An elevation factor parameter (default 1) exists for T2.6.
 - Acceptance: unit tests: (1) two drivers with different bounding boxes map the same raw point to the same world point; (2) a 5807 m lap measured in decimetres measures 5807 m ±1 in world; (3) the orientation matches 2D `TrackMap` projection for flip true and false (compare sign of x and z against `norm()`).
 
-**T2.2: Centreline and road surface.**
+**✅ T2.2: Centreline and road surface.**
 - Files: `trackGeometry.js` (new), `test/scene-track.test.js` (new).
 - Steps:
   1. From the reference driver's world path, build a closed **centripetal Catmull-Rom** curve and resample it by **arc length** every 2 m (4 m when `isMob`).
@@ -244,27 +244,27 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   5. `surfaceAt(worldX, worldZ, hintIndex)` → `{ index, y, pitch }`. This is a nearest-centreline search in a ±40-point window around `hintIndex`, so each car keeps its own cursor and the lookup is O(1) per frame.
 - Acceptance: unit tests: fold removal on a synthetic 8 m-radius hairpin leaves no backwards edge segments. The resampled length stays within 0.5% of the raw path length. `surfaceAt` returns the right index on a figure-8 at the crossing: use the hint, so it never snaps to the other level.
 
-**T2.3: Track meshes.**
+**✅ T2.3: Track meshes.** _(Done. The skirt hangs from the outer edge of the run-off, not the road edge, so the run-off band does not hide it. Skirts are left out under a bridge by an overpass mask, not by height.)_
 - Files: `buildTrack.js` (rewrite), `materials.js`, `sceneTheme.js` (new).
 - Steps: build one `BufferGeometry` each for the road, the run-off (both sides), the skirts (road edge → `groundY`, both sides) and the edge paint (two 0.25 m strips just inside each edge). Road, run-off and skirt use `MeshStandardMaterial` (roughness 0.9, metalness 0) with theme colours. Paint uses a `MeshBasicMaterial` with `polygonOffset` instead of y-nudges. Where the road passes over itself (a crossover), the skirt must not be drawn on the upper road where it would cut through the lower road. The simple rule: skip skirt quads whose drop is more than 3 m **and** which overlap another road segment in plan. If that proves fiddly, drop skirts that are more than 3 m tall; the bridge then reads as a deck. Mark the choice with `ponytail:`.
 - Acceptance: at Suzuka, the 1440 overview shows the bridge clearly above the lower road, with no z-fighting at any camera. Hairpins show no folds. Draw calls for the whole track are ≤ 8.
 
-**T2.4: Ground, grid, fog, lights.**
+**✅ T2.4: Ground, grid, fog, lights.**
 - Files: `buildEnvironment.js` (rewrite), `createRenderer.js`.
 - Steps: add a ground plane of 3× the circuit's bounding-box size at `groundY`, with a small `ShaderMaterial` grid: minor lines every 100 m, major every 500 m, line alpha fading with camera distance and with distance from the circuit centre, colours from `sceneTheme`. Use linear `Fog` from 0.6× to 1.6× the circuit diagonal, measured from the camera target, recomputed on camera changes. Set up a `RoomEnvironment` → `PMREMGenerator` → `scene.environment` (dispose the generator after), plus one `DirectionalLight` (sun at elevation 50°, azimuth 135°) and a low-intensity `HemisphereLight`. Set `renderer.toneMapping = NeutralToneMapping` and exposure 1.0. Remove `AmbientLight`.
 - Acceptance: no hard horizon line in chase/TV views. Both themes look like the stage panel continued into depth (compare against the `--surface` token). Grid lines never shimmer at 1440 (fade them before they reach sub-pixel width).
 
-**T2.5: Start/finish.**
+**✅ T2.5: Start/finish.**
 - Files: `buildTrack.js`, `trackGeometry.js`.
 - Steps: find the start position. Extrapolate back along the reference path by `pathTimes[0] × speed at the first samples`, the same idea as `ref.start` in `gap.js`. Export a small helper from `gap.js` rather than duplicating it, if that is cleaner. Draw a 1.2 m-deep chequered strip across the road (canvas texture 8×2 checks, ink/paper colours) and a gantry: two 0.3 m posts at ±7.5 m, 7 m tall, joined by a 0.6 m beam, all in ink colour.
 - Acceptance: at Suzuka the line sits on the main straight before T1 (compare with the 2D red start tick). Unit test for the extrapolation on a constant-speed path.
 
-**T2.6: Elevation emphasis toggle.**
+**✅ T2.6: Elevation emphasis toggle.**
 - Files: `world.js`, `ReplayStage.jsx`, `useScene.js`.
 - Steps: add a menu item under "Εμφάνιση": "Ανάγλυφο ×3" (checkbox, off by default, stored in `localStorage` key `f1s-3d-relief`, not in the URL). It rebuilds geometry with an elevation factor of 3. The HUD and labels are unaffected.
 - Acceptance: at Monza (flat) and Suzuka the toggle visibly changes the relief and the cars stay on the road.
 
-**T2.7: Remove the old world.**
+**✅ T2.7: Remove the old world.**
 - Delete `buildRaceOverlays.js` (the delta line and the old racing line), the old `SCENE_THEME` usage, and the per-driver `norm()`/`smoothPath` in `useScene.js`. `helpers.js` keeps `norm()` for 2D.
 - Acceptance: `grep -r "norm(" src/scene src/hooks/useScene.js` finds nothing.
 

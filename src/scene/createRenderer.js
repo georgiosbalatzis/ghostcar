@@ -1,11 +1,5 @@
-import { ACESFilmicToneMapping, Color, Fog, FogExp2, PerspectiveCamera, Scene, WebGLRenderer } from "three";
-
-// Scene colours mirror the stage panel's tokens (tokens.css) so the canvas reads as the panel it sits in:
-// background --surface, road between --surface-2 and --surface-3, edges --rule-strong, lines --text, start --signal.
-export const SCENE_THEME = {
-  dark: { sceneBg: 0x242321, trackColor: 0x36342f, edgeColor: 0x6d6861, ink: 0xeee8db, signal: 0xed4c32 },
-  light: { sceneBg: 0xe9e3d6, trackColor: 0xd6cfbf, edgeColor: 0x8c897b, ink: 0x20251f, signal: 0xed4c32 },
-};
+import { Color, Fog, NeutralToneMapping, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { SCENE_THEME } from "./sceneTheme.js";
 
 export function getSceneSupportError() {
   if (typeof window === "undefined") return "";
@@ -63,10 +57,6 @@ export function disposeScene(root) {
   root.clear();
 }
 
-function makeFog(isDark, theme) {
-  return isDark ? new FogExp2(theme.sceneBg, 0.006) : new Fog(theme.sceneBg, 120, 350);
-}
-
 export function createSceneRenderer({ container, isDark, onContextLost }) {
   let scene;
   let renderer;
@@ -93,9 +83,10 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
 
     scene = new Scene();
     scene.background = new Color(theme.sceneBg);
-    scene.fog = makeFog(isDark, theme);
+    // Fog range follows the camera (renderLoop): it only softens what is far behind the subject.
+    scene.fog = new Fog(theme.sceneBg, 100, 5000);
 
-    const camera = new PerspectiveCamera(50, width / height, 0.1, 500);
+    const camera = new PerspectiveCamera(50, width / height, 0.3, 20000);
     renderer = new WebGLRenderer({
       antialias: !isMob,
       powerPreference: isMob ? "low-power" : "high-performance",
@@ -103,8 +94,9 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
     });
     renderer.setSize(width, height);
     renderer.setPixelRatio(initialPixelRatio);
-    renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isDark ? 1.1 : 1.0;
+    // Neutral keeps team colours as they are in 2D; ACES shifts hues.
+    renderer.toneMapping = NeutralToneMapping;
+    renderer.toneMappingExposure = 1;
 
     container.appendChild(renderer.domElement);
     canvas = renderer.domElement;
@@ -136,8 +128,7 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
       applyTheme(dark) {
         const next = dark ? SCENE_THEME.dark : SCENE_THEME.light;
         scene.background = new Color(next.sceneBg);
-        scene.fog = makeFog(dark, next);
-        renderer.toneMappingExposure = dark ? 1.1 : 1.0;
+        scene.fog.color.setHex(next.sceneBg);
         return next;
       },
       dispose() {
@@ -145,6 +136,7 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
         if (container && renderer?.domElement && container.contains(renderer.domElement)) {
           container.removeChild(renderer.domElement);
         }
+        scene?.environment?.dispose();
         disposeScene(scene);
         if (renderer) {
           renderer.renderLists?.dispose?.();

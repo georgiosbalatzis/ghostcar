@@ -89,7 +89,7 @@ export default function Menu({ label, trigger, triggerClassName = "icon-btn", al
               <button
                 key={item.label}
                 type="button"
-                role={item.checked === undefined ? "menuitem" : "menuitemradio"}
+                role={item.checked === undefined ? "menuitem" : item.checkbox ? "menuitemcheckbox" : "menuitemradio"}
                 aria-checked={item.checked}
                 className="menu__item"
                 disabled={item.disabled}

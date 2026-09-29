@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 import { CAM_LABELS, CAM_MODES } from "../../constants.js";
 import Icon from "../../components/ui/Icon.jsx";
 import Menu from "../../components/ui/Menu.jsx";
@@ -8,9 +8,28 @@ import "./replay.css";
 
 const SceneStage3D = lazy(() => import("./SceneStage3D.jsx"));
 
+// Elevation exaggeration for the 3D view: a viewer's choice, kept in this browser (not in share links).
+const RELIEF_KEY = "f1s-3d-relief";
+function useRelief() {
+  const [relief, setRelief] = useState(() => {
+    try {
+      return localStorage.getItem(RELIEF_KEY) === "3" ? 3 : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const choose = (value) => {
+    setRelief(value);
+    try {
+      localStorage.setItem(RELIEF_KEY, String(value));
+    } catch {}
+  };
+  return [relief, choose];
+}
+
 const VIZ_LABELS = { normal: "Χωρίς χρωματισμό", heatmap: "Ταχύτητα", brake: "Φρενάρισμα" };
 
-function ViewControls({ trackView, onTrackView, cam, onCam, vizMode, onVizMode }) {
+function ViewControls({ trackView, onTrackView, cam, onCam, vizMode, onVizMode, relief, onRelief }) {
   return (
     <div className="stage__tools">
       <div className="segmented" role="group" aria-label="Προβολή">
@@ -41,6 +60,17 @@ function ViewControls({ trackView, onTrackView, cam, onCam, vizMode, onVizMode }
                 onSelect: () => onVizMode(mode),
               })),
             },
+            {
+              label: "Εμφάνιση",
+              items: [
+                {
+                  label: "Ανάγλυφο ×3",
+                  checkbox: true,
+                  checked: relief === 3,
+                  onSelect: () => onRelief(relief === 3 ? 1 : 3),
+                },
+              ],
+            },
           ]}
         />
       )}
@@ -67,6 +97,7 @@ export default function ReplayStage({
   dominance = [],
   embed = false,
 }) {
+  const [relief, setRelief] = useRelief();
   const is2D = trackView === "2d";
   const showDominance = is2D && dominance.length > 0;
   return (
@@ -96,6 +127,8 @@ export default function ReplayStage({
             onCam={onCam}
             vizMode={vizMode}
             onVizMode={onVizMode}
+            relief={relief}
+            onRelief={setRelief}
           />
         )}
       </div>
@@ -126,6 +159,7 @@ export default function ReplayStage({
                 cam={cam}
                 vizMode={vizMode}
                 isDark={isDark}
+                relief={relief}
                 onError={onSceneError}
               />
             </Suspense>

@@ -1,162 +1,160 @@
 import {
+  BoxGeometry,
   BufferGeometry,
-  CatmullRomCurve3,
-  Color,
   Float32BufferAttribute,
-  Line,
-  LineSegments,
+  Group,
   Mesh,
-  Vector3,
+  MeshStandardMaterial,
+  PlaneGeometry,
 } from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
-  createStartLineMaterial,
+  createPaintMaterial,
+  createRoadMaterial,
+  createStartStripMaterial,
   createTrackOverlayMaterial,
-  createTrackRibbonMaterial,
-  createVertexColorLineMaterial,
 } from "./materials.js";
+import { buildCentreline, offsetEdge, overpassMask, startLine } from "./trackGeometry.js";
+
+// Schematic widths in metres (OpenF1 has no track width): the road is 12 m, with 4 m of run-off each side and
+// a 0.25 m paint line just inside each road edge. These are drawn choices, not measurements.
+const ROAD_HALF = 6;
+const RUNOFF_HALF = 10;
+const PAINT_WIDTH = 0.25;
 
 function freezeObjectTransform(object) {
-  if (!object) return object;
   object.updateMatrix();
   object.matrixAutoUpdate = false;
   return object;
 }
 
-function buildColoredLineSegments(groups, opacity = 1) {
+// One indexed geometry from several ribbons. A strip is { a, b, normal(i), skip? }: two edges (arrays x, y, z
+// of equal length, closed round the loop) and the normal of their vertices; `skip[i]` leaves quad i out.
+function stripGeometry(strips) {
   const positions = [];
-  const colors = [];
-  const color = new Color();
-  groups.forEach(({ points, color: lineColor }) => {
-    if (!points || points.length < 2) return;
-    color.set(lineColor);
-    for (let i = 0; i < points.length - 1; i++) {
-      const a = points[i];
-      const b = points[i + 1];
-      positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
-      colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+  const normals = [];
+  const indices = [];
+  let base = 0;
+  for (const { a, b, normal, skip } of strips) {
+    const n = a.x.length;
+    for (let i = 0; i < n; i++) {
+      const [nx, ny, nz] = normal(i);
+      positions.push(a.x[i], a.y[i], a.z[i], b.x[i], b.y[i], b.z[i]);
+      normals.push(nx, ny, nz, nx, ny, nz);
     }
-  });
-  if (!positions.length) return null;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      if (skip && (skip[i] || skip[j])) continue;
+      indices.push(base + 2 * i, base + 2 * j, base + 2 * i + 1, base + 2 * i + 1, base + 2 * j, base + 2 * j + 1);
+    }
+    base += 2 * n;
+  }
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
-  return new LineSegments(geometry, createVertexColorLineMaterial(opacity));
+  geometry.setAttribute("normal", new Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  return geometry;
 }
 
-export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, theme }) {
-  const curve = new CatmullRomCurve3(
-    tp.map((p) => new Vector3(p.x, p.y, p.z)),
-    true
-  );
-  const seg = Math.min(tp.length * 3, 800);
-  const trackW = 2.0;
+const UP = () => [0, 1, 0];
 
-  const curvePts = curve.getPoints(seg);
-  const ribbonPos = [];
-  const ribbonNorm = [];
-  const ribbonIdx = [];
-  const leftEdgePts = [];
-  const rightEdgePts = [];
-  const tangents = curvePts.map((_, i) => {
-    const next = curvePts[(i + 1) % curvePts.length];
-    const prev = curvePts[(i - 1 + curvePts.length) % curvePts.length];
-    return new Vector3(next.x - prev.x, 0, next.z - prev.z).normalize();
-  });
-  for (let i = 0; i < curvePts.length; i++) {
-    const p = curvePts[i];
-    const tan = tangents[i];
-    const perp = new Vector3(-tan.z, 0, tan.x);
-    const L = new Vector3(p.x + (perp.x * trackW) / 2, p.y, p.z + (perp.z * trackW) / 2);
-    const Ri = new Vector3(p.x - (perp.x * trackW) / 2, p.y, p.z - (perp.z * trackW) / 2);
-    ribbonPos.push(L.x, L.y, L.z, Ri.x, Ri.y, Ri.z);
-    ribbonNorm.push(0, 1, 0, 0, 1, 0);
-    leftEdgePts.push(new Vector3(L.x, L.y + 0.02, L.z));
-    rightEdgePts.push(new Vector3(Ri.x, Ri.y + 0.02, Ri.z));
-    if (i < curvePts.length - 1) {
-      const v = i * 2;
-      ribbonIdx.push(v, v + 2, v + 1, v + 1, v + 2, v + 3);
-    }
-  }
-  const ribbonGeo = new BufferGeometry();
-  ribbonGeo.setAttribute("position", new Float32BufferAttribute(ribbonPos, 3));
-  ribbonGeo.setAttribute("normal", new Float32BufferAttribute(ribbonNorm, 3));
-  ribbonGeo.setIndex(ribbonIdx);
-  const ribbonMaterial = createTrackRibbonMaterial({ isDark, theme });
-  scene.add(freezeObjectTransform(new Mesh(ribbonGeo, ribbonMaterial)));
+export function buildTrack({ scene, reference, groundY, speedArr, brakeArr, vizMode, theme, isMob }) {
+  const c = buildCentreline(reference.points, reference.times, { spacing: isMob ? 4 : 2 });
+  const edges = {
+    left: offsetEdge(c, ROAD_HALF),
+    right: offsetEdge(c, -ROAD_HALF),
+    outerLeft: offsetEdge(c, RUNOFF_HALF),
+    outerRight: offsetEdge(c, -RUNOFF_HALF),
+    paintLeft: offsetEdge(c, ROAD_HALF - PAINT_WIDTH),
+    paintRight: offsetEdge(c, -(ROAD_HALF - PAINT_WIDTH)),
+  };
+  const ground = (edge) => ({ x: edge.x, y: new Float64Array(c.count).fill(groundY), z: edge.z });
+
+  const roadGeometry = stripGeometry([{ a: edges.left, b: edges.right, normal: UP }]);
+  const road = new Mesh(roadGeometry, createRoadMaterial(theme.road));
+  const runoff = new Mesh(
+    stripGeometry([
+      { a: edges.outerLeft, b: edges.left, normal: UP },
+      { a: edges.right, b: edges.outerRight, normal: UP },
+    ]),
+    createRoadMaterial(theme.runoff)
+  );
+  // The skirt drops from the outer edge of the run-off to the ground, so the road reads as a raised deck. It is
+  // left out under a bridge, where it would cut through the road below.
+  const overpass = overpassMask(c);
+  const skirt = new Mesh(
+    stripGeometry([
+      {
+        a: edges.outerLeft,
+        b: ground(edges.outerLeft),
+        normal: (i) => [c.nx[i], 0, c.nz[i]],
+        skip: overpass,
+      },
+      {
+        a: edges.outerRight,
+        b: ground(edges.outerRight),
+        normal: (i) => [-c.nx[i], 0, -c.nz[i]],
+        skip: overpass,
+      },
+    ]),
+    createRoadMaterial(theme.skirt)
+  );
+  const paint = new Mesh(
+    stripGeometry([
+      { a: edges.paintLeft, b: edges.left, normal: UP },
+      { a: edges.right, b: edges.paintRight, normal: UP },
+    ]),
+    createPaintMaterial(theme.paint)
+  );
+  [road, runoff, skirt, paint].forEach((mesh) => scene.add(freezeObjectTransform(mesh)));
+
+  // Start/finish: a chequered strip across the road and a gantry, where the lap starts.
+  const start = startLine(c);
+  const startGroup = new Group();
+  startGroup.position.set(start.x, start.y, start.z);
+  startGroup.rotation.y = Math.atan2(start.tx, start.tz);
+  const stripMaterial = createStartStripMaterial();
+  const strip = new Mesh(new PlaneGeometry(2 * ROAD_HALF, 1.2), stripMaterial);
+  strip.rotation.x = -Math.PI / 2;
+  const gantryParts = [
+    new BoxGeometry(0.3, 7, 0.3).translate(-ROAD_HALF - 1.5, 3.5, 0),
+    new BoxGeometry(0.3, 7, 0.3).translate(ROAD_HALF + 1.5, 3.5, 0),
+    new BoxGeometry(2 * ROAD_HALF + 3.3, 0.6, 0.5).translate(0, 6.9, 0),
+  ];
+  const gantryMaterial = new MeshStandardMaterial({ color: theme.ink, roughness: 0.8, metalness: 0 });
+  const gantry = new Mesh(mergeGeometries(gantryParts), gantryMaterial);
+  startGroup.add(strip, gantry);
+  scene.add(freezeObjectTransform(startGroup));
 
   // The colouring overlay is the one part that changes without a rebuild: setViz swaps it in place.
   let overlay = null;
-  function makeOverlay(mode, { speedArr = [], brakeArr = [] }) {
-    if (mode === "heatmap" && speedArr.length > 10) {
-      const heatColors = new Float32Array(curvePts.length * 2 * 3);
-      for (let i = 0; i < curvePts.length; i++) {
-        const t = i / (curvePts.length - 1);
-        const si = Math.min(Math.floor(t * (speedArr.length - 1)), speedArr.length - 1);
-        const ratio = Math.max(0, Math.min(1, (speedArr[si] - 50) / 300));
-        let r;
-        let g;
-        let b;
-        if (ratio < 0.25) {
-          r = 0;
-          g = ratio * 4;
-          b = 1;
-        } else if (ratio < 0.5) {
-          r = 0;
-          g = 1;
-          b = 1 - (ratio - 0.25) * 4;
-        } else if (ratio < 0.75) {
-          r = (ratio - 0.5) * 4;
-          g = 1;
-          b = 0;
-        } else {
-          r = 1;
-          g = 1 - (ratio - 0.75) * 4;
-          b = 0;
-        }
-        const vi = i * 2;
-        heatColors[vi * 3] = r;
-        heatColors[vi * 3 + 1] = g;
-        heatColors[vi * 3 + 2] = b;
-        heatColors[(vi + 1) * 3] = r;
-        heatColors[(vi + 1) * 3 + 1] = g;
-        heatColors[(vi + 1) * 3 + 2] = b;
+  function makeOverlay(mode, { speedArr: speeds = [], brakeArr: brakes = [] }) {
+    const source = mode === "heatmap" ? speeds : mode === "brake" ? brakes : [];
+    if (source.length <= 10) return null;
+    const colors = new Float32Array(c.count * 2 * 3);
+    for (let i = 0; i < c.count; i++) {
+      const t = i / (c.count - 1);
+      const si = Math.min(Math.floor(t * (source.length - 1)), source.length - 1);
+      let r;
+      let g;
+      let b;
+      if (mode === "heatmap") {
+        const ratio = Math.max(0, Math.min(1, (source[si] - 50) / 300));
+        if (ratio < 0.25) [r, g, b] = [0, ratio * 4, 1];
+        else if (ratio < 0.5) [r, g, b] = [0, 1, 1 - (ratio - 0.25) * 4];
+        else if (ratio < 0.75) [r, g, b] = [(ratio - 0.5) * 4, 1, 0];
+        else [r, g, b] = [1, 1 - (ratio - 0.75) * 4, 0];
+      } else {
+        let brake = 0;
+        for (let w = -2; w <= 2; w++) brake += source[Math.max(0, Math.min(source.length - 1, si + w))];
+        brake /= 5;
+        [r, g, b] = brake > 0.3 ? [0.9, 0.05, 0.05] : [0, 0.15, 0.08];
       }
-      const heatGeo = ribbonGeo.clone();
-      heatGeo.setAttribute("color", new Float32BufferAttribute(heatColors, 3));
-      const heatMesh = new Mesh(heatGeo, createTrackOverlayMaterial(0.55));
-      heatMesh.position.y += 0.01;
-      return freezeObjectTransform(heatMesh);
+      for (let side = 0; side < 2; side++) colors.set([r, g, b], (i * 2 + side) * 3);
     }
-
-    if (mode === "brake" && brakeArr.length > 10) {
-      const brakeColors = new Float32Array(curvePts.length * 2 * 3);
-      for (let i = 0; i < curvePts.length; i++) {
-        const t = i / (curvePts.length - 1);
-        const si = Math.min(Math.floor(t * (brakeArr.length - 1)), brakeArr.length - 1);
-        let brakeVal = 0;
-        for (let w = -2; w <= 2; w++) {
-          const wi = Math.max(0, Math.min(brakeArr.length - 1, si + w));
-          brakeVal += brakeArr[wi];
-        }
-        brakeVal /= 5;
-        const r = brakeVal > 0.3 ? 0.9 : 0.0;
-        const g = brakeVal > 0.3 ? 0.05 : 0.15;
-        const b = brakeVal > 0.3 ? 0.05 : 0.08;
-        const vi = i * 2;
-        brakeColors[vi * 3] = r;
-        brakeColors[vi * 3 + 1] = g;
-        brakeColors[vi * 3 + 2] = b;
-        brakeColors[(vi + 1) * 3] = r;
-        brakeColors[(vi + 1) * 3 + 1] = g;
-        brakeColors[(vi + 1) * 3 + 2] = b;
-      }
-      const brakeGeo = ribbonGeo.clone();
-      brakeGeo.setAttribute("color", new Float32BufferAttribute(brakeColors, 3));
-      const brakeMesh = new Mesh(brakeGeo, createTrackOverlayMaterial(0.6));
-      brakeMesh.position.y += 0.01;
-      return freezeObjectTransform(brakeMesh);
-    }
-    return null;
+    const geometry = roadGeometry.clone();
+    geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+    return freezeObjectTransform(new Mesh(geometry, createTrackOverlayMaterial(mode === "heatmap" ? 0.55 : 0.6)));
   }
   function setViz(mode, data) {
     if (overlay) {
@@ -169,36 +167,16 @@ export function buildTrack({ scene, tp, speedArr, brakeArr, vizMode, isDark, the
   }
   setViz(vizMode, { speedArr, brakeArr });
 
-  // Neutral track edges. Sector boundaries and turn numbers are not drawn: OpenF1 does not provide
-  // their positions, and equal-thirds sectors or curvature-detected "turns" would imply false data.
-  const edgeLines = buildColoredLineSegments(
-    [leftEdgePts, rightEdgePts].map((points) => ({ points, color: theme.edgeColor })),
-    0.8
-  );
-  if (edgeLines) scene.add(freezeObjectTransform(edgeLines));
-  const edgeColor = new Color();
-
-  const sf = curve.getPointAt(0);
-  const sfTan = curve.getTangentAt(0);
-  const sfPerp = new Vector3(-sfTan.z, 0, sfTan.x).normalize();
-  const sfL = sf.clone().add(sfPerp.clone().multiplyScalar(trackW / 2));
-  sfL.y += 0.03;
-  const sfR = sf.clone().sub(sfPerp.clone().multiplyScalar(trackW / 2));
-  sfR.y += 0.03;
-  const startMaterial = createStartLineMaterial(theme.signal);
-  scene.add(freezeObjectTransform(new Line(new BufferGeometry().setFromPoints([sfL, sfR]), startMaterial)));
-
-  // Theme change in place: recolour the road, edges and start line.
+  // Theme change in place: recolour everything the palette touches.
   function applyTheme(next) {
-    ribbonMaterial.color.set(next.trackColor);
-    startMaterial.color.set(next.signal);
-    if (edgeLines) {
-      edgeColor.set(next.edgeColor);
-      const colors = edgeLines.geometry.attributes.color;
-      for (let i = 0; i < colors.count; i++) colors.setXYZ(i, edgeColor.r, edgeColor.g, edgeColor.b);
-      colors.needsUpdate = true;
-    }
+    road.material.color.set(next.road);
+    runoff.material.color.set(next.runoff);
+    skirt.material.color.set(next.skirt);
+    paint.material.color.set(next.paint);
+    gantryMaterial.color.set(next.ink);
+    stripMaterial.userData.draw(next.checkA, next.checkB);
   }
+  applyTheme(theme);
 
-  return { curve, seg, setViz, applyTheme };
+  return { centreline: c, curve: c.curve, setViz, applyTheme };
 }

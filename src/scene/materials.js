@@ -1,20 +1,31 @@
 import {
+  CanvasTexture,
   Color,
   DoubleSide,
-  LineBasicMaterial,
   MeshBasicMaterial,
   MeshPhongMaterial,
+  MeshStandardMaterial,
+  NearestFilter,
   ShaderMaterial,
   SpriteMaterial,
+  SRGBColorSpace,
 } from "three";
 
-export function createVertexColorLineMaterial(opacity = 1) {
-  return new LineBasicMaterial({ vertexColors: true, transparent: opacity < 1, opacity });
+// Road, run-off and skirts are lit, so the relief reads; the colours come from sceneTheme.js.
+export function createRoadMaterial(color) {
+  return new MeshStandardMaterial({ color, roughness: 0.95, metalness: 0, side: DoubleSide, envMapIntensity: 0.25 });
 }
 
-// The road is flat, unlit and not tone-mapped, so the canvas matches the page tokens exactly.
-export function createTrackRibbonMaterial({ theme }) {
-  return new MeshBasicMaterial({ color: theme.trackColor, side: DoubleSide, toneMapped: false });
+// Paint and the start line sit on the road: polygon offset wins the depth test at any distance.
+export function createPaintMaterial(color) {
+  return new MeshBasicMaterial({
+    color,
+    side: DoubleSide,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
 }
 
 export function createTrackOverlayMaterial(opacity) {
@@ -24,16 +35,38 @@ export function createTrackOverlayMaterial(opacity) {
     opacity,
     side: DoubleSide,
     depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
   });
+}
+
+// The chequered start strip: 8 × 2 squares, redrawn when the theme changes.
+export function createStartStripMaterial() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 16;
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = NearestFilter;
+  const material = createPaintMaterial(0xffffff);
+  material.map = texture;
+  material.userData.draw = (a, b) => {
+    const ctx = canvas.getContext("2d");
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 8; col++) {
+        ctx.fillStyle = `#${new Color((row + col) % 2 ? a : b).getHexString()}`;
+        ctx.fillRect(col * 8, row * 8, 8, 8);
+      }
+    }
+    texture.needsUpdate = true;
+  };
+  return material;
 }
 
 export function createSpriteLabelMaterial(map) {
   // Not tone-mapped: the plate shows the exact driver colour and page-white text, like the 2D labels.
   return new SpriteMaterial({ map, transparent: true, depthWrite: false, sizeAttenuation: false, toneMapped: false });
-}
-
-export function createStartLineMaterial(color) {
-  return new LineBasicMaterial({ color, toneMapped: false });
 }
 
 export function createCarShadowMaterial() {
@@ -54,14 +87,6 @@ export function createFallbackCarMaterial({ color, isGhost }) {
     transparent: isGhost,
     opacity: isGhost ? 0.5 : 1,
   });
-}
-
-export function createDeltaLineMaterial(color) {
-  return new LineBasicMaterial({ color, transparent: true, opacity: 0.5, toneMapped: false });
-}
-
-export function createRacingLineMaterial(color) {
-  return new LineBasicMaterial({ color, transparent: true, opacity: 0.12, toneMapped: false });
 }
 
 export function createTrailMaterial({ color, ghost }) {

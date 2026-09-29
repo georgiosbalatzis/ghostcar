@@ -123,7 +123,7 @@ export function updateCarsAndMarkers({
   playbackSpeed,
   followCamera,
 }) {
-  const { cars, trails, paths, spot1, spot2, deltaLine, deltaPos } = sceneState;
+  const { cars, trails, paths } = sceneState;
   if (!cars?.[0] || !cars[1] || !trackPath || trackPath.length < 2) {
     return { needsRender: false, p1: null, p2: null };
   }
@@ -135,13 +135,9 @@ export function updateCarsAndMarkers({
   const positionLerp = frameLerp(MathUtils.clamp(0.34 - playbackSpeed * 0.04, 0.18, 0.34), deltaTime);
 
   // carProgress: each car's own position (fraction of its samples) at the shared clock.
-  const rawP1 = lerp(paths[0]?.length >= 2 ? paths[0] : trackPath, carProgress[0]);
-  const rawP2 = lerp(paths[1]?.length >= 2 ? paths[1] : trackPath, carProgress[1]);
-  const dist = Math.sqrt((rawP1.x - rawP2.x) ** 2 + (rawP1.z - rawP2.z) ** 2);
-  const closeThreshold = 3.0;
-  const maxOffset = 0.7;
-  const proximity = Math.max(0, 1 - dist / closeThreshold);
-  const lateralOffset = proximity * maxOffset;
+  // ponytail: no sideways push when cars are close: it moved cars off their true position (Work3D C1); the
+  // spring below stays until Phase 3 replaces this file's pose code.
+  const lateralOffset = 0;
   // Trails are the path just driven, so they only grow during playback. After a jump they are cleared: otherwise a
   // single point recorded mid-glide stays behind as a stray dot (the "two coloured dots" of earlier versions).
   if (jumped) {
@@ -179,20 +175,6 @@ export function updateCarsAndMarkers({
   );
   const [p1, p2] = poses;
   needsRender = needsRender || poses.some((pose) => pose?.dirty);
-
-  if (spot1) spot1.position.set(p1.x, p1.y + 12, p1.z);
-  if (spot2) spot2.position.set(p2.x, p2.y + 12, p2.z);
-  if (deltaLine && deltaPos) {
-    deltaPos[0] = p1.x;
-    deltaPos[1] = p1.y + 0.5;
-    deltaPos[2] = p1.z;
-    deltaPos[3] = p2.x;
-    deltaPos[4] = p2.y + 0.5;
-    deltaPos[5] = p2.z;
-    deltaLine.geometry.attributes.position.needsUpdate = true;
-    const gap = Math.sqrt((p1.x - p2.x) ** 2 + (p1.z - p2.z) ** 2);
-    deltaLine.material.opacity = Math.min(0.6, gap * 0.08);
-  }
 
   return { needsRender, p1, p2 };
 }

@@ -1,5 +1,7 @@
 export function attachInputControls({ canvas, controls, markDirty }) {
   let pinchDist = null;
+  // Zoom is proportional to the distance, between limits the scene sets from the circuit's size.
+  const clampDist = (value) => Math.max(controls.minDist, Math.min(controls.maxDist, value));
 
   const markSceneDirty = () => {
     markDirty?.();
@@ -26,7 +28,7 @@ export function attachInputControls({ canvas, controls, markDirty }) {
       const dx = event.touches[0].clientX - event.touches[1].clientX;
       const dy = event.touches[0].clientY - event.touches[1].clientY;
       const newDist = Math.sqrt(dx * dx + dy * dy);
-      if (pinchDist !== null) controls.dist = Math.max(15, Math.min(200, controls.dist * (pinchDist / newDist)));
+      if (pinchDist !== null) controls.dist = clampDist(controls.dist * (pinchDist / newDist));
       pinchDist = newDist;
       markSceneDirty();
       return;
@@ -48,7 +50,7 @@ export function attachInputControls({ canvas, controls, markDirty }) {
   };
 
   const onWheel = (event) => {
-    controls.dist = Math.max(15, Math.min(200, controls.dist + event.deltaY * 0.05));
+    controls.dist = clampDist(controls.dist * Math.exp(event.deltaY * 0.001));
     markSceneDirty();
   };
 

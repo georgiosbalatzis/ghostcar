@@ -42,7 +42,7 @@ export function updateReplayCameraTargets({
     const shakeX = braking * sampleNoise(0) * 0.06;
     const shakeY = braking * sampleNoise(37) * 0.04;
 
-    targetPosition.set(target.x - (dx / len) * 8 + shakeX, target.y + 4.5 + shakeY, target.z - (dz / len) * 8);
+    targetPosition.set(target.x - (dx / len) * 12 + shakeX, target.y + 4 + shakeY, target.z - (dz / len) * 12);
     targetLook.set(ahead.x + shakeX * 0.5, target.y + 0.3, ahead.z);
   } else if (cameraMode === "cinematic" && curve) {
     const cinematicProgress = (cinematicTime + progress * 0.3) % 1;
@@ -51,15 +51,23 @@ export function updateReplayCameraTargets({
     const brakingShake = telNow?.brake > 0 ? 0.06 : 0;
 
     targetPosition.set(
-      curvePoint.x + 8 + sampleNoise(71) * brakingShake,
-      curvePoint.y + 5,
-      curvePoint.z + 8 + sampleNoise(149) * brakingShake
+      curvePoint.x + 60 + sampleNoise(71) * brakingShake,
+      curvePoint.y + 35,
+      curvePoint.z + 60 + sampleNoise(149) * brakingShake
     );
     targetLook.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
   }
 }
 
-export function updateManualCameraTargets({ cameraMode, controls, isPlaying, targetPosition, targetLook }) {
+export function updateManualCameraTargets({
+  cameraMode,
+  controls,
+  isPlaying,
+  targetPosition,
+  targetLook,
+  world,
+  camera,
+}) {
   let needsRender = false;
 
   if (cameraMode === "orbit") {
@@ -72,9 +80,12 @@ export function updateManualCameraTargets({ cameraMode, controls, isPlaying, tar
       controls.dist * Math.sin(controls.pitch),
       Math.sin(controls.angle) * controls.dist * Math.cos(controls.pitch)
     );
-    targetLook.set(0, 0, 0);
+    targetLook.set(0, world.height / 2, 0);
   } else if (cameraMode === "top") {
-    targetPosition.set(0, 65, 0.01);
+    // High enough that the whole circuit fits the stage, on either axis.
+    const half = Math.tan(MathUtils.degToRad(camera.fov / 2));
+    const fit = (Math.max(world.depth, world.width / camera.aspect) * 1.15) / (2 * half);
+    targetPosition.set(0, world.height + fit, 0.01);
     targetLook.set(0, 0, 0);
   }
 

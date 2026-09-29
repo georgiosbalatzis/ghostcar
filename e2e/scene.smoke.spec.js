@@ -456,3 +456,22 @@ test("theme and colouring change the live scene: same canvas, one WebGL context,
   expect(modelRequests).toHaveLength(1);
   expect(errors).toEqual([]);
 });
+
+test("relief x3 rebuilds the Suzuka scene and is remembered", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page, { circuit: "suzuka" });
+  await page.goto(suzukaUrl);
+  await expectSceneRendered(page);
+  await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
+  const relief = page.getByRole("menuitemcheckbox", { name: "Ανάγλυφο ×3" });
+  await expect(relief).toHaveAttribute("aria-checked", "false");
+  await relief.click();
+  await expectSceneRendered(page);
+  expect(await page.evaluate(() => localStorage.getItem("f1s-3d-relief"))).toBe("3");
+  await page.reload();
+  await expectSceneRendered(page);
+  await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
+  await expect(page.getByRole("menuitemcheckbox", { name: "Ανάγλυφο ×3" })).toHaveAttribute("aria-checked", "true");
+  expect(errors).toEqual([]);
+});

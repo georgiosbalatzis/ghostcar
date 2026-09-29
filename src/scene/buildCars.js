@@ -29,6 +29,7 @@ function freezeObjectTransform(object) {
   return object;
 }
 
+const CAR_LENGTH = 5.63; // metres
 const LABEL_PX = 24;
 const LABEL_ASPECT = 200 / 80;
 
@@ -100,12 +101,13 @@ function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0 }) 
 
   const shadow = new Mesh(new CircleGeometry(1.0, 24), createCarShadowMaterial());
   shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.01;
+  shadow.scale.set(1.3, 3, 1); // a car-sized ellipse in metres
+  shadow.position.y = 0.03;
   group.add(freezeObjectTransform(shadow));
 
   // Shown at once and replaced when the shared model arrives (or kept if it never does).
-  const placeholder = new Mesh(new BoxGeometry(0.4, 0.15, 1.2), createFallbackCarMaterial({ color, isGhost }));
-  placeholder.position.y = 0.15;
+  const placeholder = new Mesh(new BoxGeometry(2, 0.7, 5.6), createFallbackCarMaterial({ color, isGhost }));
+  placeholder.position.y = 0.35;
   group.add(freezeObjectTransform(placeholder));
 
   if (label && !isLowDetail) {
@@ -157,8 +159,9 @@ function paintMaterial(mat, color, isGhost) {
 function applyModelToCar(template, carGroup) {
   if (!carGroup) return;
   const clone = template.clone(true);
-  const modelScale = 0.12;
-  clone.scale.set(modelScale, modelScale, modelScale);
+  // The model's long axis is z (12.15 model units); scale it to a real car's length in metres.
+  const modelLength = new Box3().setFromObject(clone).getSize(new Vector3()).z;
+  clone.scale.setScalar(CAR_LENGTH / modelLength);
 
   const box = new Box3().setFromObject(clone);
   const center = box.getCenter(new Vector3());
