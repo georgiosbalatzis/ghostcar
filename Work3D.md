@@ -307,9 +307,9 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 **✅ T3.7: Remove leftovers.**
 - Delete `updateCars.js`, the shake noise table, the `deltaLine`, and the spot light placeholders.
 
-### Phase 4: Cameras and controls
+### ✅ Phase 4: Cameras and controls
 
-**T4.1: Camera maths (pure).**
+**✅ T4.1: Camera maths (pure).**
 - Files: `cameraMath.js` (new), `test/scene-camera.test.js` (new).
 - Steps:
   - `fitDistance(bounds, fovDeg, aspect, pitchRad, yawRad, margin = 0.08)` → the distance at which the whole bounding box (8 corners) projects inside the viewport with the margin.
@@ -319,7 +319,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - `pickTvCamera(stations, focusS, currentIndex, heldFor)` → the station whose `s` is nearest ahead of the car in [−60 m, +220 m]. Keep the current station if it has been held < 2.5 s and the car is still in its window.
 - Acceptance: unit tests for each function, including the Suzuka fixture centreline for TV placement: no station within 15 m of any road point, and a TV cut rate below 1 per 2.5 s over the lap.
 
-**T4.2: Camera rig with OrbitControls.**
+**✅ T4.2: Camera rig with OrbitControls.** _(Done. The orientation check compares the direction from the start line to the car in 2D and in Top, within 5°, because the two views fit the circuit differently and cannot match as fractions of the stage.)_
 - Files: `cameraRig.js` (new), delete `cameras.js` and `inputControls.js`, `renderLoop.js`, `useScene.js`.
 - Steps:
   - One `PerspectiveCamera` and one `OrbitControls` (`three/examples/jsm/controls/OrbitControls.js`): `enableDamping`, `dampingFactor 0.08`, `zoomToCursor = true`, `screenSpacePanning = false`, `minPolarAngle 5°`, `maxPolarAngle 80°`, distances `[20 m, 3 × circuit diagonal]`. Mark the scene dirty on its `change` event, and keep rendering while damping is settling.
@@ -329,12 +329,12 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - FOV: 40° Overview/Top, 55° Chase, 70° Onboard, dynamic in TV (`2·atan(14 m / (2·distance))`, clamped to 6°–45°).
 - Acceptance: at 1440×900 and 390×844 the Overview and Top views frame Suzuka and Monza with 6–10% margin on the tighter axis. The Top view matches the 2D map orientation (compare screenshots; a test compares the projected screen position of the start line in Top vs its 2D position, as fractions of the stage, within 3%).
 
-**T4.3: Transitions.**
+**✅ T4.3: Transitions.**
 - Files: `cameraRig.js`.
 - Steps: on a mode change (except into or within TV, which cuts), tween the camera position and look target from current to the new mode's pose over 700 ms with easeInOutCubic. The pose of a moving target is evaluated each frame, so the tween lands on a moving car. Honour `matchMedia("(prefers-reduced-motion: reduce)")`: instant.
 - Acceptance: switching Overview → Chase VER lands behind VER smoothly while playing, with no pop at the end.
 
-**T4.4: Wheel and touch gating.**
+**✅ T4.4: Wheel and touch gating.**
 - Files: `cameraRig.js`, `replay.css`, `SceneStage3D.jsx`.
 - Steps:
   - Intercept `wheel` on the canvas in the capture phase (non-passive). If `!(ctrlKey || metaKey) && !document.fullscreenElement`, stop propagation to OrbitControls and let the page scroll. Do not `preventDefault`. Show the hint "Ctrl/⌘ + κύλιση για ζουμ" for 1.2 s, and no more than once per 4 s.
@@ -342,7 +342,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - Keep the existing mobile swipe-to-scrub disabled in 3D, as today (`touch.enabled = mob && is2DView`).
 - Acceptance: e2e (T9.2 #5): a plain wheel over the canvas scrolls the page and does not change the camera distance; Ctrl+wheel zooms. Manual check on an iOS/Android phone: page scroll works over the 3D stage.
 
-**T4.5: Focus and picking.**
+**✅ T4.5: Focus and picking.**
 - Files: `cameraRig.js`, `useScene.js`, `constants.js`, `F1PhantomCars.jsx`, `useKeyboardShortcuts.js`, `SharingDialogs.jsx`.
 - Steps:
   - `CAM_MODES` becomes `["orbit", "top", "follow1", "follow2", "follow3", "follow4", "onboard1", "onboard2", "onboard3", "onboard4", "tv"]`. `pick(CAM_MODES, "cinematic")` maps to `tv` (add the alias where `cam` is decoded, `F1PhantomCars.jsx:119` and `:404`). Modes for slots that don't exist in the model fall back to slot 1.
@@ -350,7 +350,7 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - Double-click on a car (raycast against the merged meshes) sets Chase on that driver. Double-click on the ground in Overview sets the orbit target to that point (animated).
 - Acceptance: old links with `cam=cinematic`, `cam=follow2` and `cam=top` open in TV, Chase-driver-2 and Top. The keyboard shortcuts work and are listed in the help dialog.
 
-**T4.6: TV director.**
+**✅ T4.6: TV director.** _(Done. Cuts are at least 2.5 s apart after the opening one: at the start line the only station in range is at the line itself, which the car leaves within a second.)_
 - Files: `cameraRig.js`, `cameraMath.js`.
 - Steps: the focus is the focus driver if one was chosen explicitly, otherwise the car furthest along by distance. Use `surfaceAt` indices, and handle the start/finish wrap: while a car is still in the lap, its distance is its progress. Place the camera at the station position, look at the focus car + 0.8 m up, with the dynamic FOV from T4.2. Cut (no tween) when `pickTvCamera` changes station. Add slight damping (τ 120 ms) on the look target only.
 - Acceptance: over a full Suzuka lap at 1×, the TV camera always has the focus car on screen and not smaller than 4% of the stage height, and it never cuts more often than every 2.5 s.

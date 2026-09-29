@@ -1,10 +1,3 @@
-import { MathUtils, Quaternion, Vector3 } from "three";
-import {
-  applyCameraMotion,
-  isFollowCameraMode,
-  updateManualCameraTargets,
-  updateReplayCameraTargets,
-} from "./cameras.js";
 import { fractionAtTime } from "../domain/timing.js";
 import { placeCars } from "./buildCars.js";
 
@@ -14,10 +7,8 @@ export function startSceneRenderLoop({
   scene,
   camera,
   cameraModeRef,
-  controls,
-  inputControls,
-  targetPosition,
-  targetLook,
+  focusRef,
+  rig,
   adaptiveQuality,
   isMob,
   isContextLost,
@@ -26,8 +17,6 @@ export function startSceneRenderLoop({
   const ACTIVE_MS = 0; // Let active playback run at the display refresh rate.
   const IDLE_MS = isMob ? 100 : 66;
   const HIDDEN_MS = 220;
-  const prevCameraPos = new Vector3();
-  const prevCameraQuat = new Quaternion();
   let lastFrameTime = 0;
   let lastProg = -1;
   let lastCamMode = cameraModeRef.current;
@@ -37,36 +26,13 @@ export function startSceneRenderLoop({
   let lastSimTime = 0;
   let cancelled = false;
 
-  // Near, far and fog follow the camera's distance to what it looks at: a chase camera 12 m from a car and an
-  // overview 2 km from the circuit both keep their depth precision. Returns true when they changed.
-  function updateClipping() {
-    const { diagonal } = sceneStateRef.current.world;
-    const distance = camera.position.distanceTo(targetLook);
-    const near = MathUtils.clamp(distance * 0.005, 0.3, 30);
-    let changed = false;
-    if (Math.abs(near - camera.near) > camera.near * 0.1) {
-      camera.near = near;
-      camera.far = Math.max(2000, diagonal * 6);
-      camera.updateProjectionMatrix();
-      changed = true;
-    }
-    const fog = scene.fog;
-    const fogNear = distance + 0.6 * diagonal;
-    if (fog && Math.abs(fog.near - fogNear) > 0.01 * fogNear) {
-      fog.near = fogNear;
-      fog.far = distance + 1.6 * diagonal;
-      changed = true;
-    }
-    return changed;
-  }
-
   function animate(now = performance.now()) {
     if (cancelled || isContextLost()) return;
     const sceneState = sceneStateRef.current;
     sceneState.fr = requestAnimationFrame(animate);
     const isSceneVisible = !document.hidden;
     const isPlaying = !!sceneState._playRef?.current;
-    const isActive = !!(isPlaying || inputControls.isActive());
+    const isActive = !!(isPlaying || rig.isActive());
     const targetFrameMs = !isSceneVisible ? HIDDEN_MS : isActive ? ACTIVE_MS : IDLE_MS;
     if (targetFrameMs > 0 && now - lastFrameTime < targetFrameMs) return;
     const prevFrameTime = lastFrameTime;
@@ -91,8 +57,6 @@ export function startSceneRenderLoop({
       pathTimes[slot]?.length ? fractionAtTime(pathTimes[slot], clock) : prog
     );
     const cameraMode = cameraModeRef.current;
-    const playbackSpeed = Math.max(0.25, sceneState._speedRef?.current ?? 1);
-    const followCamera = isFollowCameraMode(cameraMode);
     let needsRender =
       !hasRendered ||
       !!sceneState._dirty ||
@@ -103,10 +67,7 @@ export function startSceneRenderLoop({
     lastCamMode = cameraMode;
     lastPlayState = isPlaying;
     lastSceneVisible = true;
-    if (isPlaying) {
-      controls.cinT += 0.0003;
-      needsRender = true;
-    }
+    if (isPlaying) needsRender = true;
 
     const carUpdate = placeCars({
       sceneState,
@@ -117,41 +78,15 @@ export function startSceneRenderLoop({
     });
     needsRender = needsRender || carUpdate.needsRender;
 
-    updateReplayCameraTargets({
-      cameraMode,
-      p1: carUpdate.p1,
-      p2: carUpdate.p2,
-      progress: prog,
-      carProgress,
-      primaryPath: sceneState.paths[0],
-      secondaryPath: sceneState.paths[1],
-      fallbackPath: sceneState.paths[0],
-      curve: sceneState.curve,
-      cinematicTime: controls.cinT,
-      targetPosition,
-      targetLook,
-    });
     needsRender =
-      updateManualCameraTargets({
-        cameraMode,
-        controls,
-        isPlaying,
-        targetPosition,
-        targetLook,
-        world: sceneState.world,
-        camera,
+      rig.update({
+        dt,
+        cam: cameraMode,
+        focus: focusRef.current,
+        carStates: sceneState.carStates,
+        driverPaths: sceneState.driverPaths,
+        fractions: carProgress,
       }) || needsRender;
-    needsRender =
-      applyCameraMotion({
-        camera,
-        targetPosition,
-        targetLook,
-        previousPosition: prevCameraPos,
-        previousQuaternion: prevCameraQuat,
-        followCamera,
-        deltaTime: dt,
-      }) || needsRender;
-    needsRender = updateClipping() || needsRender;
     if (!needsRender) return;
     try {
       renderer.render(scene, camera);

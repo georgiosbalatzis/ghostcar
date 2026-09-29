@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
   expect: {
-    timeout: 5_000,
+    // A 3D scene builds on a software GPU (SwiftShader) here, and the workers share one CPU.
+    timeout: 10_000,
   },
   fullyParallel: true,
   reporter: [["list"]],

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useMemo } from "react";
-import { Vector3 } from "three";
 import { getSmoothPathPointCount, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
 import { buildCars, createCarState, sizeCarLabels } from "../scene/buildCars.js";
@@ -12,7 +11,7 @@ import {
   formatSceneError,
   getSceneSupportError,
 } from "../scene/createRenderer.js";
-import { attachInputControls } from "../scene/inputControls.js";
+import { createCameraRig } from "../scene/cameraRig.js";
 import { startSceneRenderLoop } from "../scene/renderLoop.js";
 import { createWorldFrame } from "../scene/world.js";
 
@@ -29,7 +28,21 @@ const SLOTS = 4;
  */
 export default function useScene(
   ref,
-  { model, progRef, playRef, speedRef, cam, vizMode, isDark, relief = 1, onError }
+  {
+    model,
+    progRef,
+    playRef,
+    speedRef,
+    cam,
+    focus,
+    fitSignal,
+    vizMode,
+    isDark,
+    relief = 1,
+    onError,
+    onHint,
+    onPickDriver,
+  }
 ) {
   const R = useRef({});
   const drivers = Array.from({ length: SLOTS }, (_, index) => model.drivers[index] || EMPTY);
@@ -38,10 +51,11 @@ export default function useScene(
   // { duration, pathTimes[] } of the replay: the render loop places each car by its own timestamps.
   const timingRef = useRef(null);
   timingRef.current = { duration: model.duration, pathTimes: model.drivers.map((driver) => driver.pathTimes) };
-  const CS = useRef({ angle: 0, pitch: 0.85, dist: 50, drag: false, lx: 0, ly: 0, cinT: 0 });
   const cmRef = useRef(cam);
-  const camTargetPos = useRef(new Vector3(40, 30, 40));
-  const camTargetLook = useRef(new Vector3(0, 0, 0));
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const callbacksRef = useRef({});
+  callbacksRef.current = { onHint, onPick: onPickDriver };
   const smoothPointCount = useMemo(
     () => getSmoothPathPointCount(typeof window !== "undefined" ? window.innerWidth < 768 : false),
     []
@@ -212,22 +226,22 @@ export default function useScene(
         R.current._dirty = true;
       });
 
-      const cs = CS.current;
-      // Zoom limits and the opening distance follow the circuit's size; a rebuild for the same circuit keeps the zoom.
-      const { diagonal } = live.frame.bounds;
-      cs.minDist = 30;
-      cs.maxDist = 3 * diagonal;
-      if (cs.fitDiagonal !== diagonal) {
-        cs.fitDiagonal = diagonal;
-        cs.dist = diagonal;
-      }
-      const inputControls = attachInputControls({
+      const rig = createCameraRig({
+        camera,
         canvas: de,
-        controls: cs,
-        markDirty: () => {
+        fog: scene.fog,
+        world: live.frame.bounds,
+        groundY: live.frame.groundY,
+        centreline: track.centreline,
+        cars,
+        onFovChange: () => {
+          sizeCarLabels(cars, el.clientHeight, camera.fov);
           R.current._dirty = true;
         },
+        onHint: (kind) => callbacksRef.current.onHint?.(kind),
+        onPick: (slot) => callbacksRef.current.onPick?.(slot),
       });
+      R.current.api.fit = rig.fit;
 
       // Store progRef for render loop access
       R.current._progRef = progRef;
@@ -248,7 +262,10 @@ export default function useScene(
             return !!(R.current._rendered && R.current._modelSettled);
           },
           camera,
-          controls: cs,
+          controls: rig.controls,
+          rig,
+          world: live.frame.bounds,
+          start: track.start,
           cars,
           info: () => ren?.info,
           project,
@@ -274,10 +291,8 @@ export default function useScene(
         camera,
         trackPath,
         cameraModeRef: cmRef,
-        controls: cs,
-        inputControls,
-        targetPosition: camTargetPos.current,
-        targetLook: camTargetLook.current,
+        focusRef,
+        rig,
         adaptiveQuality,
         isMob,
         isContextLost: () => contextLost,
@@ -293,6 +308,7 @@ export default function useScene(
         renderer: ren,
         isContextLost: () => contextLost,
         onResize: () => {
+          rig.resize();
           sizeCarLabels(cars, el.clientHeight, camera.fov);
           carSet.setResolution(el.clientWidth, el.clientHeight);
           R.current._dirty = true;
@@ -304,7 +320,7 @@ export default function useScene(
         renderLoopCleanup = null;
         resizeCleanup?.();
         resizeCleanup = null;
-        inputControls.cleanup();
+        rig.dispose();
         clearRenderer();
       };
     } catch (error) {
@@ -328,6 +344,12 @@ export default function useScene(
     R.current.api?.setViz(vizMode, { speedArr, brakeArr });
     R.current._dirty = true;
   }, [vizMode, speedArr, brakeArr]);
+  // "F": refit the camera to the circuit.
+  useEffect(() => {
+    R.current.api?.fit?.();
+    R.current._dirty = true;
+    // The signal is the trigger: a new value asks for a refit.
+  }, [fitSignal]);
   useEffect(() => {
     cmRef.current = cam;
     R.current._dirty = true;

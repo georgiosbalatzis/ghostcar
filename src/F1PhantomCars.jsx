@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CAM_MODES } from "./constants.js";
+import { camFor, nextCam, normalizeCam, parseCam } from "./scene/cameraModes.js";
 import { applyClockOffsets, buildGapTrace, dominanceSegments, sectorTicks } from "./domain/gap.js";
 import { findLapByNumber } from "./domain/laps.js";
 import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
@@ -116,7 +116,10 @@ export default function App({ embed }) {
     handleReplayTouchCancel,
   } = usePlaybackController({ initialSpeed: initialURL.speed, initialLoop: initialURL.loop, trackView });
 
-  const [cam, setCam] = useState(() => pick(CAM_MODES, initialURL.cam) ?? "orbit");
+  // "cinematic" in old links is the TV camera now. `focus` is the driver the cameras favour (null: the default).
+  const [cam, setCam] = useState(() => normalizeCam(initialURL.cam) ?? "orbit");
+  const [focus, setFocus] = useState(null);
+  const [fitSignal, setFitSignal] = useState(0);
   const [vizMode, setVizMode] = useState(() => pick(VIZ_MODES, initialURL.vizMode) ?? "normal");
   const [pageTab, setPageTab] = useState(() => normalizePageTab(initialURL.tab));
   const [dialog, setDialog] = useState(null);
@@ -401,8 +404,8 @@ export default function App({ embed }) {
       setDialog(null);
       setThemeMode(next.theme);
       setTrackViewFromValue(next.trackView);
-      const nextCam = pick(CAM_MODES, next.cam);
-      if (nextCam) setCam(nextCam);
+      const restoredCam = normalizeCam(next.cam);
+      if (restoredCam) setCam(restoredCam);
       const nextViz = pick(VIZ_MODES, next.vizMode);
       if (nextViz) setVizMode(nextViz);
       setSpeedFromValue(next.speed);
@@ -443,6 +446,19 @@ export default function App({ embed }) {
     [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot]
   );
 
+  // A driver for the cameras: Chase and Onboard switch to them, TV points at them, Overview and Top go to Chase.
+  const chooseDriver = useCallback(
+    (slot) => {
+      if (!model || slot < 1 || slot > model.drivers.length) return;
+      setFocus(slot);
+      setCam((mode) => {
+        const { family } = parseCam(mode);
+        return family === "tv" ? "tv" : camFor(family === "onboard" ? "onboard" : "follow", slot);
+      });
+    },
+    [model]
+  );
+
   useKeyboardShortcuts({
     enabled: !dialog,
     handlers: {
@@ -455,7 +471,14 @@ export default function App({ embed }) {
         requestAnimationFrame(() => document.getElementById("telemetry")?.scrollIntoView({ block: "start" }));
       },
       toggleView: () => replay && setTrackViewMode(is2DView ? "3d" : "2d"),
-      nextCamera: () => setCam((mode) => CAM_MODES[(CAM_MODES.indexOf(mode) + 1) % CAM_MODES.length]),
+      nextCamera: () => {
+        // The families in turn; whoever is followed stays the driver.
+        const { slot } = parseCam(cam);
+        if (slot) setFocus(slot);
+        setCam(nextCam(cam, focus));
+      },
+      focusDriver: (slot) => !is2DView && chooseDriver(slot),
+      fitCamera: () => !is2DView && setFitSignal((value) => value + 1),
       toggleLoop: () => setLoop((value) => !value),
       step: (seconds) => setProg((value) => Math.max(0, Math.min(1, value + seconds / durationRef.current))),
     },
@@ -490,6 +513,9 @@ export default function App({ embed }) {
       onTrackView={setTrackViewMode}
       cam={cam}
       onCam={setCam}
+      focus={focus}
+      onFocus={chooseDriver}
+      fitSignal={fitSignal}
       vizMode={vizMode}
       onVizMode={setVizMode}
       isDark={isDark}

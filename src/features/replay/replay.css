@@ -60,7 +60,24 @@
 }
 .stage__canvas--3d {
   cursor: grab;
+  /* One finger scrolls the page; two fingers move the camera (one finger too in full screen). */
+  touch-action: pan-y;
+}
+:fullscreen .stage__canvas--3d {
   touch-action: none;
+}
+.scene-hint {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--text);
+  color: var(--page);
+  font-size: var(--text-small);
+  pointer-events: none;
+  white-space: nowrap;
 }
 .stage__canvas--3d:active {
   cursor: grabbing;

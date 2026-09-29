@@ -69,8 +69,9 @@ export const PRESETS = [
   { year: 2021, meeting: "Belgian Grand Prix", session: "Qualifying", d1: 63, d2: 1, a1: "RUS", a2: "VER", place: "Βέλγιο", title: "Χάος στις βρεγμένες κατατακτήριες" },
 ];
 
-export const CAM_MODES = ["orbit", "follow1", "follow2", "top", "cinematic"];
-export const CAM_LABELS = { orbit: "Ελεύθερη", follow1: "Πίσω από τον 1ο", follow2: "Πίσω από τον 2ο", top: "Από ψηλά", cinematic: "Κινηματογραφική" };
+export { CAM_MODES } from "./scene/cameraModes.js";
+// The camera families (a driver is chosen separately for Ακολούθηση, Onboard and Τηλεοπτική).
+export const CAM_LABELS = { orbit: "Επισκόπηση", top: "Κάτοψη", follow: "Ακολούθηση", onboard: "Onboard", tv: "Τηλεοπτική" };
 export const SESSION_LABELS = {
   Qualifying: "Κατατακτήριες",
   Race: "Αγώνας",

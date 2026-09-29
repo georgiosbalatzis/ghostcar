@@ -178,5 +178,5 @@ export function buildTrack({ scene, reference, groundY, speedArr, brakeArr, vizM
   }
   applyTheme(theme);
 
-  return { centreline: c, curve: c.curve, setViz, applyTheme };
+  return { centreline: c, curve: c.curve, start, setViz, applyTheme };
 }

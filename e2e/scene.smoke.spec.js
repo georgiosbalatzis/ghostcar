@@ -113,7 +113,7 @@ test("3D replay renders and survives a 2D round trip from a shared link", async 
   await page.goto(comparisonUrl);
   await expectSceneRendered(page);
   await page.getByRole("button", { name: "Επιλογές προβολής" }).click();
-  await page.getByRole("menuitemradio", { name: "Από ψηλά" }).click();
+  await page.getByRole("menuitemradio", { name: "Κάτοψη" }).click();
   await page.getByRole("button", { name: "2D", exact: true }).click();
   await expect(trackMap(page)).toBeVisible();
   await expect(page.locator(".stage canvas")).toHaveCount(0);

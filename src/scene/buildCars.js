@@ -113,6 +113,7 @@ function makeCarGroup({ color, label, isGhost, isLowDetail, isDark, tier = 0, sh
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.02;
   shadow.renderOrder = 1;
+  shadow.userData.noPick = true;
   group.add(freezeObjectTransform(shadow));
 
   // Shown at once and replaced when the shared model arrives (or kept if it never does).
@@ -376,7 +377,11 @@ export function buildCars({
 }
 
 export function createCarState() {
-  return { pose: {}, place: { x: 0, y: 0, z: 0 }, last: { x: Infinity, y: 0, z: 0, heading: NaN } };
+  return {
+    pose: {},
+    place: { x: 0, y: 0, z: 0, pitch: 0, heading: 0 },
+    last: { x: Infinity, y: 0, z: 0, heading: NaN },
+  };
 }
 
 /**
@@ -410,6 +415,8 @@ export function placeCars({ sceneState, fractions, time, pathTimes, showTails })
     state.place.x = pose.x;
     state.place.y = state.y;
     state.place.z = pose.z;
+    state.place.pitch = state.pitch;
+    state.place.heading = pose.heading;
     const tail = tails[slot];
     const show = showTails && !!pathTimes[slot]?.length;
     if (tail.line.visible !== show) {

@@ -82,3 +82,15 @@ export function placeOnRoad(centreline, pose, state) {
   state.pitch = surface.pitch;
   return state;
 }
+
+/** Distance along the driver's path (metres from its first sample) at `fraction`. */
+export function distanceAt(path, fraction) {
+  const index = Math.min(1, Math.max(0, fraction)) * (path.count - 1);
+  const i = Math.floor(index);
+  return path.cum[i] + (index - i) * (path.cum[Math.min(i + 1, path.count - 1)] - path.cum[i]);
+}
+
+/** The point `metres` further along the driver's own path from `fraction` (the end of the path stops it). */
+export function pointAhead(path, fraction, metres, out = {}) {
+  return pointAtIndex(path, indexAtDistance(path, distanceAt(path, fraction) + metres), out);
+}

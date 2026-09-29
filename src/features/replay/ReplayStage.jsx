@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState } from "react";
-import { CAM_LABELS, CAM_MODES } from "../../constants.js";
+import { CAM_LABELS } from "../../constants.js";
+import { camFor, parseCam } from "../../scene/cameraModes.js";
 import Icon from "../../components/ui/Icon.jsx";
 import Menu from "../../components/ui/Menu.jsx";
 import DriverLegend from "./DriverLegend.jsx";
@@ -29,7 +30,22 @@ function useRelief() {
 
 const VIZ_LABELS = { normal: "Χωρίς χρωματισμό", heatmap: "Ταχύτητα", brake: "Φρενάρισμα" };
 
-function ViewControls({ trackView, onTrackView, cam, onCam, vizMode, onVizMode, relief, onRelief }) {
+function ViewControls({
+  trackView,
+  onTrackView,
+  cam,
+  onCam,
+  drivers,
+  focus,
+  onFocus,
+  vizMode,
+  onVizMode,
+  relief,
+  onRelief,
+}) {
+  const { family, slot } = parseCam(cam);
+  // The driver behind Ακολούθηση, Onboard and Τηλεοπτική: the one in the camera's name, else the chosen one.
+  const driverSlot = slot ?? focus ?? (family === "tv" ? null : 1);
   return (
     <div className="stage__tools">
       <div className="segmented" role="group" aria-label="Προβολή">
@@ -46,10 +62,18 @@ function ViewControls({ trackView, onTrackView, cam, onCam, vizMode, onVizMode, 
           groups={[
             {
               label: "Κάμερα",
-              items: CAM_MODES.map((mode) => ({
-                label: CAM_LABELS[mode],
-                checked: cam === mode,
-                onSelect: () => onCam(mode),
+              items: Object.keys(CAM_LABELS).map((name) => ({
+                label: CAM_LABELS[name],
+                checked: family === name,
+                onSelect: () => onCam(camFor(name, driverSlot ?? 1)),
+              })),
+            },
+            {
+              label: "Οδηγός κάμερας",
+              items: drivers.map((driver) => ({
+                label: driver.label,
+                checked: driverSlot === driver.slot,
+                onSelect: () => onFocus(driver.slot),
               })),
             },
             {
@@ -89,6 +113,9 @@ export default function ReplayStage({
   onTrackView,
   cam,
   onCam,
+  focus,
+  onFocus,
+  fitSignal,
   vizMode,
   onVizMode,
   isDark,
@@ -125,6 +152,9 @@ export default function ReplayStage({
             onTrackView={onTrackView}
             cam={cam}
             onCam={onCam}
+            drivers={model.drivers}
+            focus={focus}
+            onFocus={onFocus}
             vizMode={vizMode}
             onVizMode={onVizMode}
             relief={relief}
@@ -157,6 +187,9 @@ export default function ReplayStage({
                 playRef={playRef}
                 speedRef={speedRef}
                 cam={cam}
+                focus={focus}
+                fitSignal={fitSignal}
+                onPickDriver={onFocus}
                 vizMode={vizMode}
                 isDark={isDark}
                 relief={relief}

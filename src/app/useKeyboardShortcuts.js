@@ -35,6 +35,13 @@ export default function useKeyboardShortcuts({ enabled, handlers }) {
           return h.toggleView?.();
         case "KeyC":
           return h.nextCamera?.();
+        case "KeyF":
+          return h.fitCamera?.();
+        case "Digit1":
+        case "Digit2":
+        case "Digit3":
+        case "Digit4":
+          return h.focusDriver?.(Number(event.code.slice(-1)));
         case "KeyL":
           return h.toggleLoop?.();
         case "ArrowRight":
