@@ -64,13 +64,30 @@ export default function ReplayStage({
   isDark,
   onSceneError,
   touch,
+  dominance = [],
   embed = false,
 }) {
   const is2D = trackView === "2d";
+  const showDominance = is2D && dominance.length > 0;
   return (
-    <section className="stage" aria-label="Αναπαράσταση γύρου">
+    <section className={embed ? "stage" : "stage stage-panel"} aria-label="Αναπαράσταση γύρου">
       <div className="stage__head">
-        <DriverLegend drivers={model.drivers} delta={model.delta} />
+        {/* Embeds have no page around them, so the result and drivers travel with the stage. */}
+        {embed ? (
+          <DriverLegend drivers={model.drivers} delta={model.delta} />
+        ) : (
+          <p className="kicker stage__legend">
+            <span>{showDominance ? "Κυριαρχία πίστας" : "Πίστα"}</span>
+            {showDominance &&
+              model.drivers.map((driver) => (
+                <span key={driver.slot} style={{ "--c": driver.color }}>
+                  <span className="swatch" aria-hidden="true" />
+                  {driver.label}
+                  <span className="stage__legend-long"> ταχύτερος</span>
+                </span>
+              ))}
+          </p>
+        )}
         {!embed && (
           <ViewControls
             trackView={trackView}
@@ -91,7 +108,13 @@ export default function ReplayStage({
           onTouchCancel={touch?.onCancel}
         >
           {is2D ? (
-            <TrackMap trackPath={model.trackPath} drivers={model.drivers} time={time} flip={model.circuitFlip} />
+            <TrackMap
+              trackPath={model.trackPath}
+              drivers={model.drivers}
+              time={time}
+              flip={model.circuitFlip}
+              dominance={dominance}
+            />
           ) : (
             <Suspense fallback={null}>
               <SceneStage3D
@@ -108,6 +131,9 @@ export default function ReplayStage({
             </Suspense>
           )}
         </div>
+        {showDominance && !embed && (
+          <p className="stage__caption">Το χρώμα δείχνει ποιος κερδίζει χρόνο σε κάθε σημείο της πίστας.</p>
+        )}
       </div>
     </section>
   );

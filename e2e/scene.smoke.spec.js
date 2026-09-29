@@ -12,6 +12,9 @@ import {
   trackMap,
 } from "./fixtures.js";
 
+// The Αγωνιστικό δελτίο's driver table: who is compared, ranked, with lap numbers.
+const brief = (page) => page.getByRole("table", { name: "Οδηγοί σύγκρισης" });
+
 async function expectSceneRendered(page) {
   const canvas = page.locator(".stage canvas").first();
   await expect(canvas).toBeVisible();
@@ -40,8 +43,7 @@ test("primary flow: build, compare, play, scrub, switch view, inspect, edit, sha
   // Workspace: replay dominates, the form is gone, the result is labelled honestly.
   await expect(trackMap(page)).toBeVisible();
   await expect(page.getByLabel("Σεζόν")).toHaveCount(0);
-  await expect(page.getByText("Τελική διαφορά γύρου")).toBeVisible();
-  await expect(page.locator(".legend__value")).toHaveText("0.500 s");
+  await expect(page.locator(".desk__facts")).toContainText("Τελική διαφορά0.500 s");
   await expect(page.getByRole("region", { name: "Ghost Car." })).toContainText("Monza GP 2025");
   await expect(page.getByText("Τελική διαφορά 0.500 s · VER ταχύτερος")).toBeVisible();
 
@@ -55,8 +57,8 @@ test("primary flow: build, compare, play, scrub, switch view, inspect, edit, sha
   await page.getByRole("button", { name: "2D", exact: true }).click();
   await expect(trackMap(page)).toBeVisible();
 
-  await page.getByRole("tab", { name: "Τηλεμετρία" }).click();
-  await expect(page.locator("figure.trace")).toHaveCount(3);
+  // Telemetry sits on the replay tab: speed, throttle, brake and the gap at the same point on track.
+  await expect(page.locator("figure.trace")).toHaveCount(4);
   await page.getByRole("tab", { name: "Τομείς" }).click();
   await expect(page.getByRole("table", { name: "Χρόνοι τομέων" })).toBeVisible();
 
@@ -67,7 +69,8 @@ test("primary flow: build, compare, play, scrub, switch view, inspect, edit, sha
   await sheet.getByLabel("Γύρος οδηγού 1").selectOption("5");
   await sheet.getByRole("button", { name: "Φόρτωση σύγκρισης" }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page.locator(".legend__drivers")).toContainText("Γ5");
+  await page.getByRole("tab", { name: "Αναπαράσταση" }).click();
+  await expect(brief(page)).toContainText("Γύρος 5");
 
   await page.getByRole("button", { name: "Κοινοποίηση" }).click();
   await page.getByRole("menuitem", { name: "Αντιγραφή συνδέσμου" }).click();
@@ -136,7 +139,7 @@ test("invalid shared lap warning stays visible after fastest-lap fallback", asyn
   await page.goto(invalidLapUrl);
   await expect(page.getByText(/Δεν βρέθηκε διαθέσιμος γύρος L99 για τον Οδηγό 1/)).toBeVisible();
   await expect(trackMap(page)).toBeVisible();
-  await expect(page.locator(".legend__drivers")).toContainText("Γ7");
+  await expect(brief(page)).toContainText("Γύρος 7");
   expect(errors).toEqual([]);
 });
 
@@ -144,9 +147,8 @@ test("four-driver links restore every slot", async ({ page }) => {
   await setPreferences(page, { trackView: "2d" });
   await routeOpenF1(page);
   await page.goto(fourDriverUrl);
-  await expect(page.locator(".legend__drivers tbody tr")).toHaveCount(4);
+  await expect(brief(page).getByRole("row")).toHaveCount(4);
   await expect(page.locator(".car")).toHaveCount(4);
-  await page.getByRole("tab", { name: "Τηλεμετρία" }).click();
   await expect(page.locator(".brake-lane")).toHaveCount(4);
 });
 
@@ -160,9 +162,10 @@ test("picking another lap marks the replay as out of date until applied", async 
   const pending = page.getByRole("status").filter({ hasText: "διαφέρει" });
   await expect(pending).toBeVisible();
   // The replay still describes what was loaded.
-  await expect(page.locator(".legend__drivers")).toContainText("Γ7");
+  await page.getByRole("tab", { name: "Αναπαράσταση" }).click();
+  await expect(brief(page)).toContainText("Γύρος 7");
   await pending.getByRole("button", { name: "Φόρτωση" }).click();
-  await expect(page.locator(".legend__drivers")).toContainText("Γ5");
+  await expect(brief(page)).toContainText("Γύρος 5");
   await expect(pending).toHaveCount(0);
 });
 
@@ -259,11 +262,10 @@ test("publishing and season analysis preserve the loaded comparison", async ({ p
   await page.goto(comparisonUrl);
   await expect(trackMap(page)).toBeVisible();
 
-  await page.getByRole("button", { name: "Περισσότερα" }).click();
-  await page.getByRole("menuitem", { name: /Κατατακτήριες σεζόν 2025/ }).click();
-  const season = page.getByRole("dialog", { name: "Κατατακτήριες 2025" });
+  await page.getByRole("tab", { name: "Κατατακτήριες σεζόν" }).click();
+  const season = page.getByRole("region", { name: "Κατατακτήριες 2025" });
   await expect(season.getByRole("row", { name: /Monza GP/ })).toBeVisible({ timeout: 10_000 });
-  await page.keyboard.press("Escape");
+  await page.getByRole("tab", { name: "Αναπαράσταση" }).click();
 
   await page.getByRole("button", { name: "Κοινοποίηση" }).click();
   await page.getByRole("menuitem", { name: "Αποθήκευση σύγκρισης" }).click();
@@ -283,7 +285,7 @@ test("publishing and season analysis preserve the loaded comparison", async ({ p
   await saved.getByRole("button", { name: /VER – NOR/ }).click();
   await expect(saved).toHaveCount(0);
   await expect(trackMap(page)).toBeVisible();
-  await expect(page.locator(".legend__drivers")).toContainText("VER");
+  await expect(brief(page)).toContainText("Max Verstappen");
 
   await timeline(page).focus();
   await page.keyboard.press("ArrowRight");
@@ -314,4 +316,42 @@ test("real-time replay: the faster lap reaches the line first", async ({ page })
   const atEnd = await carPositions();
   expect(atEnd[0]).toBe(justAfter[0]);
   expect(atEnd[1]).not.toBe(justAfter[1]);
+});
+
+test("reliable gap: coloured track, gap chart, and seeking by lap distance on a chart", async ({ page }) => {
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await expect(trackMap(page)).toBeVisible();
+  await expect(page.locator(".track-map__dominance").first()).toBeVisible();
+  await expect(page.locator(".stage__legend")).toContainText("Κυριαρχία πίστας");
+  await expect(page.getByRole("figure").filter({ hasText: "Διαφορά χρόνου" })).toBeVisible();
+  await expect(page.locator(".transport__sector")).toHaveText(["S1", "S2", "S3"]);
+  // Three quarters along the lap: VER (constant speed, 82.1 s) is there at 61.6 s of the 82.6 s replay.
+  const area = page.locator(".trace__area").first();
+  await area.scrollIntoViewIfNeeded();
+  const box = await area.boundingBox();
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height / 2);
+  await expect.poll(async () => Number(await timeline(page).inputValue())).toBeGreaterThan(0.72);
+  expect(Number(await timeline(page).inputValue())).toBeLessThan(0.77);
+});
+
+test("unreliable gap: plain track, no gap chart, and the reason on the page", async ({ page }) => {
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page);
+  // VER's alternate lap has sector times that contradict its position data.
+  await page.goto(comparisonUrl.replace("l1=7", "l1=5"));
+  await expect(trackMap(page)).toBeVisible();
+  await expect(page.getByText("Χωρίς διαφορά ανά σημείο της πίστας")).toBeVisible();
+  await expect(page.locator("figure.trace")).toHaveCount(3);
+  await expect(page.locator(".track-map__dominance")).toHaveCount(0);
+  await expect(page.locator(".stage__legend")).toHaveText("Πίστα");
+});
+
+test("old share links open the matching page tab", async ({ page }) => {
+  await setPreferences(page, { trackView: "2d" });
+  await routeOpenF1(page);
+  await page.goto(`${comparisonUrl}&tab=stats`);
+  await expect(page.getByRole("tab", { name: "Τομείς" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("table", { name: "Χρόνοι τομέων" })).toBeVisible();
 });

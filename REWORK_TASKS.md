@@ -142,27 +142,27 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 
 | Test | Assertion | Breaks in | Update to |
 |---|---|---|---|
-| primary flow | text `Τελική διαφορά γύρου` | T6.3/T6.4 | key-facts label `Τελική διαφορά` |
-| primary flow, invalid lap, four-driver, dirty lap, publishing | `.legend__value` = `0.500 s`; `.legend__drivers` contains `Γ7`/`Γ5`/`VER`; `.legend__drivers tbody tr` ×4 | T2.3/T6.4 (`DriverLegend` leaves the stage) | a `role="table"` named e.g. `Οδηγοί σύγκρισης` in the Δελτίο rail; the lap shown as `Γύρος 7` |
+| primary flow | text `Τελική διαφορά γύρου` | T6.3/T6.4 ✅ | key-facts label `Τελική διαφορά` |
+| primary flow, invalid lap, four-driver, dirty lap, publishing | `.legend__value` = `0.500 s`; `.legend__drivers` contains `Γ7`/`Γ5`/`VER`; `.legend__drivers tbody tr` ×4 | T2.3/T6.4 ✅ | a `role="table"` named e.g. `Οδηγοί σύγκρισης` in the Δελτίο rail; the lap shown as `Γύρος 7` |
 | primary flow | `banner` contains `Monza GP 2025` | T2.1/T2.3 ✅ | the hero region `Ghost Car.` contains the event line; the band text is asserted too |
-| primary flow, four-driver | `tab "Τηλεμετρία"` → `figure.trace` ×3; `.brake-lane` ×4 | T6.1/T6.8 (telemetry moves into Αναπαράσταση) | assert the charts on the default tab, with no click |
-| primary flow | `tab "Τομείς"` → table `Χρόνοι τομέων` | T6.1 | keep (Τομείς stays a tab; keep the table name) |
-| dirty lap | `tab "Γύροι"` → `button /Γ5/` → status `διαφέρει` → `Φόρτωση` | T6.9 | keep the roles and copy |
+| primary flow, four-driver | `tab "Τηλεμετρία"` → `figure.trace` ×3; `.brake-lane` ×4 | T6.1/T6.8 ✅ (now ×4 figures incl. gap) | assert the charts on the default tab, with no click |
+| primary flow | `tab "Τομείς"` → table `Χρόνοι τομέων` | T6.1 ✅ | keep (Τομείς stays a tab; keep the table name) |
+| dirty lap | `tab "Γύροι"` → `button /Γ5/` → status `διαφέρει` → `Φόρτωση` | T6.9 ✅ | keep the roles and copy |
 | cancelled load | `.builder__status` shows `VER γύρος 7 · NOR γύρος 8` + `Ακύρωση` | T2.4 ✅ | the band's `role="status"`; keep the copy and the Ακύρωση button |
 | loaded at 320/390/768 | `.stage` top < 120 px | T2.3 ✅ | stage and play button both inside the first viewport (finding 1) |
-| loaded at 320/390 | `.timeline` width > 250 px | T6.6 (the mobile mockup puts play, scrubber and time on one row) | keep > 250: give the time its own row under the scrubber on < 480 px |
+| loaded at 320/390 | `.timeline` width > 250 px | T6.6 ✅ | keep > 250: give the time its own row under the scrubber on < 480 px |
 | loaded at…, primary flow, publishing | `timeline.fill("0.45")`, value grows on play, `ArrowRight` > 0 | T4.2 ✅ (unchanged, still green) | keep: the slider stays a 0–1 `prog`; assert the time text as well |
-| loaded at… | `/Επανάληψη/` has `aria-pressed` | T6.6 | keep: the `↻ Επανάληψη` button stays a toggle |
+| loaded at… | `/Επανάληψη/` has `aria-pressed` | T6.6 ✅ | keep: the `↻ Επανάληψη` button stays a toggle |
 | mobile embed | link `/Άνοιγμα στο F1 Stories Ghost Car/` | T8.3 | keep this accessible name even if the visible text is shortened |
-| publishing & season | `Περισσότερα` → menuitem `/Κατατακτήριες σεζόν 2025/` → dialog `Κατατακτήριες 2025` | T6.1 (Season becomes a tab) | `tab "Κατατακτήριες σεζόν"` → a row `/Monza GP/` in its panel |
-| 3D round trip | `Επιλογές προβολής` → `menuitemradio "Από ψηλά"` | T6.2 | keep (the 3D view-options menu stays on the stage) |
+| publishing & season | `Περισσότερα` → menuitem `/Κατατακτήριες σεζόν 2025/` → dialog `Κατατακτήριες 2025` | T6.1 ✅ | `tab "Κατατακτήριες σεζόν"` → a row `/Monza GP/` in its panel |
+| 3D round trip | `Επιλογές προβολής` → `menuitemradio "Από ψηλά"` | T6.2 ✅ (unchanged) | keep (the 3D view-options menu stays on the stage) |
 | (several) | `setPreferences` seeds `f1s-track-view` | T7.3 | keep: an explicit stored value still wins over the new 2D default |
 
 `test/`
 
 | File | Assertion | Breaks in | Update to |
 |---|---|---|---|
-| `redesign.test.js` | `normalizeRailTab` values `live/telemetry/sectors/laps` | T6.1 | `normalizePageTab`: `replay/sectors/laps/season` plus the legacy map in §4 |
+| `redesign.test.js` | `normalizeRailTab` values `live/telemetry/sectors/laps` | T6.1 ✅ | `normalizePageTab`: `replay/sectors/laps/season` plus the legacy map in §4 |
 | `helpers.test.js` | `encodeURL({ trackView: "3d" })` → decoded `null` (only `tv=2d` is written) | T7.3 | once 2D is the default, write `tv=3d` instead and omit `2d`. Old `tv=2d` links still decode correctly. |
 
 **Findings and decisions** (1 and 2 accepted 29 Sep 2026)
@@ -300,26 +300,37 @@ The replay now runs in real time. The clock goes from 0 to the slowest lap, and 
   - Dominance splits a lap into about 30 segments on close laps. Phase 6 should check that it reads well and consider fewer buckets.
   - The e2e fixture's drivers start at different angles on their circle, so the trace will likely be unreliable there. Phase 6 needs fixture laps that pass the gate, plus one that doesn't (for the hidden-chart path).
 
-### Phase 6: Loaded workspace
+### Phase 6: Loaded workspace ✅
 
-- **T6.1** Page tabs (`src/features/analysis/railTabs.js` → `pageTabs.js`, `AnalysisRail.jsx` → `Workspace.jsx`): `replay | sectors | laps | season` with legacy URL mapping (§4). Only the active tab is mounted, as today. Delete `SeasonDialog` after moving its body into the Season tab panel; keep its incremental, cancellable scan hook unchanged.
-- **T6.2** Tab row actions, right-aligned: `2D | 3D` segmented control (ink fill when active), `⤴ Κοινοποίηση`, `‹/› Ενσωμάτωση`, `⋯`. On mobile these go in one `⋯` menu, and the segmented control moves onto the stage (top-right).
-- **T6.3** `KeyFacts.jsx` (new): **Ταχύτερος** (name, time, lap), **Τελική διαφορά**, **Μεγαλύτερο κέρδος** (sector with the largest |Δ| and who gained), **Μέγιστη ταχύτητα** (max `tel.speed` per driver). All of these are pure functions in `replayModel.js`, with tests. With 3–4 drivers, compare fastest vs second.
-- **T6.4** Stage panel (`ReplayStage.jsx`, `replay.css`): surface-coloured panel with a 2 px ink top rule and a cut corner. Kicker legend `ΚΥΡΙΑΡΧΙΑ ΠΙΣΤΑΣ ■ VER ταχύτερος ■ NOR ταχύτερος`, plus a caption at the bottom right. Reposition `DriverLegend` into the hero aside and rail (drop it from the stage head).
-- **T6.5** `TrackMap.jsx`: wide surface-3 road with a rule edge, dominance overlay strokes (T5.2), and a signal start line. Car labels become ink chips in Barlow with a 3–4 px team-colour left bar, keeping the existing stacking logic.
-- **T6.6** Transport (`PlaybackBar.jsx`): square ink play button, scrubber with signal fill and ink knob, sector ticks labelled `S1 S2 S3` (T5.3), the time (T4.4), outlined `↻ Επανάληψη` and speed. Keep the native range input for a11y and style it; ticks are an overlay with `aria-hidden`.
-- **T6.7** Δελτίο rail (`LiveTelemetry.jsx` → `RaceBrief.jsx`):
-  - `ΑΓΩΝΙΣΤΙΚΟ ΔΕΛΤΙΟ` heading and `Ζωντανές τιμές στο m:ss`.
-  - Ruled driver rows: 3 px team rule, position in accent, name, `Ομάδα · Γύρος n · Ελαστικό`, and the time or `+gap` on the right.
-  - Live table: Ταχύτητα (large), Γκάζι, Φρένο, Σχέση · DRS.
-  - `ΔΙΑΦΟΡΕΣ ΑΝΑ ΤΟΜΕΑ`: centred diverging bars in the gaining driver's colour, labelled `NOR 0.041`.
-- **T6.8** `02 / ΤΗΛΕΜΕΤΡΙΑ` section (`TelemetryTraces.jsx`):
-  - Heading `Ταχύτητα, γκάζι, φρένο.` with an aside.
-  - Three charts on the distance axis, each under a 2 px ink top rule: speed, throttle (with brake as a shaded band) and **Διαφορά χρόνου** (T5.1, area fill, zero line).
-  - A shared playhead at the current distance.
-  - **Pointer drag on any chart seeks.** Convert distance to time through the reference driver's index.
-  - Keep the existing downsampling and memoisation.
-- **T6.9** Τομείς tab (`SectorAnalysis.jsx`): standings-style ruled table (sector, each driver's time, Δ with a bar) and a large dominance map with no cars. Γύροι tab (`LapTimes.jsx`): ruled rows, the selected lap marked with a signal left rule, and the ink "Φόρτωση" button when the selection differs from what's loaded (`isDirty`).
+The loaded page now follows `a-desk-loaded.png`. Checked on the fixtures at 390, 768 and 1440 px in both themes, with 2 and 4 drivers, and live on Monza 2025 Q and Suzuka 2025 Q.
+
+- **T6.1 ✅ Page tabs**
+  - `pageTabs.js` (was `railTabs.js`) defines `replay | sectors | laps | season`. `normalizePageTab` maps the old `live`/`telemetry`/`3d` → `replay`, `stats` → `sectors` and `h2h` → `season`; covered by a unit test and an e2e test on `tab=stats`.
+  - `Workspace.jsx` (replaces `AnalysisRail.jsx`) mounts only the active panel.
+  - The Season dialog became `SeasonPanel.jsx`, with the same scan hook. Its `⋯` entry is gone; it's a tab now.
+  - `T` jumps to the telemetry section.
+- **T6.2 ✅ Tab-row actions** (`app/ComparisonActions.jsx`)
+  - Κοινοποίηση menu (link, embed, save, image, card), a direct **Ενσωμάτωση** button, and `⋯` (featured, saved, showreel, shortcuts). `Tabs` gained an `aside` slot for them.
+  - Below 1100 px they become icons and Embed lives only in the menu, so all four tabs fit at 768 px.
+  - The hero keeps **Αλλαγή σύγκρισης →** (just the edit icon on phones).
+  - Change from the plan: the **2D/3D switch stays on the stage** at every width, as in the phone mockup, rather than moving to the tab row.
+- **T6.3 ✅ Key facts:** `buildKeyFacts` (pure, unit-tested) gives Ταχύτερος, Τελική διαφορά, Μεγαλύτερο κέρδος (sector with the largest swing between the two fastest), and Μέγιστη ταχύτητα. On phones and tablets the facts sit **after** the player, as in the mockup.
+- **T6.4 ✅ Stage panel:** surface, 2 px ink rule, cut corner, and a `ΚΥΡΙΑΡΧΙΑ ΠΙΣΤΑΣ ■ VER ταχύτερος …` legend (just `Πίστα` when there's no dominance), plus a caption. `DriverLegend` now appears **only in embeds**, which have no hero or brief.
+- **T6.5 ✅ Track map:** wider road with a rule edge, dominance segments (slices of the track polyline in the driver's colour), a signal start line, and ink Barlow name chips with a team-colour edge. `showCars` lets the Τομείς map omit cars.
+- **T6.6 ✅ Transport:** square ink play button, signal fill with an ink knob, S1/S2/S3 labels from `sectorTicks`, and an outlined **Επανάληψη** toggle (icon-only below 1100 px so the scrubber stays wide).
+- **T6.7 ✅ `RaceBrief.jsx`:** `ΑΓΩΝΙΣΤΙΚΟ ΔΕΛΤΙΟ` with the time; ranked driver rows (a table named `Οδηγοί σύγκρισης`, team-colour rule, `Ομάδα · Γύρος n · Soft`, time or +gap); the live values; and `ΔΙΑΦΟΡΕΣ ΑΝΑ ΤΟΜΕΑ` as diverging bars. The `.diverging` styles moved to `analysis.css`.
+- **T6.8 ✅ `02 / Τηλεμετρία`:** speed, throttle, brake lanes and **Διαφορά χρόνου** on the **lap-distance** axis (the fastest driver's position), with sector lines, a shared playhead, and click/drag-to-seek.
+  - When the gap trace isn't reliable, the axis falls back to time, the gap chart is left out, and a margin note gives the reason.
+  - The brake lanes now span the full chart (fixing the Phase 4 misalignment).
+- **T6.9 ✅ Other panels:** Τομείς has its tables beside a large dominance map. In Γύροι the selected lap gets a signal rule, and the pending "διαφέρει / Φόρτωση" note shows on every tab.
+- **Fixed on the way**
+  - **3D on desktop at ≤ 1280 px:** `createRenderer` decided "mobile" from the stage's width (< 768 px). With the rail beside it, a 1280 px desktop was treated as a phone: no antialiasing, low-power GPU, unreadable buffer (this broke the e2e pixel test). It now uses the viewport width, as `useIsMobile` does.
+  - **Names:** OpenF1's "Max VERSTAPPEN" now reads "Max Verstappen" everywhere (`getDriverFullName`, unit-tested).
+  - **Gap line:** smoothed over 11 of 400 points (about 160 m) so ~4 Hz noise reads as a trend.
+  - **Dominance:** a stretch is only coloured when one driver is ≥ 5 ms faster there; otherwise it stays neutral (unit test).
+- **E2E fixture:** all drivers now share one line and start line, and their sector times match their positions, so the default comparison passes the gap gate. The alternate laps' sector times deliberately contradict the positions, giving the "refused" path.
+- **Tests:** 43 unit and 26 e2e. The new e2e tests cover the coloured track + gap chart + seek-by-distance, the refused-gap path, and legacy `tab` links.
+- **Size:** initial JS 40.95 kB gz, +6.8 kB over the Phase 1 baseline (budget +10); CSS 9.04 kB gz.
 
 ### Phase 7: 3D restyle (colours only)
 

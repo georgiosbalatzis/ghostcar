@@ -1,4 +1,4 @@
-import Icon, { IconButton } from "../../components/ui/Icon.jsx";
+import Icon from "../../components/ui/Icon.jsx";
 import { fmt } from "../../helpers.js";
 
 function formatSpeed(speed) {
@@ -13,6 +13,7 @@ export default function PlaybackBar({
   loop,
   progress,
   duration = 0,
+  ticks = [],
   speed,
   speeds,
   onToggle,
@@ -32,25 +33,43 @@ export default function PlaybackBar({
       >
         <Icon name={play ? "pause" : "play"} size={20} />
       </button>
-      <input
-        type="range"
-        className="timeline"
-        aria-label="Πρόοδος γύρου"
-        aria-valuetext={`${(progress * duration).toFixed(1)} από ${duration.toFixed(1)} δευτερόλεπτα`}
-        min="0"
-        max="1"
-        step="0.001"
-        value={progress}
-        style={{ "--p": progress }}
-        onChange={(event) => onSeek(parseFloat(event.target.value))}
-      />
+      <div className="transport__track">
+        <input
+          type="range"
+          className="timeline"
+          aria-label="Πρόοδος γύρου"
+          aria-valuetext={`${(progress * duration).toFixed(1)} από ${duration.toFixed(1)} δευτερόλεπτα`}
+          min="0"
+          max="1"
+          step="0.001"
+          value={progress}
+          style={{ "--p": progress }}
+          onChange={(event) => onSeek(parseFloat(event.target.value))}
+        />
+        {/* Sector lines of the fastest lap (official sector times) on the time axis. */}
+        {ticks.length > 0 &&
+          [0, ...ticks].map((tick, index) => (
+            <span key={index} className="transport__sector" style={{ left: `${tick * 100}%` }} aria-hidden="true">
+              S{index + 1}
+            </span>
+          ))}
+      </div>
       <span className="transport__time num">
         <b>{fmt(progress * duration)}</b>
         <span> / {fmt(duration)}</span>
       </span>
       {!compact && (
         <div className="transport__secondary">
-          <IconButton icon="loop" label="Επανάληψη (L)" pressed={loop} onClick={onLoop} />
+          <button
+            type="button"
+            className="btn btn--line transport__loop"
+            aria-pressed={loop}
+            title="Επανάληψη (L)"
+            onClick={onLoop}
+          >
+            <Icon name="loop" size={18} />
+            <span className="transport__loop-label">Επανάληψη</span>
+          </button>
           <select
             className="select transport__speed"
             aria-label="Ταχύτητα αναπαραγωγής"

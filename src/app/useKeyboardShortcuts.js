@@ -30,7 +30,7 @@ export default function useKeyboardShortcuts({ enabled, handlers }) {
         case "KeyD":
           return h.toggleTheme?.();
         case "KeyT":
-          return h.toggleTelemetry?.();
+          return h.showTelemetry?.();
         case "KeyV":
           return h.toggleView?.();
         case "KeyC":

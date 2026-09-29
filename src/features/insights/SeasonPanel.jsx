@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import Dialog from "../../components/ui/Dialog.jsx";
 import { fmt } from "../../helpers.js";
 import "./insights.css";
 
-// Qualifying head-to-head across a season (formerly two separate views: H2H and season dashboard).
-export default function SeasonDialog({ year, drivers, season, onClose }) {
+// Qualifying head-to-head across a season for drivers A and B: a page tab. The scan starts when the tab opens,
+// is cached per pair, and is cancelled when the tab closes.
+export default function SeasonPanel({ year, drivers, season }) {
   const [a, b] = drivers;
   const { rows, progress, load, cancel } = season;
 
@@ -17,12 +17,15 @@ export default function SeasonDialog({ year, drivers, season, onClose }) {
   const scale = rows?.length ? Math.max(...rows.map((row) => Math.abs(row.d)), 0.05) : 1;
 
   return (
-    <Dialog
-      title={`Κατατακτήριες ${year}`}
-      subtitle={`${a.label} – ${b.label} · καλύτερος γύρος κάθε Γκραν Πρι`}
-      variant="wide"
-      onClose={onClose}
-    >
+    <section className="season" aria-labelledby="season-title">
+      <div className="season__head">
+        <h2 id="season-title" className="season__title">
+          Κατατακτήριες {year}
+        </h2>
+        <p className="season__lede">
+          {a.label} – {b.label} · καλύτερος γύρος κάθε Γκραν Πρι
+        </p>
+      </div>
       {progress && (
         <div className="season__progress" role="status">
           <span className="spinner" aria-hidden="true" />
@@ -97,6 +100,6 @@ export default function SeasonDialog({ year, drivers, season, onClose }) {
       {rows && rows.length === 0 && !progress && (
         <p className="empty-note">Δεν βρέθηκαν κατατακτήριες με γύρους και για τους δύο οδηγούς στο {year}.</p>
       )}
-    </Dialog>
+    </section>
   );
 }

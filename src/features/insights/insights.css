@@ -1,3 +1,21 @@
+.season__head {
+  margin-bottom: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 2px solid var(--text);
+}
+.season__title {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+.season__lede {
+  margin-top: var(--space-1);
+  color: var(--text-2);
+}
+.season {
+  max-width: 900px;
+}
 .season__progress {
   display: flex;
   align-items: center;
@@ -38,24 +56,6 @@
   grid-template-columns: minmax(0, 1fr) 6.5rem;
   align-items: center;
   gap: var(--space-3);
-}
-.diverging {
-  position: relative;
-  display: block;
-  height: 6px;
-  background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 1px 100% no-repeat;
-}
-.diverging__bar {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  height: 100%;
-  border-radius: 1px;
-  background: var(--ink, var(--muted));
-}
-.diverging__bar--left {
-  left: auto;
-  right: 50%;
 }
 .season__delta {
   font-size: var(--text-small);

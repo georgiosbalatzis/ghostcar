@@ -70,7 +70,9 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
   try {
     const width = Math.max(container.clientWidth, 1);
     const height = Math.max(container.clientHeight, 1);
-    const isMob = width < 768;
+    // A phone is a narrow viewport, not a narrow stage: on desktop the stage shares its row with the analysis
+    // rail and can be under 768px wide, and must still get antialiasing and a readable buffer.
+    const isMob = window.innerWidth < 768;
     const connection =
       window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
     const deviceMemory = window.navigator?.deviceMemory ?? 8;

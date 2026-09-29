@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildGapTrace, dominanceSegments, sectorTicks } from "../src/domain/gap.js";
+import {
+  buildGapTrace,
+  distanceAtTimeOnGrid,
+  dominanceSegments,
+  sectorTicks,
+  timeAtDistanceOnGrid,
+} from "../src/domain/gap.js";
 import { buildTimeIndex } from "../src/domain/timing.js";
 
 const START = Date.parse("2025-09-06T14:00:00.000Z");
@@ -49,6 +55,9 @@ test("gap at the same point grows steadily between two constant-speed laps, acro
     assert.ok(Math.abs(gaps[k] - expected) < 0.03, `at ${trace.d[k].toFixed(2)}: ${gaps[k]} vs ${expected}`);
   }
   assert.equal(trace.checks.length, 2);
+  // Grid lookups invert each other: halfway along the lap, VER has run 40 s.
+  assert.ok(Math.abs(timeAtDistanceOnGrid(trace, 1, 0.5) - 40) < 0.05);
+  assert.ok(Math.abs(distanceAtTimeOnGrid(trace, 1, 40) - 0.5) < 0.001);
 });
 
 test("official sector times that disagree with the position data make the trace unreliable", () => {
@@ -102,6 +111,14 @@ test("dominance gives each stretch to the driver who covers it faster", () => {
   assert.ok(Math.abs(segments[0].to - 0.5) < 0.05, `handover at ${segments[0].to}`);
   assert.equal(segments[0].from, 0);
   assert.equal(segments.at(-1).to, 1);
+});
+
+test("stretches where neither driver is clearly faster have no owner", () => {
+  const a = driver({ slot: 1, label: "VER", lap: 80 });
+  const b = driver({ slot: 2, label: "NOR", lap: 80.001, offset: 0.2 });
+  const trace = buildGapTrace(model(a, b));
+  assert.equal(trace.reliable, true, trace.reason);
+  assert.deepEqual(dominanceSegments(trace), []);
 });
 
 test("sector ticks sit at the fastest driver's sector ends on the time axis", () => {

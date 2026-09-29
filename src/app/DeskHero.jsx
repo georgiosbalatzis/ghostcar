@@ -1,94 +1,10 @@
 import { memo } from "react";
 import { fmt } from "../helpers.js";
 import Icon from "../components/ui/Icon.jsx";
-import Menu from "../components/ui/Menu.jsx";
-
-// Keyboard shortcuts mean nothing on a touch-only device, so neither the list nor the key hints show there.
-const HAS_KEYBOARD = window.matchMedia("(any-pointer: fine)").matches;
-
-function moreGroups({ actions, showreel, season }) {
-  return [
-    {
-      label: "Ανάλυση",
-      items: [
-        {
-          label: `Κατατακτήριες σεζόν ${season?.year ?? ""}`.trim(),
-          icon: "chart",
-          hint: season?.pair,
-          hidden: !season,
-          onSelect: () => actions.openDialog("season"),
-        },
-      ],
-    },
-    {
-      label: "Συγκρίσεις",
-      items: [
-        { label: "Επιλεγμένες συγκρίσεις", icon: "star", onSelect: () => actions.openDialog("featured") },
-        { label: "Αποθηκευμένες συγκρίσεις", icon: "bookmark", onSelect: () => actions.openDialog("saved") },
-      ],
-    },
-    {
-      label: "Προβολή",
-      items: [
-        {
-          label: showreel ? "Διακοπή αυτόματης προβολής" : "Αυτόματη προβολή",
-          icon: "film",
-          onSelect: actions.toggleShowreel,
-        },
-        {
-          label: "Συντομεύσεις πληκτρολογίου",
-          icon: "keyboard",
-          hint: "?",
-          hidden: !HAS_KEYBOARD,
-          onSelect: () => actions.openDialog("shortcuts"),
-        },
-      ],
-    },
-  ];
-}
-
-function WorkspaceActions({ actions, showreel, season }) {
-  return (
-    <div className="hero__actions">
-      <button type="button" className="btn btn--ink hero__edit" onClick={actions.editComparison}>
-        <Icon name="edit" size={18} />
-        <span className="hero__action-label">Αλλαγή σύγκρισης</span>
-      </button>
-      <Menu
-        label="Κοινοποίηση"
-        trigger={
-          <>
-            <Icon name="share" size={18} />
-            <span className="hero__action-label">Κοινοποίηση</span>
-          </>
-        }
-        triggerClassName="btn btn--line hero__share"
-        groups={[
-          {
-            label: "",
-            items: [
-              { label: "Αντιγραφή συνδέσμου", icon: "link", onSelect: actions.copyLink },
-              { label: "Ενσωμάτωση σε σελίδα", icon: "code", onSelect: () => actions.openDialog("embed") },
-              { label: "Αποθήκευση σύγκρισης", icon: "bookmark", onSelect: actions.saveComparison },
-            ],
-          },
-          {
-            label: "Εξαγωγή",
-            items: [
-              { label: "Εικόνα πίστας", icon: "image", onSelect: actions.takeScreenshot },
-              { label: "Κάρτα κοινοποίησης", icon: "card", onSelect: actions.generateSocialCard },
-            ],
-          },
-        ]}
-      />
-      <Menu label="Περισσότερα" trigger={<Icon name="more" />} groups={moreGroups({ actions, showreel, season })} />
-    </div>
-  );
-}
 
 // Page opening, as on f1stories.gr /standings/: crumb, "GHOST CAR." display title, and an aside.
-// Builder: tagline and a short explanation. Loaded: the event, the drivers and laps, and the comparison actions.
-function DeskHero({ model, actions, showreel, season }) {
+// Builder: tagline and a short explanation. Loaded: the event, the drivers and laps, and "change comparison".
+function DeskHero({ model, onEdit }) {
   return (
     <section className={model ? "hero hero--loaded" : "hero"} aria-labelledby="hero-title">
       <div className="crumb">
@@ -120,7 +36,11 @@ function DeskHero({ model, actions, showreel, season }) {
                   </li>
                 ))}
               </ul>
-              <WorkspaceActions actions={actions} showreel={showreel} season={season} />
+              <button type="button" className="btn btn--ink hero__edit" onClick={onEdit}>
+                <Icon name="edit" size={18} />
+                <span className="hero__action-label">Αλλαγή σύγκρισης</span>
+                <Icon name="arrow" size={18} />
+              </button>
             </>
           ) : (
             <>
@@ -137,34 +57,6 @@ function DeskHero({ model, actions, showreel, season }) {
         </aside>
       </div>
     </section>
-  );
-}
-
-// Under the builder: the featured comparisons (a dialog), and the utilities that live in ⋯ once a
-// comparison is loaded, as a quiet text row.
-export function BuilderUtilities({ actions, showreel, presetCount }) {
-  return (
-    <div className="builder-more">
-      <p className="builder-more__presets">
-        <span className="kicker">Ή ξεκίνα από έτοιμη σύγκριση</span>
-        <button type="button" className="btn btn--link kicker" onClick={() => actions.openDialog("featured")}>
-          Επιλεγμένες συγκρίσεις ({presetCount}) →
-        </button>
-      </p>
-      <p className="builder-more__utilities">
-        <button type="button" className="btn btn--link" onClick={() => actions.openDialog("saved")}>
-          Αποθηκευμένες
-        </button>
-        <button type="button" className="btn btn--link" onClick={actions.toggleShowreel}>
-          {showreel ? "Διακοπή αυτόματης προβολής" : "Αυτόματη προβολή"}
-        </button>
-        {HAS_KEYBOARD && (
-          <button type="button" className="btn btn--link" onClick={() => actions.openDialog("shortcuts")}>
-            Συντομεύσεις
-          </button>
-        )}
-      </p>
-    </div>
   );
 }
 

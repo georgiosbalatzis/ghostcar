@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import TrackMap from "../replay/TrackMap.jsx";
 
 function bestIndex(values, lowerIsBetter) {
   let best = -1;
@@ -76,40 +77,67 @@ function DriverHead({ drivers }) {
   );
 }
 
-// Official sector times from OpenF1 laps, plus lap summaries derived from car telemetry samples.
-function SectorAnalysis({ drivers }) {
+// Official sector times from OpenF1 laps, lap summaries from car telemetry, and who is faster where.
+function SectorAnalysis({ model, dominance }) {
+  const { drivers } = model;
   const summaries = useMemo(() => drivers.map((driver) => summarise(driver.tel)), [drivers]);
   const hasSectors = drivers.some((driver) => driver.sectors.some(Boolean));
   return (
     <div className="sectors">
-      {hasSectors ? (
+      <div className="sectors__tables">
+        {hasSectors ? (
+          <table className="data-table">
+            <caption className="table-caption">Χρόνοι τομέων</caption>
+            <DriverHead drivers={drivers} />
+            <tbody>
+              {[0, 1, 2].map((sector) => (
+                <TimeRow
+                  key={sector}
+                  label={`Τομέας ${sector + 1}`}
+                  values={drivers.map((driver) => driver.sectors[sector])}
+                  format={(value) => value.toFixed(3)}
+                />
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="empty-note">Το OpenF1 δεν δίνει χρόνους τομέων για αυτούς τους γύρους.</p>
+        )}
         <table className="data-table">
-          <caption className="table-caption">Χρόνοι τομέων</caption>
+          <caption className="table-caption">Σύνοψη γύρου</caption>
           <DriverHead drivers={drivers} />
           <tbody>
-            {[0, 1, 2].map((sector) => (
-              <TimeRow
-                key={sector}
-                label={`Τομέας ${sector + 1}`}
-                values={drivers.map((driver) => driver.sectors[sector])}
-                format={(value) => value.toFixed(3)}
-              />
-            ))}
+            <ValueRow label="Μέγιστη ταχύτητα" unit="km/h" values={summaries.map((s) => s.top)} highlight />
+            <ValueRow label="Μέση ταχύτητα" unit="km/h" values={summaries.map((s) => s.avg)} highlight />
+            <ValueRow label="Πλήρες γκάζι" unit="% χρόνου" values={summaries.map((s) => s.full)} />
+            <ValueRow label="Φρενάρισμα" unit="% χρόνου" values={summaries.map((s) => s.braking)} />
           </tbody>
         </table>
-      ) : (
-        <p className="empty-note">Το OpenF1 δεν δίνει χρόνους τομέων για αυτούς τους γύρους.</p>
+      </div>
+      {dominance.length > 0 && (
+        <figure className="sectors__map stage-panel">
+          <figcaption className="kicker stage__legend">
+            <span>Κυριαρχία πίστας</span>
+            {drivers.map((driver) => (
+              <span key={driver.slot} style={{ "--c": driver.color }}>
+                <span className="swatch" aria-hidden="true" />
+                {driver.label}
+                <span className="stage__legend-long"> ταχύτερος</span>
+              </span>
+            ))}
+          </figcaption>
+          <div className="sectors__track">
+            <TrackMap
+              trackPath={model.trackPath}
+              drivers={drivers}
+              time={0}
+              flip={model.circuitFlip}
+              dominance={dominance}
+              showCars={false}
+            />
+          </div>
+        </figure>
       )}
-      <table className="data-table">
-        <caption className="table-caption">Σύνοψη γύρου</caption>
-        <DriverHead drivers={drivers} />
-        <tbody>
-          <ValueRow label="Μέγιστη ταχύτητα" unit="km/h" values={summaries.map((s) => s.top)} highlight />
-          <ValueRow label="Μέση ταχύτητα" unit="km/h" values={summaries.map((s) => s.avg)} highlight />
-          <ValueRow label="Πλήρες γκάζι" unit="% χρόνου" values={summaries.map((s) => s.full)} />
-          <ValueRow label="Φρενάρισμα" unit="% χρόνου" values={summaries.map((s) => s.braking)} />
-        </tbody>
-      </table>
     </div>
   );
 }

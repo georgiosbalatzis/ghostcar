@@ -18,6 +18,7 @@ const MAX_EDGE_S = 1; // first and last samples must be this close to the lap st
 export const SECTOR_TOLERANCE_S = 0.1;
 const MAX_OFFSET_S = 0.5; // a larger clock offset means the position data belongs to something else
 const SEARCH_BACK = 4;
+const DOMINANCE_MARGIN_S = 0.005; // a stretch belongs to a driver only when they are clearly faster there
 const SEARCH_AHEAD = 80;
 
 function cumulativeDistance(points) {
@@ -123,7 +124,8 @@ function shiftProfile({ d, t }, offset) {
 export const distanceAtTime = (profile, time) => interpolate(profile.t, profile.d, time);
 
 // Centred moving average; the ends stay exact (both drivers start together; the finish is the lap delta).
-function smooth(values, radius = 2) {
+// Radius 5 of 400 points (~160 m) smooths ~4 Hz position noise without flattening a braking zone.
+function smooth(values, radius = 5) {
   return values.map((value, i) => {
     if (i === 0 || i === values.length - 1) return value;
     const from = Math.max(0, i - radius);
@@ -226,9 +228,14 @@ export function buildGapTrace(model, { points = 400 } = {}) {
   return trace;
 }
 
+// On a trace's grid: where (0–1 of the lap distance) a driver is at `time`, and when they pass `distance`.
+export const distanceAtTimeOnGrid = (trace, slot, time) => interpolate(trace.times[slot], trace.d, time);
+export const timeAtDistanceOnGrid = (trace, slot, distance) => interpolate(trace.d, trace.times[slot], distance);
+
 /**
  * Who is faster where: the lap split into `buckets` stretches, each owned by the driver who covers it in the
- * least time; neighbours with the same owner are merged. `from`/`to` are fractions of the track geometry.
+ * least time, by at least DOMINANCE_MARGIN_S; closer stretches have no owner and are left out. Neighbours with
+ * the same owner are merged. `from`/`to` are fractions of the track geometry.
  */
 export function dominanceSegments(trace, buckets = 48) {
   if (!trace?.reliable) return [];
@@ -238,18 +245,16 @@ export function dominanceSegments(trace, buckets = 48) {
   for (let b = 0; b < buckets; b++) {
     const k0 = Math.round((b / buckets) * last);
     const k1 = Math.round(((b + 1) / buckets) * last);
-    let owner = slots[0];
-    let best = Infinity;
-    for (const slot of slots) {
-      const spent = trace.times[slot][k1] - trace.times[slot][k0];
-      if (spent < best) {
-        best = spent;
-        owner = slot;
-      }
-    }
+    const spent = slots
+      .map((slot) => ({ slot, time: trace.times[slot][k1] - trace.times[slot][k0] }))
+      .sort((a, b) => a.time - b.time);
+    const owner = spent[1].time - spent[0].time >= DOMINANCE_MARGIN_S ? spent[0].slot : null;
     const previous = segments.at(-1);
-    if (previous?.slot === owner) previous.to = trace.trackFractions[k1];
-    else segments.push({ slot: owner, from: trace.trackFractions[k0], to: trace.trackFractions[k1] });
+    if (previous && previous.slot === owner && previous.to === trace.trackFractions[k0]) {
+      previous.to = trace.trackFractions[k1];
+    } else if (owner !== null) {
+      segments.push({ slot: owner, from: trace.trackFractions[k0], to: trace.trackFractions[k1] });
+    }
   }
   return segments;
 }

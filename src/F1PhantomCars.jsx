@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAM_MODES } from "./constants.js";
+import { buildGapTrace, dominanceSegments, sectorTicks } from "./domain/gap.js";
 import { findLapByNumber } from "./domain/laps.js";
 import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
 import Dialog from "./components/ui/Dialog.jsx";
 import Icon, { IconButton } from "./components/ui/Icon.jsx";
-import DeskHero, { BuilderUtilities } from "./app/DeskHero.jsx";
+import { BuilderUtilities } from "./app/ComparisonActions.jsx";
+import DeskHero from "./app/DeskHero.jsx";
 import { Colophon, SignalBand, describeResult } from "./app/SignalBand.jsx";
 import SiteMasthead from "./app/SiteMasthead.jsx";
 import "./app/app.css";
 import useDocumentMeta from "./app/useDocumentMeta.js";
 import useKeyboardShortcuts from "./app/useKeyboardShortcuts.js";
 import useShowreel from "./app/useShowreel.js";
-import AnalysisRail from "./features/analysis/AnalysisRail.jsx";
-import { normalizeRailTab } from "./features/analysis/railTabs.js";
+import { normalizePageTab } from "./features/analysis/pageTabs.js";
+import Workspace from "./features/analysis/Workspace.jsx";
 import ComparisonBuilder from "./features/comparison/ComparisonBuilder.jsx";
 import { FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
-import SeasonDialog from "./features/insights/SeasonDialog.jsx";
 import PlaybackBar from "./features/replay/PlaybackBar.jsx";
 import ReplayStage from "./features/replay/ReplayStage.jsx";
 import { buildReplayModel } from "./features/replay/replayModel.js";
@@ -44,6 +45,7 @@ const SUPPORTED_SESSION_NAMES = [
   "Practice 3",
 ];
 const PLAYABLE_PRESETS = getPlayablePresets(UNAVAILABLE_PRESET_YEARS);
+const NO_ANALYSIS = { trace: null, dominance: [], ticks: [] };
 
 function createRestoreFlags() {
   return { meeting: false, session: false, drivers: false, lap1: false, lap2: false, lap3: false, lap4: false };
@@ -83,7 +85,7 @@ function Notice({ message, onClose }) {
 }
 
 // Orchestration only: data hooks, URL restore, load lifecycle and which surface is showing.
-// View state is two values: the open dialog (one at a time) and the analysis rail tab.
+// View state is two values: the open dialog (one at a time) and the page tab.
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
@@ -116,7 +118,7 @@ export default function App({ embed }) {
 
   const [cam, setCam] = useState(() => pick(CAM_MODES, initialURL.cam) ?? "orbit");
   const [vizMode, setVizMode] = useState(() => pick(VIZ_MODES, initialURL.vizMode) ?? "normal");
-  const [railTab, setRailTab] = useState(() => normalizeRailTab(initialURL.tab));
+  const [pageTab, setPageTab] = useState(() => normalizePageTab(initialURL.tab));
   const [dialog, setDialog] = useState(null);
   const [linkUrl, setLinkUrl] = useState("");
   const [toast, pushToast] = useToast();
@@ -176,6 +178,13 @@ export default function App({ embed }) {
   // The playback clock runs in real seconds of the loaded replay; prog is time / duration.
   durationRef.current = model?.duration || durationRef.current;
   const time = prog * (model?.duration || 0);
+  // Derived once per replay: gap at the same point on track (with its reliability), who is faster where,
+  // and the sector lines on the time axis.
+  const analysis = useMemo(() => {
+    if (!model) return NO_ANALYSIS;
+    const trace = buildGapTrace(model);
+    return { trace, dominance: dominanceSegments(trace), ticks: sectorTicks(model) };
+  }, [model]);
   const [driverA, driverB] = model?.drivers || [];
   const season = useSeasonComparison({
     year: model?.year,
@@ -315,14 +324,14 @@ export default function App({ embed }) {
       theme: isDark ? "dark" : "light",
       speed: spd,
       loop,
-      tab: railTab === "live" ? null : railTab,
+      tab: pageTab === "replay" ? null : pageTab,
     };
   }, [
     activeSlots,
     cam,
     isDark,
     loop,
-    railTab,
+    pageTab,
     replay,
     selection.meeting,
     selection.session,
@@ -393,7 +402,7 @@ export default function App({ embed }) {
       if (nextViz) setVizMode(nextViz);
       setSpeedFromValue(next.speed);
       if (next.loop != null) setLoopFromValue(next.loop);
-      setRailTab(normalizeRailTab(next.tab));
+      setPageTab(normalizePageTab(next.tab));
       restoreStateRef.current = next;
       restoreFlagsRef.current = createRestoreFlags();
       urlLoaded.current = true;
@@ -428,10 +437,6 @@ export default function App({ embed }) {
     }),
     [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot]
   );
-  const seasonMenu = useMemo(
-    () => (driverA && driverB ? { year: model.year, pair: `${driverA.label}–${driverB.label}` } : null),
-    [driverA, driverB, model]
-  );
 
   useKeyboardShortcuts({
     enabled: !dialog,
@@ -440,7 +445,10 @@ export default function App({ embed }) {
       togglePlay: () => replay && togglePlay(),
       reset: resetPlayback,
       toggleTheme,
-      toggleTelemetry: () => setRailTab((tab) => (tab === "telemetry" ? "live" : "telemetry")),
+      showTelemetry: () => {
+        setPageTab("replay");
+        requestAnimationFrame(() => document.getElementById("telemetry")?.scrollIntoView({ block: "start" }));
+      },
       toggleView: () => replay && setTrackViewMode(is2DView ? "3d" : "2d"),
       nextCamera: () => setCam((mode) => CAM_MODES[(CAM_MODES.indexOf(mode) + 1) % CAM_MODES.length]),
       toggleLoop: () => setLoop((value) => !value),
@@ -482,6 +490,7 @@ export default function App({ embed }) {
       isDark={isDark}
       onSceneError={setSceneErr}
       touch={touch}
+      dominance={embed ? NO_ANALYSIS.dominance : analysis.dominance}
       embed={embed}
     />
   );
@@ -491,6 +500,7 @@ export default function App({ embed }) {
       loop={loop}
       progress={prog}
       duration={model?.duration || 0}
+      ticks={analysis.ticks}
       speed={spd}
       speeds={PLAYBACK_SPEEDS}
       onToggle={togglePlay}
@@ -538,7 +548,7 @@ export default function App({ embed }) {
   } else if (model) {
     surface = (
       <div className="workspace">
-        <DeskHero model={model} actions={actions} showreel={showreel.active} season={seasonMenu} />
+        <DeskHero model={model} onEdit={actions.editComparison} />
         <SignalBand load={loadStatus}>
           <span className="band__minor num">● Αναπαράσταση · {Math.round(prog * 100)}%</span>
           <span className="band__sep" />
@@ -546,20 +556,26 @@ export default function App({ embed }) {
         </SignalBand>
         {notice}
         <main className="workspace__main">
-          <div className="workspace__player">
-            {stage}
-            {transport}
-          </div>
-          <AnalysisRail
-            tab={railTab}
-            onTab={setRailTab}
+          <Workspace
+            tab={pageTab}
+            onTab={setPageTab}
             model={model}
+            analysis={analysis}
             time={time}
             onSeek={setProg}
+            player={
+              <>
+                {stage}
+                {transport}
+              </>
+            }
             selection={selection}
             loadedLaps={loadedLaps}
             isDirty={isDirty && !loading}
             onApply={applySelection}
+            season={season}
+            actions={actions}
+            showreel={showreel.active}
             compact={mob}
           />
         </main>
@@ -568,7 +584,7 @@ export default function App({ embed }) {
   } else {
     surface = (
       <div className="builder-page">
-        <DeskHero actions={actions} showreel={showreel.active} />
+        <DeskHero />
         <SignalBand load={loadStatus}>
           <span>
             ● Δεδομένα OpenF1 · Σεζόν {AVAILABLE_YEARS.at(-1)}–{AVAILABLE_YEARS[0]}
@@ -610,9 +626,6 @@ export default function App({ embed }) {
           onClear={clearGallery}
           onClose={closeDialog}
         />
-      )}
-      {dialog === "season" && driverA && driverB && (
-        <SeasonDialog year={model.year} drivers={model.drivers} season={season} onClose={closeDialog} />
       )}
       {dialog === "embed" && <EmbedDialog shareState={shareURLState} onCopy={copyText} onClose={closeDialog} />}
       {dialog === "link" && <LinkDialog url={linkUrl} onCopy={copyText} onClose={closeDialog} />}

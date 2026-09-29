@@ -201,16 +201,15 @@
 .hero__lap {
   color: var(--text-2);
 }
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-.hero__edit,
-.hero__share {
+.hero__edit {
+  justify-content: space-between;
+  gap: var(--space-4);
   min-height: 46px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-4) 0 var(--space-5);
+}
+/* Desktop reads "Αλλαγή σύγκρισης →"; the one-line phone opening shows the edit icon only. */
+.hero__edit .icon:first-child {
+  display: none;
 }
 
 @media (max-width: 1099px) {
@@ -263,17 +262,17 @@
     padding: 0;
     border: 0;
   }
-  .hero--loaded .hero__actions {
-    gap: var(--space-1);
-  }
-  .hero--loaded :is(.hero__edit, .hero__share) {
+  .hero--loaded .hero__edit {
     width: var(--touch-target);
     min-height: var(--touch-target);
     padding: 0;
+    justify-content: center;
   }
-  .hero--loaded .icon-btn {
-    width: var(--touch-target);
-    height: var(--touch-target);
+  .hero--loaded .hero__edit .icon:first-child {
+    display: block;
+  }
+  .hero--loaded .hero__edit .icon:last-child {
+    display: none;
   }
   .hero__action-label {
     position: absolute;
@@ -394,26 +393,10 @@
 
 /* ─── Workspace (replay loaded) ─── */
 .workspace__main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--rail-width);
-  /* Scrolled to, the replay and rail fill the viewport; the rail scrolls on its own. */
-  height: max(560px, 100dvh);
-}
-.workspace__player {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-}
-
-@media (max-width: 1099px) {
-  .workspace__main {
-    display: block;
-    height: auto;
-  }
+  padding: 0 var(--edge) var(--space-8);
 }
 @media (max-width: 1099px) and (min-height: 640px) {
-  /* Phones and tablets: the replay stays in view while analysis scrolls beneath it. */
+  /* Phones and tablets: the replay stays in view while the numbers and charts scroll beneath it. */
   .workspace__player {
     position: sticky;
     top: 0;

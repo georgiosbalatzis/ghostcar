@@ -247,7 +247,7 @@ a {
 /* Key-facts strip: label, value, note; columns split by 1px rules. */
 .facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-5) 0;
 }
 .facts__item {
@@ -531,8 +531,20 @@ textarea.input {
   height: 2px;
   background: var(--accent);
 }
+/* A tablist with actions at the end of the same row (Tabs `aside`). */
+.tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+.tabs-row .tabs {
+  min-width: 0;
+  border-bottom: 0;
+}
 /* Page-level tabs as on /standings/: larger targets, 3px signal underline that grows from the left. */
-.page-tabs {
+.page-tabs .tabs {
   gap: var(--space-6);
 }
 .page-tabs .tabs__tab {
