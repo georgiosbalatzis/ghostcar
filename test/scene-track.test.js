@@ -90,6 +90,9 @@ test("surfaceAt keeps a car on its own level where the road crosses itself", () 
   assert.ok(c.y[high] - c.y[low] > 6, "the two passes are on different levels");
   assert.ok(Math.abs(surfaceAt(c, 0, 0, low).y - c.y[low]) < 1);
   assert.ok(Math.abs(surfaceAt(c, 0, 0, high).y - c.y[high]) < 1);
+  // Without a hint the whole loop is searched; the car's own height picks the level at the crossing.
+  assert.ok(Math.abs(surfaceAt(c, 0, 0, -1, {}, c.y[high]).y - c.y[high]) < 1);
+  assert.ok(Math.abs(surfaceAt(c, 0, 0, -1, {}, c.y[low]).y - c.y[low]) < 1);
   // The overpass mask marks the deck, not the ground, near the crossing.
   const mask = overpassMask(c);
   assert.equal(mask[high], 1);

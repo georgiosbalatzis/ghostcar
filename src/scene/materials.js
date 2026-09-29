@@ -6,7 +6,6 @@ import {
   MeshPhongMaterial,
   MeshStandardMaterial,
   NearestFilter,
-  ShaderMaterial,
   SpriteMaterial,
   SRGBColorSpace,
 } from "three";
@@ -69,13 +68,45 @@ export function createSpriteLabelMaterial(map) {
   return new SpriteMaterial({ map, transparent: true, depthWrite: false, sizeAttenuation: false, toneMapped: false });
 }
 
-export function createCarShadowMaterial() {
+// A soft car-shaped shadow: black with a gradient alpha (shadowTexture), on the road under the car.
+export function createShadowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  // A rounded rectangle (the car seen from above) blurred by drawing it many times, ever smaller and fainter.
+  for (let i = 0; i < 12; i++) {
+    const inset = 4 + i * 2.6;
+    ctx.fillStyle = "rgba(0,0,0,0.11)";
+    ctx.beginPath();
+    ctx.roundRect(inset, inset * 0.5, 128 - 2 * inset, 64 - inset, 14);
+    ctx.fill();
+  }
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
+
+export function createCarShadowMaterial(map) {
   return new MeshBasicMaterial({
-    color: 0x000000,
+    map,
     transparent: true,
-    opacity: 0.2,
-    side: DoubleSide,
+    opacity: 0.4,
     depthWrite: false,
+    toneMapped: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  });
+}
+
+// Writes only depth, a little behind the ghost: the translucent pass then draws just its front surface.
+export function createGhostPrepassMaterial() {
+  return new MeshBasicMaterial({
+    colorWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
   });
 }
 
@@ -86,15 +117,5 @@ export function createFallbackCarMaterial({ color, isGhost }) {
     emissiveIntensity: 0.2,
     transparent: isGhost,
     opacity: isGhost ? 0.5 : 1,
-  });
-}
-
-export function createTrailMaterial({ color, ghost }) {
-  return new ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: { uColor: { value: new Color(color) } },
-    vertexShader: `attribute float alpha; varying float vAlpha; void main() { vAlpha = alpha; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_PointSize = 3.0; }`,
-    fragmentShader: `uniform vec3 uColor; varying float vAlpha; void main() { gl_FragColor = vec4(uColor, vAlpha * ${ghost ? "0.3" : "0.55"}); }`,
   });
 }

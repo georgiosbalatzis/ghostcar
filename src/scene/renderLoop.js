@@ -6,20 +6,18 @@ import {
   updateReplayCameraTargets,
 } from "./cameras.js";
 import { fractionAtTime } from "../domain/timing.js";
-import { updateCarsAndMarkers } from "./updateCars.js";
+import { placeCars } from "./buildCars.js";
 
 export function startSceneRenderLoop({
   sceneStateRef,
   renderer,
   scene,
   camera,
-  trackPath,
   cameraModeRef,
   controls,
   inputControls,
   targetPosition,
   targetLook,
-  shakeNoise,
   adaptiveQuality,
   isMob,
   isContextLost,
@@ -37,7 +35,6 @@ export function startSceneRenderLoop({
   let lastSceneVisible = false;
   let hasRendered = false;
   let lastSimTime = 0;
-  let noiseFrame = 0;
   let cancelled = false;
 
   // Near, far and fog follow the camera's distance to what it looks at: a chase camera 12 m from a car and an
@@ -83,22 +80,19 @@ export function startSceneRenderLoop({
 
     const dt = lastSimTime ? Math.min((now - lastSimTime) / 1000, 0.05) : 1 / 60;
     lastSimTime = now;
-    noiseFrame = (noiseFrame + 1) & 255;
     const prog = sceneState._progRef?.current ?? 0;
     const progChanged = prog !== lastProg;
-    // A seek while paused, a scrub or the loop restarting moves the cars in one step: their trails must start over.
-    const jumped = progChanged && (!sceneState._playRef?.current || Math.abs(prog - lastProg) > 0.01);
     if (progChanged) lastProg = prog;
     // prog is the shared clock (share of the slowest lap); each car's position comes from its own timestamps.
     const timing = sceneState._timingRef?.current;
     const clock = prog * (timing?.duration || 0);
+    const pathTimes = timing?.pathTimes || [];
     const carProgress = [0, 1, 2, 3].map((slot) =>
-      timing?.pathTimes[slot]?.length ? fractionAtTime(timing.pathTimes[slot], clock) : prog
+      pathTimes[slot]?.length ? fractionAtTime(pathTimes[slot], clock) : prog
     );
     const cameraMode = cameraModeRef.current;
     const playbackSpeed = Math.max(0.25, sceneState._speedRef?.current ?? 1);
     const followCamera = isFollowCameraMode(cameraMode);
-    const sampleNoise = (offset = 0) => shakeNoise[(noiseFrame + offset) & 255];
     let needsRender =
       !hasRendered ||
       !!sceneState._dirty ||
@@ -114,15 +108,12 @@ export function startSceneRenderLoop({
       needsRender = true;
     }
 
-    const carUpdate = updateCarsAndMarkers({
+    const carUpdate = placeCars({
       sceneState,
-      trackPath,
-      carProgress,
-      jumped,
-      isPlaying,
-      deltaTime: dt,
-      playbackSpeed,
-      followCamera,
+      fractions: carProgress,
+      time: clock,
+      pathTimes,
+      showTails: isPlaying && cameraMode !== "top",
     });
     needsRender = needsRender || carUpdate.needsRender;
 
@@ -134,11 +125,9 @@ export function startSceneRenderLoop({
       carProgress,
       primaryPath: sceneState.paths[0],
       secondaryPath: sceneState.paths[1],
-      fallbackPath: trackPath,
-      telemetry: sceneState._telData1,
+      fallbackPath: sceneState.paths[0],
       curve: sceneState.curve,
       cinematicTime: controls.cinT,
-      sampleNoise,
       targetPosition,
       targetLook,
     });

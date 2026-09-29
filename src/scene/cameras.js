@@ -19,10 +19,8 @@ export function updateReplayCameraTargets({
   primaryPath,
   secondaryPath,
   fallbackPath,
-  telemetry,
   curve,
   cinematicTime,
-  sampleNoise,
   targetPosition,
   targetLook,
 }) {
@@ -37,24 +35,12 @@ export function updateReplayCameraTargets({
     const dx = ahead.x - target.x;
     const dz = ahead.z - target.z;
     const len = Math.sqrt(dx * dx + dz * dz) || 1;
-    const telNow = telemetry?.length ? telemetry[Math.floor(own * (telemetry.length - 1))] : null;
-    const braking = telNow?.brake > 0 ? 1 : 0;
-    const shakeX = braking * sampleNoise(0) * 0.06;
-    const shakeY = braking * sampleNoise(37) * 0.04;
-
-    targetPosition.set(target.x - (dx / len) * 12 + shakeX, target.y + 4 + shakeY, target.z - (dz / len) * 12);
-    targetLook.set(ahead.x + shakeX * 0.5, target.y + 0.3, ahead.z);
+    targetPosition.set(target.x - (dx / len) * 12, target.y + 4, target.z - (dz / len) * 12);
+    targetLook.set(ahead.x, target.y + 0.3, ahead.z);
   } else if (cameraMode === "cinematic" && curve) {
     const cinematicProgress = (cinematicTime + progress * 0.3) % 1;
     const curvePoint = curve.getPointAt(cinematicProgress);
-    const telNow = telemetry?.length ? telemetry[Math.floor(carProgress[0] * (telemetry.length - 1))] : null;
-    const brakingShake = telNow?.brake > 0 ? 0.06 : 0;
-
-    targetPosition.set(
-      curvePoint.x + 60 + sampleNoise(71) * brakingShake,
-      curvePoint.y + 35,
-      curvePoint.z + 60 + sampleNoise(149) * brakingShake
-    );
+    targetPosition.set(curvePoint.x + 60, curvePoint.y + 35, curvePoint.z + 60);
     targetLook.set((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2);
   }
 }

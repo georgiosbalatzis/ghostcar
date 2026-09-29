@@ -475,3 +475,46 @@ test("relief x3 rebuilds the Suzuka scene and is remembered", async ({ page }) =
   await expect(page.getByRole("menuitemcheckbox", { name: "Ανάγλυφο ×3" })).toHaveAttribute("aria-checked", "true");
   expect(errors).toEqual([]);
 });
+
+test("a paused scrub puts the cars in place in one step, with no easing afterwards", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page, { circuit: "suzuka" });
+  await page.goto(suzukaUrl);
+  await expectSceneRendered(page);
+  await page.waitForFunction(() => window.__ghostcar3d?.ready === true);
+  const read = () =>
+    page.evaluate(() =>
+      window.__ghostcar3d.cars.filter(Boolean).map((car) => ({
+        x: car.position.x,
+        y: car.position.y,
+        z: car.position.z,
+        yaw: car.rotation.y,
+      }))
+    );
+  await timeline(page).fill("0.3");
+  await page.waitForTimeout(250);
+  const soon = await read();
+  await page.waitForTimeout(1200);
+  const later = await read();
+  // A paused scrub lands in one step: nothing glides afterwards (the old position easing lagged by metres).
+  expect(later).toEqual(soon);
+  // After the same clock time the two cars are near each other on the lap.
+  expect(Math.hypot(soon[0].x - soon[1].x, soon[0].z - soon[1].z)).toBeLessThan(200);
+  expect(errors).toEqual([]);
+});
+
+test("four drivers in 3D: every car, tail and label renders without errors", async ({ page }) => {
+  const errors = collectPageErrors(page);
+  await setPreferences(page, { trackView: "3d" });
+  await routeOpenF1(page);
+  await page.goto(fourDriverUrl);
+  await expectSceneRendered(page);
+  await page.waitForFunction(() => window.__ghostcar3d?.ready === true);
+  expect(await page.evaluate(() => window.__ghostcar3d.cars.filter(Boolean).length)).toBe(4);
+  await timeline(page).fill("0.4");
+  await page.getByRole("button", { name: "Αναπαραγωγή" }).click();
+  await expect.poll(async () => Number(await timeline(page).inputValue()), { timeout: 8000 }).toBeGreaterThan(0.45);
+  await page.getByRole("button", { name: "Παύση" }).click();
+  expect(errors).toEqual([]);
+});

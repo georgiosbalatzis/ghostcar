@@ -142,11 +142,13 @@ export function overpassMask(c, { reach = 14, drop = 1, minGap = 150 } = {}) {
 /**
  * The road under (x, z): height and pitch. `hint` is a centreline index (a car's last one); with it the search
  * is a window of ±40 points, which is O(1) and keeps a car on its own level where the road crosses itself.
- * Without a hint the whole loop is searched. Writes into `out` when given.
+ * Without a hint the whole loop is searched. `ownY` (the car's own recorded height) breaks the tie between two
+ * levels at a crossing. Writes index, y, pitch and the horizontal distance into `out`.
  */
-export function surfaceAt(c, px, pz, hint = -1, out = {}) {
+export function surfaceAt(c, px, pz, hint = -1, out = {}, ownY = NaN) {
   const from = hint >= 0 ? hint - HALF_WINDOW : 0;
   const to = hint >= 0 ? hint + HALF_WINDOW : c.count - 1;
+  const useY = !Number.isNaN(ownY);
   let best = Infinity;
   for (let raw = from; raw <= to; raw++) {
     const i = wrap(raw, c.count);
@@ -158,11 +160,14 @@ export function surfaceAt(c, px, pz, hint = -1, out = {}) {
     const dx = c.x[i] + u * vx - px;
     const dz = c.z[i] + u * vz - pz;
     const d2 = dx * dx + dz * dz;
-    if (d2 < best) {
-      best = d2;
+    const y = c.y[i] + u * (c.y[j] - c.y[i]);
+    const cost = useY ? d2 + (0.5 * (y - ownY)) ** 2 : d2;
+    if (cost < best) {
+      best = cost;
       out.index = i;
-      out.y = c.y[i] + u * (c.y[j] - c.y[i]);
+      out.y = y;
       out.pitch = Math.atan2(c.y[j] - c.y[i], Math.sqrt(len2) || 1);
+      out.distance = Math.sqrt(d2);
     }
   }
   return out;

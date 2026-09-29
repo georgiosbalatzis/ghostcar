@@ -2,7 +2,8 @@ import { useEffect, useRef, useMemo } from "react";
 import { Vector3 } from "three";
 import { getSmoothPathPointCount, smoothPath } from "../helpers.js";
 import { createAdaptiveQualityController } from "../scene/adaptiveQuality.js";
-import { buildCars, sizeCarLabels } from "../scene/buildCars.js";
+import { buildCars, createCarState, sizeCarLabels } from "../scene/buildCars.js";
+import { createDriverPath } from "../scene/carPose.js";
 import { buildEnvironment } from "../scene/buildEnvironment.js";
 import { buildTrack } from "../scene/buildTrack.js";
 import {
@@ -14,15 +15,6 @@ import {
 import { attachInputControls } from "../scene/inputControls.js";
 import { startSceneRenderLoop } from "../scene/renderLoop.js";
 import { createWorldFrame } from "../scene/world.js";
-
-function createShakeNoiseTable(size = 256) {
-  const table = new Float32Array(size);
-  for (let i = 0; i < size; i++) {
-    const t = (i / size) * Math.PI * 2;
-    table[i] = Math.sin(t) * 0.58 + Math.sin(t * 2.13 + 0.7) * 0.27 + Math.sin(t * 5.17 + 1.9) * 0.15;
-  }
-  return table;
-}
 
 const EMPTY = {};
 
@@ -54,7 +46,6 @@ export default function useScene(
     () => getSmoothPathPointCount(typeof window !== "undefined" ? window.innerWidth < 768 : false),
     []
   );
-  const shakeNoise = useMemo(() => createShakeNoiseTable(), []);
   // One world frame for the circuit (metres, real elevation): every driver's path goes through it, so the
   // same raw point is the same world point for everyone. The first driver's lap is the reference.
   const [raw1, raw2, raw3, raw4] = drivers.map((driver) => driver.path);
@@ -78,7 +69,6 @@ export default function useScene(
     vizMode,
     speedArr,
     brakeArr,
-    telData1,
     frame,
     referenceTimes: drivers[0].pathTimes,
     style,
@@ -178,10 +168,11 @@ export default function useScene(
         isLowDetail,
         isDark: live.isDark,
         isMob,
+        resolution: { width: el.clientWidth || 1, height: el.clientHeight || 1 },
         isActive: () => active,
         isContextLost: () => contextLost,
       });
-      const { cars, trails } = carSet;
+      const { cars, tails } = carSet;
       sizeCarLabels(cars, el.clientHeight, camera.fov);
 
       // Everything the frame loop and the in-place effects touch.
@@ -190,8 +181,12 @@ export default function useScene(
         camera,
         ren,
         cars,
-        trails,
+        tails,
         paths: [n1, n2, n3, n4],
+        // Each driver's dense path with its distances, the road under them, and per-car frame state.
+        driverPaths: [n1, n2, n3, n4].map((path) => (path?.length >= 2 ? createDriverPath(path) : null)),
+        centreline: track.centreline,
+        carStates: cars.map(() => createCarState()),
         curve: track.curve,
         world: live.frame.bounds,
         fr: null,
@@ -239,7 +234,6 @@ export default function useScene(
       R.current._timingRef = timingRef;
       R.current._playRef = playRef;
       R.current._speedRef = speedRef;
-      R.current._telData1 = live.telData1;
 
       // Test and capture hook, not present in production for real visitors.
       if (import.meta.env.DEV || navigator.webdriver) {
@@ -284,7 +278,6 @@ export default function useScene(
         inputControls,
         targetPosition: camTargetPos.current,
         targetLook: camTargetLook.current,
-        shakeNoise,
         adaptiveQuality,
         isMob,
         isContextLost: () => contextLost,
@@ -301,6 +294,7 @@ export default function useScene(
         isContextLost: () => contextLost,
         onResize: () => {
           sizeCarLabels(cars, el.clientHeight, camera.fov);
+          carSet.setResolution(el.clientWidth, el.clientHeight);
           R.current._dirty = true;
         },
       });
@@ -319,7 +313,7 @@ export default function useScene(
     }
     // The scene's geometry: rebuilt only when one of these changes. Everything else is live (effects below).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, trackPath, raw1, raw2, raw3, raw4, n1, n2, n3, n4, onError, progRef, playRef, speedRef, shakeNoise]);
+  }, [ref, trackPath, raw1, raw2, raw3, raw4, n1, n2, n3, n4, onError, progRef, playRef, speedRef]);
 
   // ─── In place: no rebuild, same canvas and context ───
   useEffect(() => {
@@ -342,8 +336,4 @@ export default function useScene(
     R.current._speedRef = speedRef;
     R.current._dirty = true;
   }, [speedRef]);
-  useEffect(() => {
-    R.current._telData1 = telData1;
-    R.current._dirty = true;
-  }, [telData1]);
 }

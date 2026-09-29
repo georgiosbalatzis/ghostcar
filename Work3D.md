@@ -268,14 +268,14 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
 - Delete `buildRaceOverlays.js` (the delta line and the old racing line), the old `SCENE_THEME` usage, and the per-driver `norm()`/`smoothPath` in `useScene.js`. `helpers.js` keeps `norm()` for 2D.
 - Acceptance: `grep -r "norm(" src/scene src/hooks/useScene.js` finds nothing.
 
-### Phase 3: Cars
+### ✅ Phase 3: Cars
 
-**T3.1: True scale and orientation.**
+**✅ T3.1: True scale and orientation.**
 - Files: `carModel.js`.
 - Steps: scale the model uniformly so its bounding-box length is **5.63 m**. Determine the model's forward axis once, visually. The GLB spans z −5.10 … +7.05, and the nose is probably +z, but check it in a chase-camera screenshot. Encode the result as `MODEL_FORWARD` with a comment. The model origin goes on the ground contact plane, centred between the axles.
 - Acceptance: in chase view the car is about 1/2.1 of the road width wide (2.0 m of 12 m). The nose points along the direction of travel at every point of the Suzuka lap.
 
-**T3.2: Exact pose.**
+**✅ T3.2: Exact pose.** _(Done. The projected-screen-position e2e check stays in T9.2 #3; an e2e now guards that a paused scrub lands in one step, and unit tests cover position and heading.)_
 - Files: `carPose.js` (new), `buildCars.js`, `renderLoop.js`, `test/scene-pose.test.js` (new).
 - Steps: `poseAt(driverWorld, fraction, surface, cursor)`:
   - **position** is the driver's own world path interpolated at `fraction`, where `fraction = fractionAtTime(driver.pathTimes, time)`. Use centripetal Catmull-Rom between samples; precompute per driver as a dense array (like the old `smoothPath`, but in world metres, from the shared frame).
@@ -284,27 +284,27 @@ Each task lists **files**, **steps** and **acceptance**. Do the phases in order.
   - Delete `positionLerp`, the heading slerp and the lateral-offset code entirely. Smoothness comes from the dense spline. If the heading visibly jitters on real data, apply a **tiny** time-based smoothing to the heading only (τ ≤ 60 ms). Never smooth position.
 - Acceptance: unit tests: with a constant-speed circular path, the pose position equals the analytic point within 0.05 m, and the heading equals the tangent within 1°. An e2e check (T9.2 #3) that at a paused `prog` the projected screen position of each car equals the projection of `fractionAtTime`'s point, within 2 px.
 
-**T3.3: Paint and materials.**
+**✅ T3.3: Paint and materials.**
 - Files: `carModel.js`, `materials.js`.
 - Steps: map the GLB materials (`BaseColor`, `2ndColor`, `3rdColor`, `Bloody_Red`, `Dark_Black`, `Mirror`). Body (`BaseColor`, `Bloody_Red`) uses team colour with `MeshPhysicalMaterial` (metalness 0.3, roughness 0.35, clearcoat 0.6, clearcoat roughness 0.2). Accents (`2ndColor`) use team colour lightened 25% toward white in dark theme and darkened 25% in light theme. `3rdColor` and `Dark_Black` are carbon (0x151515, roughness 0.55). `Mirror` is 0x9a9a9a with metalness 0.8. Remove all emissive. Verify the mapping visually. If the body turns out to be a different material, fix the table, not the approach.
 - Acceptance: side-by-side with the 2D chip colours, a car's body reads as the same team colour (no ACES hue shift). The car has visible specular shape under the environment map.
 
-**T3.4: Contact shadows.**
+**✅ T3.4: Contact shadows.**
 - Files: `buildCars.js`, `materials.js`.
 - Steps: generate one 128×64 canvas texture per page: a rounded-rectangle radial gradient, black to transparent. Use it on a 6.4 × 2.6 m quad under each car, aligned with the car, at road height via `polygonOffset`, opacity 0.35 (light theme) or 0.5 (dark theme). Delete the disc. Real shadow maps are skipped; add them only if a reviewer finds the contact shadow insufficient.
 - Acceptance: cars look grounded in chase view, with no grey discs.
 
-**T3.5: Clean ghost transparency.**
+**✅ T3.5: Clean ghost transparency.**
 - Files: `carModel.js`, `materials.js`.
 - Steps: for ghost cars (slot ≥ 2), render each merged mesh twice. (1) A depth pre-pass: same geometry, `colorWrite: false`, `depthWrite: true`, `renderOrder = 10 + slot*2`. (2) A colour pass: `transparent: true`, `opacity: 0.45`, `depthWrite: false`, `depthFunc: LessEqualDepth`, `renderOrder = 11 + slot*2`. Only the front-most surface of the ghost is drawn, so you see one clean translucent shell. Driver 1 stays opaque.
 - Acceptance: in chase view behind a ghost, no wheels or inner parts show through the bodywork. When two ghosts overlap, both are visible.
 
-**T3.6: Tails.**
+**✅ T3.6: Tails.**
 - Files: `buildCars.js`, `materials.js`.
 - Steps: replace point trails with `Line2`/`LineMaterial` (0.5 m world width, `worldUnits: true`) covering the driver's own path from `time − 1.5 s` to `time`. Take the points from the dense world path by index range, so nothing is recorded per frame. Fade the alpha toward the tail with a per-vertex colour lerp to the road colour; `LineMaterial` supports `vertexColors`. Show tails only while playing. Hide them in the top view.
 - Acceptance: tails are smooth, continuous and correct after a scrub, with no stray dots. The old "jumped" bookkeeping is gone because tails derive from time.
 
-**T3.7: Remove leftovers.**
+**✅ T3.7: Remove leftovers.**
 - Delete `updateCars.js`, the shake noise table, the `deltaLine`, and the spot light placeholders.
 
 ### Phase 4: Cameras and controls
