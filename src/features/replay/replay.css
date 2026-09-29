@@ -5,12 +5,41 @@
   flex-direction: column;
   min-height: 0;
 }
+/* On the page the stage is a surface panel under an ink rule, with the site's cut corner. */
+.stage-panel {
+  background: var(--surface);
+  border-top: 2px solid var(--text);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--cut-sm)), calc(100% - var(--cut-sm)) 100%, 0 100%);
+}
+.stage__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  font-size: 11px;
+}
+.stage__legend .swatch {
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 0;
+}
+.stage__caption {
+  position: absolute;
+  right: calc(var(--space-4) + var(--cut-sm));
+  bottom: var(--space-3);
+  max-width: 60%;
+  font-size: var(--text-small);
+  text-align: right;
+  color: var(--text-2);
+  pointer-events: none;
+}
 .stage__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4) var(--gutter) var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-2);
 }
 .stage__body {
   position: relative;
@@ -41,22 +70,6 @@
   align-items: center;
   gap: var(--space-1);
   flex: none;
-}
-.stage__loading {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 2;
-}
-.stage__loading-text {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-2) var(--gutter);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-2);
-  background: color-mix(in oklab, var(--page) 88%, transparent);
-  font-size: var(--text-control);
-  color: var(--text-2);
 }
 
 /* ─── Legend: result + drivers ─── */
@@ -140,20 +153,27 @@
 }
 .track-map__edge {
   fill: none;
-  stroke: var(--track-edge);
-  stroke-width: 16px;
+  stroke: var(--rule);
+  stroke-width: 20px;
   stroke-linejoin: round;
 }
 .track-map__road {
   fill: none;
-  stroke: var(--track);
-  stroke-width: 4px;
+  stroke: var(--surface-2);
+  stroke-width: 14px;
+  stroke-linejoin: round;
+}
+/* Who is faster where, over the road in the driver's (theme-darkened) colour. */
+.track-map__dominance {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 5px;
   stroke-linejoin: round;
 }
 .track-map__start {
   fill: none;
-  stroke: var(--text);
-  stroke-width: 2px;
+  stroke: var(--signal);
+  stroke-width: 3px;
 }
 
 .car {
@@ -169,18 +189,22 @@
   height: 14px;
   border-radius: 50%;
   background: var(--ink);
-  box-shadow: 0 0 0 2px var(--page);
+  box-shadow: 0 0 0 2px var(--surface);
 }
+/* Name chips as on the site's data cards: ink tag, team-colour edge, Barlow acronym. */
 .car__label {
   position: absolute;
   left: 16px;
-  top: calc(-10px + var(--stack, 0) * 22px);
-  padding: 1px 6px;
-  border-radius: var(--radius-1);
-  background: var(--page);
-  font-size: var(--text-small);
-  font-weight: 600;
-  line-height: 1.4;
+  top: calc(-11px + var(--stack, 0) * 24px);
+  padding: 2px 7px 1px 6px;
+  border-left: 3px solid var(--ink);
+  background: var(--text);
+  color: var(--page);
+  font-family: var(--font-brand);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 .car--flip .car__label {
@@ -192,26 +216,65 @@
 .transport {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--gutter);
-  border-top: 1px solid var(--rule);
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
   background: var(--page);
 }
 .transport__play {
   display: grid;
   place-items: center;
-  width: var(--touch-target);
-  height: var(--touch-target);
+  width: 46px;
+  height: 46px;
   flex: none;
   border: 0;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--text);
   color: var(--page);
   cursor: pointer;
   transition: background-color var(--dur-fast) ease;
 }
 .transport__play:hover {
-  background: var(--text-2);
+  background: color-mix(in oklab, var(--text) 84%, var(--page));
+}
+.transport__track {
+  position: relative;
+  flex: 1;
+  min-width: 80px;
+  padding-top: 16px;
+}
+.transport__sector {
+  position: absolute;
+  top: 0;
+  height: 30px;
+  padding-left: 5px;
+  border-left: 1px solid var(--rule-strong);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--text-2);
+  pointer-events: none;
+}
+.transport__loop {
+  min-height: 40px;
+}
+.transport__loop[aria-pressed="true"] {
+  border-color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--signal);
+}
+.transport__time {
+  flex: none;
+  font-size: var(--text-control);
+  white-space: nowrap;
+}
+.transport__time b {
+  font-weight: 600;
+}
+.transport__time span {
+  color: var(--text-2);
+}
+.transport--compact .transport__time span {
+  display: none;
 }
 .transport__secondary {
   display: flex;
@@ -226,9 +289,9 @@
 }
 
 .timeline {
-  --track-fill: var(--text);
-  flex: 1;
-  min-width: 80px;
+  --track-fill: var(--signal);
+  display: block;
+  width: 100%;
   height: 28px;
   background: transparent;
   cursor: pointer;
@@ -236,38 +299,34 @@
   -webkit-appearance: none;
 }
 .timeline::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--track-fill) calc(var(--p) * 100%), var(--rule-strong) 0);
+  height: 3px;
+  background: linear-gradient(to right, var(--track-fill) calc(var(--p) * 100%), var(--surface-3) 0);
 }
 .timeline::-webkit-slider-thumb {
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
+  width: 4px;
+  height: 18px;
+  margin-top: -7.5px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--text);
-  box-shadow: 0 0 0 3px var(--page);
+  box-shadow: none;
   appearance: none;
   -webkit-appearance: none;
 }
 .timeline::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--rule-strong);
+  height: 3px;
+  background: var(--surface-3);
 }
 .timeline::-moz-range-progress {
-  height: 4px;
-  border-radius: 2px;
+  height: 3px;
   background: var(--track-fill);
 }
 .timeline::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 4px;
+  height: 18px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--text);
-  box-shadow: 0 0 0 3px var(--page);
 }
 
 /* ─── Embed ─── */
@@ -289,6 +348,7 @@
 }
 .embed__bar .transport {
   flex: 1 1 280px;
+  padding-inline: var(--gutter);
   border: 0;
 }
 .embed__open {
@@ -305,6 +365,11 @@
 .embed__open:hover {
   color: var(--text);
 }
+.embed__open span {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 4px;
+}
 .embed--empty {
   display: grid;
   place-items: center;
@@ -319,14 +384,32 @@
 }
 
 /* ─── Responsive ─── */
+@media (min-width: 1100px) {
+  .stage-panel .stage__body {
+    flex: none;
+    height: clamp(420px, 58vh, 620px);
+  }
+}
 @media (max-width: 1099px) {
+  /* The loop toggle is an icon below desktop, so the scrubber keeps its width. */
+  .transport__loop-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
   .stage__body {
     flex: none;
-    height: clamp(240px, 52vw, 56dvh);
+    height: clamp(240px, 46vw, 56dvh);
     min-height: 0;
   }
 }
 @media (max-width: 767px) {
+  .stage__legend-long,
+  .stage__caption {
+    display: none;
+  }
   .stage__head {
     padding-top: var(--space-3);
   }
@@ -355,10 +438,17 @@
     row-gap: 0;
     padding-top: var(--space-1);
   }
-  .transport .timeline {
+  .transport .transport__track {
     order: -1;
     flex-basis: 100%;
+  }
+  .transport .timeline {
     height: 32px;
+  }
+  .transport__loop {
+    width: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 0;
   }
   .transport__secondary {
     margin-left: auto;
@@ -367,7 +457,7 @@
     width: var(--touch-target);
     height: var(--touch-target);
   }
-  .transport--compact .timeline {
+  .transport--compact .transport__track {
     order: 0;
     flex-basis: auto;
   }

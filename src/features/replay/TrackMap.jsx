@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { fractionAtTime } from "../../domain/timing.js";
 import { norm } from "../../helpers.js";
 
 const VIEW_WIDTH = 1000;
@@ -17,9 +18,9 @@ function toPath(points, close) {
   return `M${points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("L")}${close ? "Z" : ""}`;
 }
 
-// 2D replay. The SVG carries only geometry (strokes stay 1:1 via non-scaling-stroke);
+// 2D replay at the shared clock `time` (seconds). The SVG carries only geometry (strokes stay 1:1 via non-scaling-stroke);
 // cars and labels are HTML positioned in percentages, so they stay crisp at any size.
-function TrackMap({ trackPath, drivers, prog, flip }) {
+function TrackMap({ trackPath, drivers, time, flip, dominance = [], showCars = true }) {
   const geometry = useMemo(() => {
     if (!trackPath?.length) return null;
     let minX = Infinity;
@@ -44,16 +45,29 @@ function TrackMap({ trackPath, drivers, prog, flip }) {
     return {
       viewBox: `${-pad} ${-pad} ${VIEW_WIDTH + pad * 2} ${height + pad * 2}`,
       box: { pad, width: VIEW_WIDTH + pad * 2, height: height + pad * 2 },
+      track,
       trackD: toPath(track, true),
       startD: `M${a.x - nx},${a.y - ny}L${a.x + nx},${a.y + ny}`,
       paths: drivers.map((driver) => (driver.path?.length >= 2 ? norm(driver.path, flip) : trackPath).map(project)),
     };
   }, [trackPath, drivers, flip]);
 
+  // Who is faster where: each segment is a slice of the track polyline in its driver's colour.
+  const segments = useMemo(() => {
+    if (!geometry || !dominance.length) return [];
+    const last = geometry.track.length - 1;
+    return dominance.map((segment) => ({
+      key: `${segment.slot}-${segment.from}`,
+      color: drivers.find((driver) => driver.slot === segment.slot)?.color,
+      d: toPath(geometry.track.slice(Math.floor(segment.from * last), Math.ceil(segment.to * last) + 1), false),
+    }));
+  }, [dominance, drivers, geometry]);
+
   if (!geometry) return null;
   const { box } = geometry;
-  const cars = drivers.map((driver, index) => {
-    const point = lerpPoint(geometry.paths[index], prog);
+  const cars = (showCars ? drivers : []).map((driver, index) => {
+    // Each car by its own timestamps at the shared clock: the faster lap pulls ahead and finishes first.
+    const point = lerpPoint(geometry.paths[index], fractionAtTime(driver.pathTimes, time));
     return { driver, x: (point.x + box.pad) / box.width, y: (point.y + box.pad) / box.height };
   });
   // Labels stack in on-screen order, top car's label highest, so bunched cars never cover each other's names.
@@ -70,6 +84,15 @@ function TrackMap({ trackPath, drivers, prog, flip }) {
       >
         <path className="track-map__edge" d={geometry.trackD} vectorEffect="non-scaling-stroke" />
         <path className="track-map__road" d={geometry.trackD} vectorEffect="non-scaling-stroke" />
+        {segments.map((segment) => (
+          <path
+            key={segment.key}
+            className="track-map__dominance"
+            style={{ "--c": segment.color }}
+            d={segment.d}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
         <path className="track-map__start" d={geometry.startD} vectorEffect="non-scaling-stroke" />
       </svg>
       {cars.map(({ driver, x, y }, index) => (

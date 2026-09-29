@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getDistinctDriverColors } from "../src/domain/drivers.js";
-import { normalizeRailTab } from "../src/features/analysis/railTabs.js";
-import { buildReplayModel, formatMeetingShort } from "../src/features/replay/replayModel.js";
+import { normalizePageTab } from "../src/features/analysis/pageTabs.js";
+import { buildKeyFacts, buildReplayModel, formatMeetingShort } from "../src/features/replay/replayModel.js";
 
 test("teammates get distinguishable colours; distinct teams keep theirs", () => {
   const [a, b, c] = getDistinctDriverColors(["#3671C6", "#3671C6", "#FF8000"]);
@@ -12,14 +12,17 @@ test("teammates get distinguishable colours; distinct teams keep theirs", () => 
   assert.equal(c, "#FF8000");
 });
 
-test("rail tab normalisation keeps old share links working", () => {
-  assert.equal(normalizeRailTab("telemetry"), "telemetry");
-  assert.equal(normalizeRailTab("laps"), "laps");
-  assert.equal(normalizeRailTab("stats"), "sectors");
-  assert.equal(normalizeRailTab("3d"), "live");
-  assert.equal(normalizeRailTab("h2h"), "live");
-  assert.equal(normalizeRailTab(null), "live");
-  assert.equal(normalizeRailTab("nonsense"), "live");
+test("page tab normalisation keeps old share links working", () => {
+  assert.equal(normalizePageTab("laps"), "laps");
+  assert.equal(normalizePageTab("season"), "season");
+  // Rail and mobile tab names from redesign-v2 and earlier links.
+  assert.equal(normalizePageTab("live"), "replay");
+  assert.equal(normalizePageTab("telemetry"), "replay");
+  assert.equal(normalizePageTab("stats"), "sectors");
+  assert.equal(normalizePageTab("3d"), "replay");
+  assert.equal(normalizePageTab("h2h"), "season");
+  assert.equal(normalizePageTab(null), "replay");
+  assert.equal(normalizePageTab("nonsense"), "replay");
 });
 
 function lap(number, duration) {
@@ -82,6 +85,33 @@ test("replay model describes the loaded snapshot, not the live selection", () =>
   assert.ok(Math.abs(model.drivers[1].gap - 0.153) < 1e-9);
   // Final lap-time difference A − B (negative: A faster).
   assert.ok(Math.abs(model.delta + 0.153) < 1e-9);
+  // Real-time playback: the replay lasts as long as the slowest lap, and each driver has a time index.
+  assert.equal(model.duration, 78.945);
+  assert.equal(model.drivers[0].pathTimes.length, path.length);
+});
+
+test("key facts name the fastest lap, the final difference, the biggest sector swing and top speeds", () => {
+  const driver = (slot, label, name, lapDuration, sectors, top) => ({
+    slot,
+    label,
+    name,
+    lapDuration,
+    lapNumber: slot + 6,
+    sectors,
+    tel: [{ speed: top - 20 }, { speed: top }],
+  });
+  const facts = buildKeyFacts({
+    drivers: [
+      driver(1, "VER", "Max Verstappen", 78.792, [26.841, 27.012, 24.939], 345),
+      driver(2, "NOR", "Lando Norris", 78.945, [26.8, 27.124, 25.021], 341),
+    ],
+  });
+  assert.deepEqual(facts, [
+    { label: "Ταχύτερος", value: "Max Verstappen", note: "1:18.792 · Γύρος 7" },
+    { label: "Τελική διαφορά", value: "0.153 s", note: "VER μπροστά από NOR" },
+    { label: "Μεγαλύτερο κέρδος", value: "Τομέας 2", note: "VER −0.112 s" },
+    { label: "Μέγιστη ταχύτητα", value: "345 km/h", note: "VER · NOR 341" },
+  ]);
 });
 
 test("no replay model without geometry or snapshot", () => {

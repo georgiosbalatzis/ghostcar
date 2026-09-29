@@ -7,13 +7,22 @@ test("builder loads as the only surface, without browser errors", async ({ page 
   await page.goto(APP_PATH);
 
   await expect(page).toHaveTitle(/F1 Stories Ghost Car/);
-  await expect(page.getByRole("heading", { level: 1, name: "Σύγκριση γύρων Formula 1" })).toBeVisible();
+  // The f1stories.gr shell: site nav with Ghost Car current, the display title and the signal band.
+  await expect(page.getByRole("banner").getByRole("link", { name: "Ghost Car" })).toHaveAttribute(
+    "aria-current",
+    "page"
+  );
+  await expect(page.getByRole("heading", { level: 1, name: "Ghost Car." })).toBeVisible();
+  await expect(page.getByText("EVERY TENTH COUNTS.")).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toContainText("Δεδομένα από το OpenF1");
   await expect(page.getByLabel("Σεζόν")).toHaveValue("2025");
   // Progressive disclosure: session and driver fields appear only once they are relevant.
   await expect(page.getByLabel("Σκέλος")).toHaveCount(0);
   await expect(page.getByLabel("Οδηγός 1", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Σύγκριση γύρων" })).toBeDisabled();
-  await expect(page.getByRole("heading", { name: "Επιλεγμένες συγκρίσεις" })).toBeVisible();
+  // Featured comparisons are one quiet link to their dialog, not a list on the page.
+  await expect(page.getByRole("button", { name: /^Επιλεγμένες συγκρίσεις \(\d+\)/ })).toBeVisible();
+  await expect(page.getByText("Μαγική pole στη Suzuka")).toHaveCount(0);
   // No replay chrome before there is a replay.
   await expect(page.getByRole("slider", { name: "Πρόοδος γύρου" })).toHaveCount(0);
   await expect(page.getByRole("tab")).toHaveCount(0);
@@ -59,7 +68,7 @@ test("secondary surfaces open from menus and close with Escape", async ({ page }
   await routeOpenF1(page);
   await page.goto(APP_PATH);
 
-  await page.getByRole("button", { name: /^Όλες/ }).click();
+  await page.getByRole("button", { name: /^Επιλεγμένες συγκρίσεις/ }).click();
   const featured = page.getByRole("dialog", { name: "Επιλεγμένες συγκρίσεις" });
   await expect(featured).toBeVisible();
   await featured.getByRole("searchbox").fill("suzuka");
@@ -70,8 +79,7 @@ test("secondary surfaces open from menus and close with Escape", async ({ page }
   await page.keyboard.press("Escape");
   await expect(featured).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Περισσότερα" }).click();
-  await page.getByRole("menuitem", { name: "Αποθηκευμένες συγκρίσεις" }).click();
+  await page.getByRole("button", { name: "Αποθηκευμένες" }).click();
   const saved = page.getByRole("dialog", { name: "Αποθηκευμένες συγκρίσεις" });
   await expect(saved).toContainText("Δεν έχεις αποθηκεύσει συγκρίσεις ακόμη");
   await page.keyboard.press("Escape");
@@ -90,18 +98,46 @@ test("theme is a quiet preference that persists", async ({ page }) => {
   await routeOpenF1(page);
   await page.goto(APP_PATH);
   const html = page.locator("html");
-  await expect(html).toHaveAttribute("data-theme", "dark");
-  const darkBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-
-  await page.getByRole("button", { name: "Περισσότερα" }).click();
-  await page.getByRole("menuitem", { name: "Φωτεινό θέμα" }).click();
+  // Paper by default, as on f1stories.gr.
   await expect(html).toHaveAttribute("data-theme", "light");
   const lightBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(lightBackground).not.toEqual(darkBackground);
+  expect(lightBackground).toBe("rgb(242, 238, 228)");
+
+  await page.getByRole("banner").getByRole("button", { name: "Σκούρο θέμα" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  const darkBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(darkBackground).not.toEqual(lightBackground);
 
   await page.reload();
-  await expect(html).toHaveAttribute("data-theme", "light");
-  // URL theme wins over the stored preference.
-  await page.goto(`${APP_PATH}?th=dark`);
   await expect(html).toHaveAttribute("data-theme", "dark");
+  // URL theme wins over the stored preference.
+  await page.goto(`${APP_PATH}?th=light`);
+  await expect(html).toHaveAttribute("data-theme", "light");
+});
+
+test("phone masthead folds the site links into a menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  const menuButton = page.getByRole("button", { name: "Μενού F1 Stories" });
+  await menuButton.click();
+  const menu = page.locator(".masthead__menu");
+  await expect(menu.getByRole("link", { name: "Βαθμολογία" })).toHaveAttribute(
+    "href",
+    "https://f1stories.gr/standings/"
+  );
+  await expect(menu.getByRole("link", { name: "Ghost Car" })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+});
+
+test("keyboard users can skip the site navigation", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Μετάβαση στο περιεχόμενο" });
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeInViewport();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main#content")).toBeFocused();
 });

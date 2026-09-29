@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAM_MODES } from "./constants.js";
+import { applyClockOffsets, buildGapTrace, dominanceSegments, sectorTicks } from "./domain/gap.js";
 import { findLapByNumber } from "./domain/laps.js";
 import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
 import Dialog from "./components/ui/Dialog.jsx";
 import Icon, { IconButton } from "./components/ui/Icon.jsx";
-import { BuilderHeader, WorkspaceHeader } from "./app/AppHeader.jsx";
+import { BuilderUtilities, TabActions } from "./app/ComparisonActions.jsx";
+import DeskHero from "./app/DeskHero.jsx";
+import { Colophon, SignalBand, describeResult } from "./app/SignalBand.jsx";
+import SiteMasthead from "./app/SiteMasthead.jsx";
+import "./app/app.css";
 import useDocumentMeta from "./app/useDocumentMeta.js";
 import useKeyboardShortcuts from "./app/useKeyboardShortcuts.js";
 import useShowreel from "./app/useShowreel.js";
-import AnalysisRail from "./features/analysis/AnalysisRail.jsx";
-import { normalizeRailTab } from "./features/analysis/railTabs.js";
+import { normalizePageTab } from "./features/analysis/pageTabs.js";
+import Workspace from "./features/analysis/Workspace.jsx";
 import ComparisonBuilder from "./features/comparison/ComparisonBuilder.jsx";
-import { FeaturedComparisons, FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
-import SeasonDialog from "./features/insights/SeasonDialog.jsx";
+import { FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
 import PlaybackBar from "./features/replay/PlaybackBar.jsx";
 import ReplayStage from "./features/replay/ReplayStage.jsx";
 import { buildReplayModel } from "./features/replay/replayModel.js";
@@ -41,6 +45,7 @@ const SUPPORTED_SESSION_NAMES = [
   "Practice 3",
 ];
 const PLAYABLE_PRESETS = getPlayablePresets(UNAVAILABLE_PRESET_YEARS);
+const NO_ANALYSIS = { trace: null, dominance: [], ticks: [], stageModel: null };
 
 function createRestoreFlags() {
   return { meeting: false, session: false, drivers: false, lap1: false, lap2: false, lap3: false, lap4: false };
@@ -80,7 +85,7 @@ function Notice({ message, onClose }) {
 }
 
 // Orchestration only: data hooks, URL restore, load lifecycle and which surface is showing.
-// View state is two values: the open dialog (one at a time) and the analysis rail tab.
+// View state is two values: the open dialog (one at a time) and the page tab.
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
@@ -93,6 +98,7 @@ export default function App({ embed }) {
     prog,
     setProg,
     progRef,
+    durationRef,
     play,
     setPlay,
     playRef,
@@ -112,7 +118,7 @@ export default function App({ embed }) {
 
   const [cam, setCam] = useState(() => pick(CAM_MODES, initialURL.cam) ?? "orbit");
   const [vizMode, setVizMode] = useState(() => pick(VIZ_MODES, initialURL.vizMode) ?? "normal");
-  const [railTab, setRailTab] = useState(() => normalizeRailTab(initialURL.tab));
+  const [pageTab, setPageTab] = useState(() => normalizePageTab(initialURL.tab));
   const [dialog, setDialog] = useState(null);
   const [linkUrl, setLinkUrl] = useState("");
   const [toast, pushToast] = useToast();
@@ -169,6 +175,21 @@ export default function App({ embed }) {
   );
 
   const model = useMemo(() => buildReplayModel(replay), [replay]);
+  // The playback clock runs in real seconds of the loaded replay; prog is time / duration.
+  durationRef.current = model?.duration || durationRef.current;
+  const time = prog * (model?.duration || 0);
+  // Derived once per replay: gap at the same point on track (with its reliability), who is faster where, the
+  // sector lines on the time axis, and the model the stage plays (position clocks corrected when the trace holds).
+  const analysis = useMemo(() => {
+    if (!model) return NO_ANALYSIS;
+    const trace = buildGapTrace(model);
+    return {
+      trace,
+      dominance: dominanceSegments(trace),
+      ticks: sectorTicks(model),
+      stageModel: applyClockOffsets(model, trace),
+    };
+  }, [model]);
   const [driverA, driverB] = model?.drivers || [];
   const season = useSeasonComparison({
     year: model?.year,
@@ -308,14 +329,14 @@ export default function App({ embed }) {
       theme: isDark ? "dark" : "light",
       speed: spd,
       loop,
-      tab: railTab === "live" ? null : railTab,
+      tab: pageTab === "replay" ? null : pageTab,
     };
   }, [
     activeSlots,
     cam,
     isDark,
     loop,
-    railTab,
+    pageTab,
     replay,
     selection.meeting,
     selection.session,
@@ -386,7 +407,7 @@ export default function App({ embed }) {
       if (nextViz) setVizMode(nextViz);
       setSpeedFromValue(next.speed);
       if (next.loop != null) setLoopFromValue(next.loop);
-      setRailTab(normalizeRailTab(next.tab));
+      setPageTab(normalizePageTab(next.tab));
       restoreStateRef.current = next;
       restoreFlagsRef.current = createRestoreFlags();
       urlLoaded.current = true;
@@ -417,14 +438,9 @@ export default function App({ embed }) {
       saveComparison: saveToGallery,
       takeScreenshot,
       generateSocialCard,
-      toggleTheme,
       toggleShowreel: showreel.toggle,
     }),
-    [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot, toggleTheme]
-  );
-  const seasonMenu = useMemo(
-    () => (driverA && driverB ? { year: model.year, pair: `${driverA.label}–${driverB.label}` } : null),
-    [driverA, driverB, model]
+    [copyLink, generateSocialCard, saveToGallery, showreel.toggle, takeScreenshot]
   );
 
   useKeyboardShortcuts({
@@ -434,11 +450,14 @@ export default function App({ embed }) {
       togglePlay: () => replay && togglePlay(),
       reset: resetPlayback,
       toggleTheme,
-      toggleTelemetry: () => setRailTab((tab) => (tab === "telemetry" ? "live" : "telemetry")),
+      showTelemetry: () => {
+        setPageTab("replay");
+        requestAnimationFrame(() => document.getElementById("telemetry")?.scrollIntoView({ block: "start" }));
+      },
       toggleView: () => replay && setTrackViewMode(is2DView ? "3d" : "2d"),
       nextCamera: () => setCam((mode) => CAM_MODES[(CAM_MODES.indexOf(mode) + 1) % CAM_MODES.length]),
       toggleLoop: () => setLoop((value) => !value),
-      step: (delta) => setProg((value) => Math.max(0, Math.min(1, value + delta))),
+      step: (seconds) => setProg((value) => Math.max(0, Math.min(1, value + seconds / durationRef.current))),
     },
   });
 
@@ -461,9 +480,9 @@ export default function App({ embed }) {
   const replayLoading = loading && ldPct !== undefined ? loading : "";
   const stage = model && (
     <ReplayStage
-      model={model}
+      model={analysis.stageModel}
       stageRef={stageRef}
-      prog={prog}
+      time={time}
       progRef={progRef}
       playRef={playRef}
       speedRef={spdRef}
@@ -476,10 +495,7 @@ export default function App({ embed }) {
       isDark={isDark}
       onSceneError={setSceneErr}
       touch={touch}
-      loading={replayLoading}
-      loadProgress={ldPct}
-      canCancelLoad={canCancelLoad}
-      onCancelLoad={cancelLoading}
+      dominance={embed ? NO_ANALYSIS.dominance : analysis.dominance}
       embed={embed}
     />
   );
@@ -488,6 +504,8 @@ export default function App({ embed }) {
       play={play}
       loop={loop}
       progress={prog}
+      duration={model?.duration || 0}
+      ticks={analysis.ticks}
       speed={spd}
       speeds={PLAYBACK_SPEEDS}
       onToggle={togglePlay}
@@ -497,13 +515,19 @@ export default function App({ embed }) {
       compact={embed}
     />
   );
-  const builderProps = {
-    availableYears: AVAILABLE_YEARS,
-    selection,
-    loading,
-    loadProgress: ldPct,
-    canCancelLoad,
-    onCancelLoad: cancelLoading,
+  const builderProps = { availableYears: AVAILABLE_YEARS, selection, loading };
+  // Replay loads report in the signal band, with the requested drivers and laps, progress and cancel.
+  const loadStatus = replayLoading && {
+    label: replayLoading,
+    context: activeSlots
+      .filter((slot) => slot.driverNumber && slot.lapNumber)
+      .map((slot) => {
+        const driver = selection.drivers.find((item) => item.driver_number === slot.driverNumber);
+        return `${driver?.name_acronym || `#${slot.driverNumber}`} γύρος ${slot.lapNumber}`;
+      })
+      .join(" · "),
+    progress: ldPct,
+    onCancel: canCancelLoad ? cancelLoading : null,
   };
   const notice = err && <Notice message={err} onClose={() => setErr("")} />;
 
@@ -529,30 +553,38 @@ export default function App({ embed }) {
   } else if (model) {
     surface = (
       <div className="workspace">
-        <WorkspaceHeader
-          actions={actions}
-          isDark={isDark}
-          showreel={showreel.active}
-          eventLabel={`${model.meetingName} ${model.year}`}
-          sessionLabel={model.sessionLabel}
-          season={seasonMenu}
+        <DeskHero
+          model={model}
+          onEdit={actions.editComparison}
+          tools={<TabActions actions={actions} showreel={showreel.active} />}
         />
+        <SignalBand load={loadStatus}>
+          <span className="band__minor num">● Αναπαράσταση · {Math.round(prog * 100)}%</span>
+          <span className="band__sep" />
+          <span className="num">{describeResult(model)}</span>
+        </SignalBand>
         {notice}
-        <main className="workspace__main">
-          <div className="workspace__player">
-            {stage}
-            {transport}
-          </div>
-          <AnalysisRail
-            tab={railTab}
-            onTab={setRailTab}
+        <main id="content" className="workspace__main" tabIndex={-1}>
+          <Workspace
+            tab={pageTab}
+            onTab={setPageTab}
             model={model}
-            prog={prog}
+            analysis={analysis}
+            time={time}
             onSeek={setProg}
+            player={
+              <>
+                {stage}
+                {transport}
+              </>
+            }
             selection={selection}
             loadedLaps={loadedLaps}
             isDirty={isDirty && !loading}
             onApply={applySelection}
+            season={season}
+            actions={actions}
+            showreel={showreel.active}
             compact={mob}
           />
         </main>
@@ -561,32 +593,35 @@ export default function App({ embed }) {
   } else {
     surface = (
       <div className="builder-page">
-        <BuilderHeader actions={actions} isDark={isDark} showreel={showreel.active} />
+        <DeskHero />
+        <SignalBand load={loadStatus}>
+          <span>
+            ● Δεδομένα OpenF1 · Σεζόν {AVAILABLE_YEARS.at(-1)}–{AVAILABLE_YEARS[0]}
+          </span>
+          <span className="band__sep" />
+          <span className="band__minor">2 έως 4 οδηγοί ανά σύγκριση</span>
+        </SignalBand>
         {notice}
-        <main className="builder-page__main">
-          <div className="builder-page__intro">
-            <h1>Σύγκριση γύρων Formula 1</h1>
-            <p>Διάλεξε αγώνα, οδηγούς και γύρους. Η αναπαράσταση δείχνει πού κερδίζεται και πού χάνεται ο χρόνος.</p>
-          </div>
+        <main id="content" className="builder-page__main" tabIndex={-1}>
           <ComparisonBuilder idPrefix="cb" onCompare={loadData} {...builderProps} />
-          <FeaturedComparisons presets={PLAYABLE_PRESETS} onLoad={loadPreset} onShowAll={() => setDialog("featured")} />
+          <BuilderUtilities actions={actions} showreel={showreel.active} presetCount={PLAYABLE_PRESETS.length} />
         </main>
-        <footer className="builder-page__footer">
-          Δεδομένα από το OpenF1 · <a href="https://f1stories.gr/">f1stories.gr</a>
-        </footer>
       </div>
     );
   }
 
   return (
     <div className={embed ? "app app--embed" : "app"}>
+      {!embed && <SiteMasthead isDark={isDark} onToggleTheme={toggleTheme} />}
       {surface}
+      {!embed && <Colophon />}
       {dialog === "edit" && model && (
         <Dialog title="Αλλαγή σύγκρισης" variant="sheet" onClose={closeDialog}>
           <ComparisonBuilder
             idPrefix="edit"
             onCompare={compareFromSheet}
             submitLabel="Φόρτωση σύγκρισης"
+            inSheet
             {...builderProps}
           />
         </Dialog>
@@ -600,9 +635,6 @@ export default function App({ embed }) {
           onClear={clearGallery}
           onClose={closeDialog}
         />
-      )}
-      {dialog === "season" && driverA && driverB && (
-        <SeasonDialog year={model.year} drivers={model.drivers} season={season} onClose={closeDialog} />
       )}
       {dialog === "embed" && <EmbedDialog shareState={shareURLState} onCopy={copyText} onClose={closeDialog} />}
       {dialog === "link" && <LinkDialog url={linkUrl} onCopy={copyText} onClose={closeDialog} />}

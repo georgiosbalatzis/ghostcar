@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import useScene from "../../hooks/useScene.js";
 
 const EMPTY = {};
@@ -15,6 +16,10 @@ export default function SceneStage3D({
   onError,
 }) {
   const [d1 = EMPTY, d2 = EMPTY, d3 = EMPTY, d4 = EMPTY] = model.drivers;
+  const timing = useMemo(
+    () => ({ duration: model.duration, pathTimes: model.drivers.map((driver) => driver.pathTimes) }),
+    [model]
+  );
   useScene(
     containerRef,
     model.trackPath,
@@ -38,7 +43,8 @@ export default function SceneStage3D({
     d3.label || "",
     d4.label || "",
     onError,
-    model.circuitFlip
+    model.circuitFlip,
+    timing
   );
   return null;
 }

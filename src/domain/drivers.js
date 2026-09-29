@@ -9,11 +9,15 @@ export function uniqueDrivers(drivers) {
   });
 }
 
+// OpenF1 writes surnames in capitals ("Max VERSTAPPEN"); F1 Stories writes "Max Verstappen".
+const titleCaseCapitals = (name) =>
+  name.replace(/\p{Lu}{2,}/gu, (word) => word.charAt(0) + word.slice(1).toLocaleLowerCase("el"));
+
 export function getDriverFullName(driver) {
   if (!driver) return "";
   const byApi =
     driver.full_name || driver.broadcast_name || [driver.first_name, driver.last_name].filter(Boolean).join(" ").trim();
-  return byApi || DRIVER_NAME_BY_NUMBER[driver.driver_number] || "";
+  return titleCaseCapitals(byApi || DRIVER_NAME_BY_NUMBER[driver.driver_number] || "");
 }
 
 export function formatDriverOption(driver) {

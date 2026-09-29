@@ -15,6 +15,7 @@ export function updateReplayCameraTargets({
   p1,
   p2,
   progress,
+  carProgress,
   primaryPath,
   secondaryPath,
   fallbackPath,
@@ -30,11 +31,13 @@ export function updateReplayCameraTargets({
   if (cameraMode === "follow1" || cameraMode === "follow2") {
     const target = cameraMode === "follow1" ? p1 : p2;
     const path = cameraMode === "follow1" ? primaryPath || fallbackPath : secondaryPath || fallbackPath;
-    const ahead = lerp(path, Math.min(1, progress + 0.02));
+    // The followed car's own position; its telemetry is sampled at about the same share of its lap.
+    const own = carProgress[cameraMode === "follow1" ? 0 : 1];
+    const ahead = lerp(path, Math.min(1, own + 0.02));
     const dx = ahead.x - target.x;
     const dz = ahead.z - target.z;
     const len = Math.sqrt(dx * dx + dz * dz) || 1;
-    const telNow = telemetry?.length ? telemetry[Math.floor(progress * (telemetry.length - 1))] : null;
+    const telNow = telemetry?.length ? telemetry[Math.floor(own * (telemetry.length - 1))] : null;
     const braking = telNow?.brake > 0 ? 1 : 0;
     const shakeX = braking * sampleNoise(0) * 0.06;
     const shakeY = braking * sampleNoise(37) * 0.04;
@@ -44,7 +47,7 @@ export function updateReplayCameraTargets({
   } else if (cameraMode === "cinematic" && curve) {
     const cinematicProgress = (cinematicTime + progress * 0.3) % 1;
     const curvePoint = curve.getPointAt(cinematicProgress);
-    const telNow = telemetry?.length ? telemetry[Math.floor(progress * (telemetry.length - 1))] : null;
+    const telNow = telemetry?.length ? telemetry[Math.floor(carProgress[0] * (telemetry.length - 1))] : null;
     const brakingShake = telNow?.brake > 0 ? 0.06 : 0;
 
     targetPosition.set(

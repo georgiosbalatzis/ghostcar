@@ -5,6 +5,7 @@ import {
   updateManualCameraTargets,
   updateReplayCameraTargets,
 } from "./cameras.js";
+import { fractionAtTime } from "../domain/timing.js";
 import { updateCarsAndMarkers } from "./updateCars.js";
 
 export function startSceneRenderLoop({
@@ -62,7 +63,15 @@ export function startSceneRenderLoop({
     noiseFrame = (noiseFrame + 1) & 255;
     const prog = sceneState._progRef?.current ?? 0;
     const progChanged = prog !== lastProg;
+    // A seek while paused, a scrub or the loop restarting moves the cars in one step: their trails must start over.
+    const jumped = progChanged && (!sceneState._playRef?.current || Math.abs(prog - lastProg) > 0.01);
     if (progChanged) lastProg = prog;
+    // prog is the shared clock (share of the slowest lap); each car's position comes from its own timestamps.
+    const timing = sceneState._timingRef?.current;
+    const clock = prog * (timing?.duration || 0);
+    const carProgress = [0, 1, 2, 3].map((slot) =>
+      timing?.pathTimes[slot]?.length ? fractionAtTime(timing.pathTimes[slot], clock) : prog
+    );
     const cameraMode = cameraModeRef.current;
     const playbackSpeed = Math.max(0.25, sceneState._speedRef?.current ?? 1);
     const followCamera = isFollowCameraMode(cameraMode);
@@ -85,8 +94,8 @@ export function startSceneRenderLoop({
     const carUpdate = updateCarsAndMarkers({
       sceneState,
       trackPath,
-      progress: prog,
-      progressChanged: progChanged,
+      carProgress,
+      jumped,
       isPlaying,
       deltaTime: dt,
       playbackSpeed,
@@ -99,6 +108,7 @@ export function startSceneRenderLoop({
       p1: carUpdate.p1,
       p2: carUpdate.p2,
       progress: prog,
+      carProgress,
       primaryPath: sceneState.n1,
       secondaryPath: sceneState.n2,
       fallbackPath: trackPath,

@@ -1,9 +1,10 @@
 import { ACESFilmicToneMapping, Color, Fog, FogExp2, PerspectiveCamera, Scene, WebGLRenderer } from "three";
 
-// Scene colours mirror the UI tokens (--page, --surface, --track) so the canvas reads as the page itself.
+// Scene colours mirror the stage panel's tokens (tokens.css) so the canvas reads as the panel it sits in:
+// background --surface, road between --surface-2 and --surface-3, edges --rule-strong, lines --text, start --signal.
 export const SCENE_THEME = {
-  dark: { sceneBg: 0x0c0e0f, trackColor: 0x2c3133 },
-  light: { sceneBg: 0xf1efe9, trackColor: 0xc9c4b8 },
+  dark: { sceneBg: 0x242321, trackColor: 0x36342f, edgeColor: 0x6d6861, ink: 0xeee8db, signal: 0xed4c32 },
+  light: { sceneBg: 0xe9e3d6, trackColor: 0xd6cfbf, edgeColor: 0x8c897b, ink: 0x20251f, signal: 0xed4c32 },
 };
 
 export function getSceneSupportError() {
@@ -70,7 +71,9 @@ export function createSceneRenderer({ container, isDark, onContextLost }) {
   try {
     const width = Math.max(container.clientWidth, 1);
     const height = Math.max(container.clientHeight, 1);
-    const isMob = width < 768;
+    // A phone is a narrow viewport, not a narrow stage: on desktop the stage shares its row with the analysis
+    // rail and can be under 768px wide, and must still get antialiasing and a readable buffer.
+    const isMob = window.innerWidth < 768;
     const connection =
       window.navigator?.connection || window.navigator?.mozConnection || window.navigator?.webkitConnection;
     const deviceMemory = window.navigator?.deviceMemory ?? 8;

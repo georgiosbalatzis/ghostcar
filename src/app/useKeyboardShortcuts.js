@@ -30,7 +30,7 @@ export default function useKeyboardShortcuts({ enabled, handlers }) {
         case "KeyD":
           return h.toggleTheme?.();
         case "KeyT":
-          return h.toggleTelemetry?.();
+          return h.showTelemetry?.();
         case "KeyV":
           return h.toggleView?.();
         case "KeyC":
@@ -38,10 +38,10 @@ export default function useKeyboardShortcuts({ enabled, handlers }) {
         case "KeyL":
           return h.toggleLoop?.();
         case "ArrowRight":
-          return h.step?.(0.01);
+          return h.step?.(1);
         case "ArrowLeft": {
           const now = Date.now();
-          h.step?.(now - lastLeftRef.current < 300 ? -0.05 : -0.01);
+          h.step?.(now - lastLeftRef.current < 300 ? -5 : -1);
           lastLeftRef.current = now;
           return undefined;
         }

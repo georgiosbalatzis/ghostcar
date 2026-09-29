@@ -1,7 +1,15 @@
+/* The builder lays itself out by its own width (page or edit sheet), not the viewport. */
 .builder {
   display: grid;
   gap: var(--space-6);
   container-type: inline-size;
+}
+/* The edit sheet is a narrow, scrolling panel: tighter rhythm so Compare comes sooner. */
+.builder--sheet {
+  gap: var(--space-5);
+}
+.builder--sheet .slot {
+  gap: var(--space-3);
 }
 .builder__group {
   display: grid;
@@ -9,120 +17,106 @@
   min-width: 0;
   border: 0;
 }
-.builder__legend {
-  float: left;
-  width: 100%;
-  margin-bottom: var(--space-3);
-  font-size: var(--text-small);
-  font-weight: 600;
-  color: var(--text-2);
-}
 .builder__event {
-  clear: both;
   display: grid;
-  grid-template-columns: minmax(96px, 7.5rem) minmax(0, 1fr) minmax(0, 11rem);
-  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
+}
+.builder__drivers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  gap: var(--space-6);
+  align-items: end;
 }
 .builder__slots {
-  clear: both;
   display: grid;
-  gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
 }
 .slot {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) minmax(0, 15.5rem) var(--control-height);
-  gap: var(--space-2);
+  gap: var(--space-5);
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 4px solid var(--ink, var(--rule-strong));
+}
+.slot__head {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
 }
-.slot__key {
-  width: 10px;
-  height: 10px;
-  border: 1px dashed var(--rule-strong);
-  border-radius: var(--radius-1);
-  font-size: 0;
+/* The remove button overhangs the 24px head so a removable column lines up with its neighbours. */
+.slot__head .icon-btn {
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px -4px 0;
 }
-.slot[style] .slot__key {
-  border: 0;
-  background: var(--ink);
+.builder__actions {
+  display: grid;
+  gap: var(--space-3);
 }
 .builder__add {
   justify-self: start;
-  margin-left: calc(14px + var(--space-2) - var(--space-3));
+  color: var(--accent-text);
+  text-decoration-color: currentColor;
+}
+.builder__add:hover:not(:disabled) {
+  color: var(--accent-text);
+}
+.builder__submit {
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-lead);
+}
+/* Disabled ink reads as "not yet", not as a broken button. */
+.builder__submit:disabled {
+  border-color: var(--rule);
+  background: var(--surface-2);
+  color: var(--muted);
+  opacity: 1;
+}
+.builder__note {
+  font-size: var(--text-small);
+  color: var(--text-2);
 }
 .builder__hint {
   max-width: 62ch;
   font-size: var(--text-small);
   color: var(--text-2);
 }
-.builder__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-.builder__submit {
-  min-width: 11rem;
-  min-height: var(--touch-target);
-  font-size: var(--text-body);
-}
-.builder__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-size: var(--text-control);
-  color: var(--text-2);
-}
-.builder__status-context {
-  color: var(--muted);
-}
-.builder__progress {
-  margin-top: calc(-1 * var(--space-4));
-}
 
-/* Narrow forms (phones, the edit sheet) follow the form's own width, not the viewport:
-   season + Grand Prix with the session below, and each driver's lap under the driver. */
+/* Tablet widths: Compare moves under the drivers. */
+@container (max-width: 899px) {
+  .builder__drivers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .builder__actions {
+    max-width: 360px;
+  }
+}
+/* Phones and the edit sheet: season + Grand Prix, then the session; one driver per row. */
 @container (max-width: 560px) {
   .builder__event {
     grid-template-columns: minmax(88px, 7rem) minmax(0, 1fr);
+    gap: var(--space-5) var(--space-4);
   }
   .builder__event .field:nth-child(3) {
     grid-column: 1 / -1;
   }
-  .slot {
-    grid-template-columns: 12px minmax(0, 1fr) var(--control-height);
-    row-gap: var(--space-2);
+  .builder__slots {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .slot__lap {
-    grid-column: 2;
+  .builder .field--underline .select {
+    font-size: var(--text-lead);
   }
-  .slot__spacer {
-    display: none;
-  }
-  .slot .icon-btn {
-    grid-column: 3;
-    grid-row: 1;
-  }
-  .builder__submit {
-    width: 100%;
+  .builder__actions {
+    max-width: none;
   }
 }
 
-/* ─── Featured comparisons ─── */
-.featured {
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--rule);
-}
-.featured__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: var(--space-1);
-}
-.featured__title {
-  font-size: var(--text-body);
-  font-weight: 600;
-}
+/* ─── Featured-comparisons dialog ─── */
 .preset-list {
   list-style: none;
 }
@@ -130,9 +124,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   column-gap: var(--space-4);
-  row-gap: 2px;
+  row-gap: 6px;
   width: 100%;
-  padding: var(--space-3) 0;
+  padding: 14px 0;
   border: 0;
   border-bottom: 1px solid var(--rule);
   background: none;
@@ -140,12 +134,13 @@
   cursor: pointer;
 }
 .preset__title {
-  font-size: var(--text-body);
-  font-weight: 500;
+  font-size: var(--text-lead);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .preset__meta {
   grid-row: 2;
-  font-size: var(--text-small);
+  font-size: 11px;
   color: var(--text-2);
 }
 .preset__drivers {
@@ -169,10 +164,7 @@
   margin-bottom: var(--space-2);
 }
 .preset-year__title {
-  margin-top: var(--space-5);
-  font-size: var(--text-small);
-  font-weight: 600;
-  color: var(--muted);
+  margin-top: var(--space-6);
 }
 .empty-note {
   padding: var(--space-3) 0;

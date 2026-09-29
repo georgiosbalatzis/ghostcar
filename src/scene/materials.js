@@ -32,8 +32,8 @@ export function createSpriteLabelMaterial(map) {
   return new SpriteMaterial({ map, transparent: true, depthWrite: false, sizeAttenuation: false, toneMapped: false });
 }
 
-export function createStartLineMaterial() {
-  return new LineBasicMaterial({ color: 0xffffff });
+export function createStartLineMaterial(color) {
+  return new LineBasicMaterial({ color, toneMapped: false });
 }
 
 export function createCarShadowMaterial() {
@@ -56,12 +56,12 @@ export function createFallbackCarMaterial({ color, isGhost }) {
   });
 }
 
-export function createDeltaLineMaterial() {
-  return new LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+export function createDeltaLineMaterial(color) {
+  return new LineBasicMaterial({ color, transparent: true, opacity: 0.5, toneMapped: false });
 }
 
-export function createRacingLineMaterial() {
-  return new LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 });
+export function createRacingLineMaterial(color) {
+  return new LineBasicMaterial({ color, transparent: true, opacity: 0.12, toneMapped: false });
 }
 
 export function createTrailMaterial({ color, ghost }) {

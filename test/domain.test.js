@@ -69,6 +69,10 @@ test("driver helpers dedupe, name, and format drivers", () => {
     [4, 81]
   );
   assert.equal(getDriverFullName({ driver_number: 16 }), "Charles Leclerc");
+  // OpenF1's capitalised surnames read as names.
+  assert.equal(getDriverFullName({ full_name: "Max VERSTAPPEN" }), "Max Verstappen");
+  assert.equal(getDriverFullName({ full_name: "Andrea Kimi ANTONELLI" }), "Andrea Kimi Antonelli");
+  assert.equal(getDriverFullName({ full_name: "Nyck DE VRIES" }), "Nyck De Vries");
   assert.equal(formatDriverOption(drivers[0]), "NOR • Lando Norris • McLaren");
 });
 

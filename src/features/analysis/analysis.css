@@ -1,34 +1,232 @@
-.rail {
-  min-width: 0;
-  min-height: 0;
-  overflow-y: auto;
-  border-left: 1px solid var(--rule);
-  background: var(--page);
+/* ─── Data Desk page: tabs with actions, then one full panel ─── */
+.desk .tabs__panel {
+  padding-top: var(--space-5);
 }
-.rail__tabs .tabs {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  gap: var(--space-5);
-  padding: 0 var(--space-5);
-  background: var(--page);
-}
-.rail__tabs .tabs__tab {
-  min-height: 48px;
-}
-.rail__tabs .tabs__panel {
-  padding: var(--space-4) var(--space-5) var(--space-7);
-}
-.rail__pending {
+.tab-actions {
   display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+.tab-actions .btn {
+  min-height: 40px;
+}
+.desk__pending {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-  border-radius: var(--radius-2);
-  background: var(--surface-2);
+  margin-bottom: var(--space-5);
   font-size: var(--text-control);
+}
+.desk__replay {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-areas:
+    "facts facts"
+    "player brief"
+    "traces traces";
+  gap: var(--space-6) var(--space-7);
+  align-items: start;
+}
+.desk__facts {
+  grid-area: facts;
+}
+.desk__player {
+  grid-area: player;
+  min-width: 0;
+}
+.brief {
+  grid-area: brief;
+}
+.desk__traces {
+  grid-area: traces;
+  min-width: 0;
+  margin-top: var(--space-6);
+}
+@media (max-width: 1099px) {
+  /* The replay first, then the numbers, as in the phone mockup. */
+  .desk__replay {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "player" "facts" "brief" "traces";
+  }
+  /* A report column, not a full-width table, when it no longer sits beside the replay. */
+  .brief {
+    max-width: 720px;
+  }
+}
+@media (max-width: 767px) {
+  .desk__traces .crumb span:last-child {
+    display: none;
+  }
+}
+/* Below desktop the actions become icons, so all four tabs keep their room. */
+@media (max-width: 1099px) {
+  .tab-actions__label,
+  .tab-actions__embed {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  /* Phones: the actions live in the one-line opening; the four tabs share the row. */
+  .desk .tabs-row > .tab-actions {
+    display: none;
+  }
+  .desk.page-tabs .tabs {
+    gap: 0;
+  }
+  .desk.page-tabs .tabs__tab {
+    padding: 0 10px;
+    font-size: var(--text-body);
+  }
+  .tab-actions .btn {
+    width: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 0;
+  }
+  .tab-actions .icon-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
+}
+
+/* ─── Section opening (02 / Τηλεμετρία) ─── */
+.section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: var(--space-7);
+  align-items: end;
+  margin: var(--space-5) 0 var(--space-6);
+}
+.section-head__title {
+  font-size: clamp(34px, 4.4vw, 64px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+.section-head__note {
+  color: var(--text-2);
+}
+@media (max-width: 767px) {
+  .section-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+}
+
+/* ─── Αγωνιστικό δελτίο ─── */
+.brief {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  padding-top: var(--space-4);
+  border-top: 2px solid var(--text);
+}
+.brief__title {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+.brief__lede {
+  margin-top: calc(-1 * var(--space-4));
+  font-size: var(--text-control);
+  color: var(--text-2);
+}
+.brief__drivers,
+.brief__sectors {
+  width: 100%;
+  border-collapse: collapse;
+}
+.brief__drivers :is(th, td) {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+}
+.brief__drivers tr > :first-child {
+  width: 44px;
+  padding-left: 12px;
+  border-left: 3px solid var(--ink);
+}
+.brief__pos {
+  font-size: 24px;
+  font-weight: 600;
+}
+.brief__pos--first {
+  color: var(--accent-text);
+}
+.brief__name {
+  display: block;
+  font-size: var(--text-lead);
+  font-weight: 500;
+  line-height: 1.25;
+}
+.brief__meta {
+  display: block;
+  font-size: var(--text-small);
+  color: var(--text-2);
+}
+.brief__drivers .brief__time {
+  font-size: var(--text-title);
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: right;
+  white-space: nowrap;
+}
+.brief__time small {
+  display: block;
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--text-2);
+}
+.brief__caption {
+  padding-bottom: var(--space-2);
+  caption-side: top;
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-2);
+}
+.brief__sectors :is(th, td) {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--text-control);
+  font-weight: 400;
+  text-align: left;
+}
+.brief__sectors th {
+  width: 32px;
+  font-weight: 600;
+}
+.brief__swing {
+  padding-inline: var(--space-3) !important;
+}
+.brief__sectors .brief__swing-value {
+  width: 88px;
+  text-align: right;
+  white-space: nowrap;
+}
+/* A difference drawn from a centre line: left when the fastest driver gains, right when the other does. */
+.diverging {
+  position: relative;
+  display: block;
+  height: 6px;
+  background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 1px 100% no-repeat;
+}
+.diverging__bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  background: var(--ink, var(--muted));
+}
+.diverging__bar--left {
+  left: auto;
+  right: 50%;
 }
 
 /* ─── Shared data table ─── */
@@ -127,17 +325,24 @@
   display: grid;
   gap: var(--space-5);
 }
+.traces__note {
+  font-size: var(--text-control);
+}
+.trace {
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--text);
+}
 .trace__head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-1) var(--space-3);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
-.trace__title {
-  font-size: var(--text-control);
-  font-weight: 600;
+.trace__title .unit {
+  letter-spacing: 0;
+  text-transform: none;
 }
 .trace__readout {
   display: flex;
@@ -149,12 +354,11 @@
 .readout::before {
   content: "";
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   margin-right: 5px;
-  border-radius: 1px;
   background: var(--ink);
-  vertical-align: 1px;
+  vertical-align: 0;
 }
 .readout b {
   font-weight: 600;
@@ -173,8 +377,12 @@
 .trace__line {
   fill: none;
   stroke: var(--ink);
-  stroke-width: 1.5px;
+  stroke-width: 1.75px;
   stroke-linejoin: round;
+}
+.gap__area {
+  fill: color-mix(in oklab, var(--ink) 16%, transparent);
+  stroke: none;
 }
 .trace__grid {
   stroke: var(--rule);
@@ -193,33 +401,50 @@
   line-height: 1;
   color: var(--muted);
 }
+/* Sector lines of the fastest lap. */
+.trace__tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed var(--rule-strong);
+  pointer-events: none;
+}
 .trace__playhead {
   position: absolute;
   top: -4px;
   bottom: -4px;
-  width: 1px;
+  width: 1.5px;
   background: var(--text);
   pointer-events: none;
 }
+/* One lane per driver across the full chart width, so bands line up with the playhead; the name sits at the
+   lap's end, where there is rarely braking. */
 .brake-lane {
-  display: grid;
-  grid-template-columns: 36px 1fr;
-  gap: var(--space-2);
-  align-items: center;
-  height: 18px;
+  position: relative;
+  height: 14px;
 }
-.brake-lane__label {
-  font-size: var(--text-small);
-  color: var(--text-2);
+.brake-lane + .brake-lane {
+  margin-top: 4px;
 }
 .brake-lane__svg {
   display: block;
   width: 100%;
-  height: 8px;
+  height: 14px;
   background: var(--surface-2);
 }
 .brake-lane__svg rect {
   fill: var(--ink);
+}
+.brake-lane__label {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  padding: 0 4px 0 6px;
+  background: var(--page);
+  font-size: var(--text-small);
+  line-height: 1;
+  color: var(--text-2);
+  transform: translateY(-50%);
 }
 .traces__axis {
   display: flex;
@@ -232,7 +457,28 @@
 /* ─── Sectors ─── */
 .sectors {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: var(--space-7);
+  align-items: start;
+}
+.sectors__tables {
+  display: grid;
   gap: var(--space-6);
+}
+.sectors__map {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.sectors__track {
+  display: grid;
+  place-items: center;
+  height: clamp(260px, 34vw, 460px);
+  margin-top: var(--space-3);
+  container-type: size;
+}
+@media (max-width: 1099px) {
+  .sectors {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ─── Laps ─── */
@@ -271,7 +517,11 @@
 }
 .lap-row[aria-pressed="true"] {
   background: var(--surface-2);
+  box-shadow: inset 3px 0 0 var(--signal);
   color: var(--text);
+}
+.laps {
+  max-width: 720px;
 }
 .lap-row__time {
   color: var(--text);
@@ -285,25 +535,7 @@
   color: var(--text-2);
 }
 
-@media (max-width: 1099px) {
-  .rail {
-    overflow: visible;
-    border-left: 0;
-    border-top: 1px solid var(--rule);
-  }
-  .rail__tabs .tabs {
-    position: static;
-    padding: 0 var(--gutter);
-  }
-  .rail__tabs .tabs__panel {
-    max-width: 720px;
-    padding: var(--space-4) var(--gutter) var(--space-7);
-  }
-}
 @media (max-width: 767px) {
-  .rail__tabs .tabs__tab {
-    min-height: var(--touch-target);
-  }
   .lap-row {
     min-height: var(--touch-target);
   }

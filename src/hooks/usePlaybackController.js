@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2, 4];
+const DEFAULT_DURATION = 90;
 
 export function normalizePlaybackSpeed(value) {
   const parsed = Number(value);
@@ -21,6 +22,9 @@ export default function usePlaybackController({ initialSpeed, initialLoop, track
   const spdRef = useRef(spd);
   const loopRef = useRef(loop);
   const trackViewRef = useRef(trackView);
+  // Replay length in seconds; the app keeps it in step with the loaded replay. prog is t / duration,
+  // so 1× plays the lap in real time.
+  const durationRef = useRef(DEFAULT_DURATION);
   const rafRef = useRef(null);
   const ltRef = useRef(null);
   const uiSyncRef = useRef(0);
@@ -136,7 +140,7 @@ export default function usePlaybackController({ initialSpeed, initialLoop, track
       if (!ltRef.current) ltRef.current = ts;
       const dt = Math.min((ts - ltRef.current) / 1000, 0.05);
       ltRef.current = ts;
-      let next = progRef.current + dt * 0.015 * spdRef.current;
+      let next = progRef.current + (dt * spdRef.current) / (durationRef.current || DEFAULT_DURATION);
       if (next >= 1) {
         if (loopRef.current) {
           next = 0;
@@ -170,6 +174,7 @@ export default function usePlaybackController({ initialSpeed, initialLoop, track
     prog,
     setProg,
     progRef,
+    durationRef,
     play,
     setPlay,
     playRef,

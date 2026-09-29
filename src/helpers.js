@@ -101,7 +101,9 @@ export function ds(a, max) {
 
 export function fmt(s) {
   if (!s || s <= 0) return "0:00.000";
-  const m = Math.floor(s / 60), sec = s - m * 60;
+  // Round to milliseconds first, so 59.9996 s reads 1:00.000 and never 0:60.000.
+  const ms = Math.round(s * 1000);
+  const m = Math.floor(ms / 60000), sec = (ms - m * 60000) / 1000;
   return `${m}:${sec < 10 ? "0" : ""}${sec.toFixed(3)}`;
 }
 
@@ -148,7 +150,7 @@ export function encodeURL(s, options = {}) {
   if (s.l3) p.set("l3", s.l3);
   if (s.l4) p.set("l4", s.l4);
   if (s.numDrivers && Number(s.numDrivers) > 2) p.set("nd", s.numDrivers);
-  if (s.trackView === "2d") p.set("tv", "2d");
+  if (s.trackView === "3d") p.set("tv", "3d"); // 2D is the default view
   if (s.cam && s.cam !== "orbit") p.set("cam", s.cam);
   if (s.vizMode && s.vizMode !== "normal") p.set("vz", s.vizMode);
   if (s.theme === "dark" || s.theme === "light") p.set("th", s.theme);

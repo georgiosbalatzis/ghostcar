@@ -1,5 +1,7 @@
 # Ghost Car — F1Stories visual rework
 
+> **Historical.** Superseded twice: by redesign-v2 and then by the Data Desk rework ([`docs/rework/architecture.md`](../rework/architecture.md)).
+
 Implemented and verified locally on 20–21 September 2026. Production was inspected, not deployed.
 
 ## 1. F1Stories visual traits identified

@@ -1,12 +1,14 @@
+import { fractionAtTime } from "../../domain/timing.js";
 import { fmt, telAt } from "../../helpers.js";
 
 function titleCase(value) {
   return value ? value.charAt(0) + value.slice(1).toLowerCase() : "—";
 }
 
-// Values at the playhead, drivers as columns so 2–4 drivers read the same way.
-export default function LiveTelemetry({ drivers, prog }) {
-  const current = drivers.map((driver) => telAt(driver.tel, prog));
+// Values at the playhead (`time`, seconds), drivers as columns so 2–4 drivers read the same way.
+// Each driver is read at their own timestamps; a finished driver holds their final values and lap time.
+export default function LiveTelemetry({ drivers, time }) {
+  const current = drivers.map((driver) => telAt(driver.tel, fractionAtTime(driver.telTimes, time)));
   return (
     <table className={`data-table live ${drivers.length > 2 ? "live--dense" : ""}`}>
       <caption className="visually-hidden">Τηλεμετρία στη θέση αναπαραγωγής</caption>
@@ -73,7 +75,7 @@ export default function LiveTelemetry({ drivers, prog }) {
           <th scope="row">Χρόνος</th>
           {drivers.map((driver) => (
             <td key={driver.slot} className="num">
-              {fmt((driver.lapDuration || 0) * prog)}
+              {fmt(driver.lapDuration ? Math.min(time, driver.lapDuration) : time)}
             </td>
           ))}
         </tr>

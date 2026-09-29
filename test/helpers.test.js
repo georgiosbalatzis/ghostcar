@@ -40,7 +40,8 @@ test("encodeURL and decodeURL preserve the extended comparison state", () => {
   assert.equal(decoded.l2, "15");
   assert.equal(decoded.l3, "11");
   assert.equal(decoded.numDrivers, "3");
-  assert.equal(decoded.trackView, "2d");
+  // 2D is the default view, so it is not written to the URL; 3D is.
+  assert.equal(decoded.trackView, null);
   assert.equal(decoded.cam, "cinematic");
   assert.equal(decoded.vizMode, "heatmap");
   assert.equal(decoded.theme, "light");
@@ -91,7 +92,7 @@ test("encodeURL and decodeURL preserve full four-driver embed state", () => {
   assert.equal(decoded.l3, "12");
   assert.equal(decoded.l4, "13");
   assert.equal(decoded.numDrivers, "4");
-  assert.equal(decoded.trackView, null);
+  assert.equal(decoded.trackView, "3d");
   assert.equal(decoded.cam, "follow1");
   assert.equal(decoded.vizMode, "brake");
   assert.equal(decoded.theme, "dark");
@@ -119,6 +120,7 @@ test("normalizeText strips accents and collapses spacing", () => {
 });
 
 test("fmt renders lap durations in minutes and milliseconds", () => {
+  assert.equal(fmt(59.9996), "1:00.000");
   assert.equal(fmt(91.234), "1:31.234");
   assert.equal(fmt(0), "0:00.000");
 });

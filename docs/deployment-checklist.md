@@ -24,6 +24,7 @@ Expected results:
 - `npm run test:e2e` passes the Chromium smoke tests.
 - Playwright may print Node `DEP0205` and `NO_COLOR` / `FORCE_COLOR` warnings; these are expected unless the tests fail.
 - `npm audit --audit-level=moderate` reports zero moderate-or-higher vulnerabilities.
+- Optional, needs network: `npm run check:site` reports whether f1stories.gr changed its nav, palette or logo since Ghost Car copied them.
 
 ## Manual Desktop Smoke
 
@@ -35,25 +36,27 @@ npm run preview -- --host 127.0.0.1 --port 4173
 ```
 
 2. Open `http://127.0.0.1:4173/ghostcar/` on desktop.
-3. Confirm the shell renders without horizontal overflow or console errors.
+3. Confirm the f1stories masthead (with the race countdown), the `GHOST CAR.` title and the signal band render, without horizontal overflow or console errors. The page opens in the paper theme.
 4. Select a known available 2025 meeting, supported session, two drivers, and valid laps.
-5. Load the comparison and confirm replay data appears in either 3D or 2D.
-6. Toggle light/dark theme and confirm selector/header/playback text remains readable.
-7. Open and close Stats, Laps, H2H, Season, Gallery, Embed, and Keyboard modals.
+5. Load the comparison and confirm the 2D track (coloured by who is faster where) and real-time playback: the faster lap reaches the line first. Switch to 3D and back.
+6. Confirm `02 / Τηλεμετρία` shows speed, throttle, brake and Διαφορά χρόνου, and that clicking a chart seeks.
+7. Open the Τομείς, Γύροι and Κατατακτήριες σεζόν tabs; open Κοινοποίηση (link, embed, save, image, card), Ενσωμάτωση and `⋯` (featured, saved, showreel, shortcuts); close each with Escape.
+8. Toggle the theme from the masthead and confirm text, charts and the 3D scene stay readable.
 
 ## Manual Mobile Smoke
 
 1. Use browser device emulation for a narrow mobile viewport.
 2. Open `http://127.0.0.1:4173/ghostcar/`.
 3. Confirm there is no horizontal page overflow.
-4. Build or load a comparison and confirm the tab bar is usable.
-5. Switch between 3D/2D, telemetry, stats, laps, H2H, and season tabs.
-6. Scrub the 2D replay on touch/mobile emulation and confirm the page does not scroll unexpectedly.
+4. Open the masthead menu (hamburger) and close it with Escape.
+5. Build or load a comparison; confirm the one-line opening, and that the replay and play button are in the first screen.
+6. Switch 2D/3D and the page tabs (they scroll horizontally).
+7. Scrub the 2D replay on touch/mobile emulation and confirm the page does not scroll unexpectedly.
 
 ## Embed Smoke
 
 1. Open `http://127.0.0.1:4173/ghostcar/?embed=1`.
-2. Confirm the embed loading shell renders cleanly without app header/footer chrome.
+2. Confirm the embed loading shell renders cleanly without the masthead, title or colophon.
 3. Open a valid shared URL with `embed=1` added.
 4. Confirm the comparison restores or shows a clear Greek error/availability message if upstream data is unavailable.
 5. Confirm embed controls fit without clipping at common article iframe sizes.

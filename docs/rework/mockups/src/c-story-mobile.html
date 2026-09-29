@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="el"><head><meta charset="utf-8"><title>C · Story mode · mobile</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .mast { height: 64px; padding: 0 16px; gap: 10px; }
+  .mast .brand { font-size: 24px; } .mast .brand img { width: 30px; height: 30px; }
+  .burger { width: 42px; height: 42px; border: 1px solid var(--rule); display: grid; place-content: center; gap: 5px; }
+  .burger i { display: block; width: 20px; height: 2px; background: var(--ink); }
+  .cov { background: var(--paper-2); padding: 22px 16px 24px; }
+  .k { display: flex; align-items: center; gap: 12px; font-size: 10.5px; }
+  .k i { width: 40px; height: 2px; background: var(--signal); }
+  h1 { font: 600 40px/1.05 var(--ui); letter-spacing: -.04em; margin: 16px 0 14px; }
+  .stand { font-size: 18px; line-height: 1.45; }
+  .img { position: relative; height: 220px; background: #1b1a19; margin-top: 20px; --ver: #4c86e0; --nor: #ff8a1f; overflow: hidden; }
+  .img .t { position: absolute; inset: 20px 10px 50px; }
+  .img .big { position: absolute; left: 14px; bottom: 12px; color: #eee7dc; font: 700 70px/.8 var(--display); } .img .big span { color: var(--signal); }
+  .sticker { position: absolute; right: 14px; top: 14px; background: var(--signal); font: 700 19px/.95 var(--display); padding: 8px 10px; transform: rotate(4deg); }
+  .band { padding: 0; height: 48px; gap: 0; }
+  .band span.ch { flex: 1; display: grid; place-items: center; height: 100%; border-right: 1px solid rgb(32 37 31 / .25); font: 700 20px var(--display); }
+  .band span.ch.on { background: var(--ink); color: var(--paper); }
+  .sticky { position: relative; height: 230px; background: var(--paper-2); border-bottom: 1px solid var(--rule); }
+  .sticky .t { position: absolute; inset: 22px 8px 34px; }
+  .sticky .read { position: absolute; left: 16px; right: 16px; bottom: 8px; display: flex; justify-content: space-between; font-size: 13px; }
+  .sticky .read b { font-size: 18px; }
+  .sticky .kicker { position: absolute; left: 16px; top: 10px; font-size: 10px; }
+  .pbar { height: 3px; background: var(--paper-3); } .pbar i { display: block; height: 100%; width: 58%; background: var(--signal); }
+  .ch { padding: 22px 16px; }
+  .ch .n { font: 700 54px/1 var(--display); color: var(--signal); }
+  .ch h2 { font: 600 28px/1.1 var(--ui); letter-spacing: -.03em; margin: 8px 0 12px; }
+  .ch p { font-size: 16px; line-height: 1.6; }
+  .mk { padding: 1px 5px; font-size: 11.5px; background: var(--c); color: #fff; font-weight: 600; }
+  .mini { height: 90px; margin-top: 16px; border-bottom: 1px solid var(--rule); }
+</style></head>
+<body>
+<header class="mast"><a class="brand"><img src="../../../../public/apple-touch-icon.png" alt="">F1 STORIES<span class="dot">.</span></a><div class="right" style="gap:16px"><div class="moon"></div><div class="burger"><i></i><i></i><i></i></div></div></header>
+<section class="cov">
+  <div class="k kicker"><span>01</span><i></i><span>Ghost Car · Monza</span></div>
+  <h1>Verstappen: 0,153 στη Monza, όλα στον Τομέα 2<span class="dot">.</span></h1>
+  <p class="stand">Ο γύρος 7 του VER απέναντι στον γύρο 8 του NOR. Κύλισε και ο γύρος τρέχει μαζί σου.</p>
+  <div class="img"><div class="t" id="cov"></div><div class="sticker">EVERY TENTH<br>COUNTS.</div><div class="big num">0,153<span>.</span></div></div>
+</section>
+<div class="band"><span class="ch">S1</span><span class="ch on">S2</span><span class="ch">S3</span></div>
+<div class="sticky num"><span class="kicker">Τομέας 2 · σε εξέλιξη</span><div class="t" id="viz"></div><div class="read"><span class="muted">Στο ίδιο σημείο</span><span><b id="g"></b> VER μπροστά</span></div></div>
+<div class="pbar"><i></i></div>
+<article class="ch num"><span class="n">02</span><h2>Ο Verstappen παίρνει πίσω 0,112<span class="dot">.</span></h2>
+  <p>Ο <span class="mk" style="--c:var(--ver)">VER</span> φρενάρει <b>9 μέτρα αργότερα</b> και περνά την κορυφή με <b>4 km/h</b> περισσότερα από τον <span class="mk" style="--c:var(--nor)">NOR</span>.</p>
+  <div class="mini" id="mini"></div>
+</article>
+<script src="shared.js"></script>
+<script>
+  GC.track(document.getElementById("cov"), { road: "#2e3031", width: 22, dominance: 8, start: false });
+  const P = 0.58;
+  GC.track(document.getElementById("viz"), { road: "var(--paper-3)", edge: "var(--rule)", width: 22, carR: 14, cars: [{ p: P + 0.004, c: "var(--ver)", label: "VER" }, { p: P - 0.002, c: "var(--nor)", label: "NOR", below: true }] });
+  document.getElementById("g").textContent = Math.abs(GC.gap(P)).toFixed(3).replace(".", ",") + " s";
+  const s2 = (f) => (p) => f(0.341 + p * 0.343);
+  GC.trace(document.getElementById("mini"), [{ fn: s2((p) => GC.speed(p, 0)), c: "var(--ver)" }, { fn: s2((p) => GC.speed(p, 1)), c: "var(--nor)", dash: "5 3" }], { min: 80, max: 360, play: (P - 0.341) / 0.343 });
+</script>
+</body></html>

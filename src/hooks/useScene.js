@@ -47,9 +47,13 @@ export default function useScene(
   lab3,
   lab4,
   onError,
-  circuitFlip = false
+  circuitFlip = false,
+  timing = null
 ) {
   const R = useRef({});
+  // { duration, pathTimes[] } of the replay: the render loop places each car by its own timestamps.
+  const timingRef = useRef(timing);
+  timingRef.current = timing;
   const CS = useRef({ angle: 0, pitch: 0.85, dist: 50, drag: false, lx: 0, ly: 0, cinT: 0 });
   const cmRef = useRef(cam);
   const camTargetPos = useRef(new Vector3(40, 30, 40));
@@ -176,7 +180,7 @@ export default function useScene(
       const cars = [car1, car2, car3, car4];
       sizeCarLabels(cars, el.clientHeight, camera.fov);
 
-      const { spot1, spot2, deltaLine, deltaPos } = buildRaceOverlays({ scene, curve, seg, isLowDetail });
+      const { spot1, spot2, deltaLine, deltaPos } = buildRaceOverlays({ scene, curve, seg, isLowDetail, theme: T });
 
       R.current = {
         scene,
@@ -214,6 +218,7 @@ export default function useScene(
 
       // Store progRef for render loop access
       R.current._progRef = progRef;
+      R.current._timingRef = timingRef;
       R.current._playRef = playRef;
       R.current._speedRef = speedRef;
       R.current._telData1 = telData1;

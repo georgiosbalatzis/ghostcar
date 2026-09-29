@@ -8,7 +8,7 @@ function freezeObjectTransform(object) {
   return object;
 }
 
-export function buildRaceOverlays({ scene, curve, seg, isLowDetail }) {
+export function buildRaceOverlays({ scene, curve, seg, isLowDetail, theme }) {
   // SpotLights removed (B5): per-fragment cone/penumbra calculations were the single most
   // expensive lighting cost. Coloured ground pool effect is preserved by boosted PointLights
   // inside non-ghost car groups.
@@ -20,12 +20,15 @@ export function buildRaceOverlays({ scene, curve, seg, isLowDetail }) {
   const deltaPosAttr = new Float32BufferAttribute(deltaPos, 3);
   deltaPosAttr.setUsage(DynamicDrawUsage);
   deltaGeo.setAttribute("position", deltaPosAttr);
-  const deltaLine = new Line(deltaGeo, createDeltaLineMaterial());
+  const deltaLine = new Line(deltaGeo, createDeltaLineMaterial(theme.ink));
   deltaLine.frustumCulled = false;
   scene.add(freezeObjectTransform(deltaLine));
 
   if (!isLowDetail) {
-    const racingLine = new Line(new BufferGeometry().setFromPoints(curve.getPoints(seg)), createRacingLineMaterial());
+    const racingLine = new Line(
+      new BufferGeometry().setFromPoints(curve.getPoints(seg)),
+      createRacingLineMaterial(theme.ink)
+    );
     racingLine.position.y += 0.015;
     scene.add(freezeObjectTransform(racingLine));
   }

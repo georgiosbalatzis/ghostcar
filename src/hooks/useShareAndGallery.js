@@ -106,41 +106,82 @@ export default function useShareAndGallery({
 
   const clearGallery = useCallback(() => updateGallery(() => []), [updateGallery]);
 
-  const generateSocialCard = useCallback(() => {
+  // A 1200×630 card in the Data Desk style: paper, crumb, GHOST CAR., the event, ruled driver rows, signal band.
+  const generateSocialCard = useCallback(async () => {
     if (!comparison?.drivers?.length) return;
+    const plex = (weight, size) => `${weight} ${size}px "IBM Plex Sans", system-ui, sans-serif`;
+    const barlow = (size) => `700 ${size}px "Barlow Condensed", "IBM Plex Sans", sans-serif`;
+    const event = `${comparison.meetingName || ""} ${comparison.year || ""} · ${comparison.sessionLabel || ""}`;
+    // Canvas text only uses fonts that have already loaded (Greek comes from its own subset).
+    await Promise.all([
+      document.fonts.load(barlow(150), "GHOST CAR."),
+      document.fonts.load(plex(400, 30), event),
+      document.fonts.load(plex(600, 30), "ΣΥΓΚΡΙΣΗ ΓΥΡΩΝ Κατατακτήριες"),
+    ]).catch(() => {});
+    const PAPER = "#f2eee4";
+    const INK = "#20251f";
+    const MUTED = "#555c50";
+    const RULE = "#c8c8b9";
+    const SIGNAL = "#ed4c32";
     const canvas = document.createElement("canvas");
     canvas.width = 1200;
     canvas.height = 630;
     const ctx = canvas.getContext("2d");
-    const font = (weight, size) => `${weight} ${size}px "IBM Plex Sans", system-ui, sans-serif`;
-    ctx.fillStyle = "#0c0e0f";
+    ctx.fillStyle = PAPER;
     ctx.fillRect(0, 0, 1200, 630);
-    ctx.fillStyle = "#e45a43";
-    ctx.fillRect(80, 80, 40, 3);
-    ctx.fillStyle = "#b5b5b0";
-    ctx.font = font(500, 26);
-    ctx.fillText(`F1 STORIES  /  Ghost Car`, 80, 130);
-    ctx.fillStyle = "#f1efea";
-    ctx.font = font(600, 44);
-    ctx.fillText(`${comparison.meetingName || ""} ${comparison.year || ""}`, 80, 200);
-    ctx.fillStyle = "#858a88";
-    ctx.font = font(400, 28);
-    ctx.fillText(comparison.sessionLabel || "", 80, 244);
-    comparison.drivers.slice(0, 4).forEach((driver, index) => {
-      const y = 340 + index * 62;
+
+    ctx.fillStyle = INK;
+    ctx.fillRect(64, 56, 1072, 2);
+    ctx.font = plex(600, 18);
+    ctx.letterSpacing = "2.5px";
+    ctx.fillText("F1 STORIES / DATA DESK", 64, 92);
+    ctx.textAlign = "right";
+    ctx.fillText("ΣΥΓΚΡΙΣΗ ΓΥΡΩΝ · OPENF1", 1136, 92);
+    ctx.textAlign = "left";
+    ctx.letterSpacing = "0px";
+
+    ctx.font = barlow(150);
+    ctx.fillText("GHOST CAR", 58, 262);
+    ctx.fillStyle = SIGNAL;
+    ctx.fillText(".", 58 + ctx.measureText("GHOST CAR").width, 262);
+    ctx.fillStyle = INK;
+    ctx.font = plex(400, 30);
+    ctx.fillText(event, 64, 318);
+
+    const drivers = comparison.drivers.slice(0, 4);
+    drivers.forEach((driver, index) => {
+      const y = 380 + index * 44;
       ctx.fillStyle = driver.color;
-      ctx.fillRect(80, y - 30, 6, 38);
-      ctx.fillStyle = "#f1efea";
-      ctx.font = font(600, 40);
-      ctx.fillText(driver.label, 104, y);
-      ctx.font = font(400, 36);
-      ctx.fillText(fmt(driver.lapDuration), 260, y);
-      ctx.fillStyle = "#858a88";
-      ctx.fillText(driver.gap ? `+${driver.gap.toFixed(3)}` : "", 480, y);
+      ctx.fillRect(64, y - 26, 5, 34);
+      ctx.fillStyle = INK;
+      ctx.font = plex(500, 26);
+      ctx.fillText(driver.name || driver.label, 84, y);
+      ctx.fillStyle = MUTED;
+      ctx.font = plex(400, 22);
+      ctx.fillText(`Γύρος ${driver.lapNumber ?? ""}`, 520, y);
+      ctx.fillStyle = INK;
+      ctx.font = plex(600, 26);
+      ctx.textAlign = "right";
+      ctx.fillText(driver.gap ? `+${driver.gap.toFixed(3)}` : fmt(driver.lapDuration), 820, y);
+      ctx.textAlign = "left";
+      ctx.fillStyle = RULE;
+      ctx.fillRect(64, y + 14, 756, 1);
     });
-    ctx.fillStyle = "#858a88";
-    ctx.font = font(400, 22);
-    ctx.fillText("Δεδομένα OpenF1 · f1stories.gr/ghostcar", 80, 570);
+
+    const [first, second] = comparison.drivers;
+    const result =
+      comparison.drivers.length === 2 && comparison.delta
+        ? `Τελική διαφορά ${Math.abs(comparison.delta).toFixed(3)} s · ${(comparison.delta < 0 ? first : second).label} ταχύτερος`
+        : `Ταχύτερος γύρος: ${(comparison.drivers.find((driver) => driver.gap === 0) || first).label}`;
+    ctx.fillStyle = SIGNAL;
+    ctx.fillRect(0, 560, 1200, 70);
+    ctx.fillStyle = "#17191b";
+    ctx.font = plex(500, 24);
+    ctx.fillText(`● ${result}`, 64, 604);
+    ctx.font = barlow(34);
+    ctx.textAlign = "right";
+    ctx.fillText("EVERY TENTH COUNTS.", 1136, 606);
+
     download(
       canvas.toDataURL("image/png"),
       `f1stories-${comparison.drivers.map((driver) => driver.label).join("-")}.png`
@@ -165,11 +206,24 @@ export default function useShareAndGallery({
     if (svg) {
       const clone = svg.cloneNode(true);
       clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-      // Resolve CSS variables so the exported file renders outside the app.
-      const styles = getComputedStyle(svg);
-      clone.style.setProperty("--track", styles.getPropertyValue("--track"));
-      clone.style.setProperty("--track-edge", styles.getPropertyValue("--track-edge"));
-      clone.style.setProperty("--text", styles.getPropertyValue("--text"));
+      // The paths are styled by the app's stylesheet, which the file won't have: write each path's
+      // resolved stroke onto it, and paint the stage colour behind the track.
+      const sourcePaths = svg.querySelectorAll("path");
+      clone.querySelectorAll("path").forEach((path, index) => {
+        const style = getComputedStyle(sourcePaths[index]);
+        for (const name of ["fill", "stroke", "stroke-width", "stroke-linejoin"]) {
+          path.setAttribute(name, style.getPropertyValue(name));
+        }
+        path.removeAttribute("class");
+        path.removeAttribute("style");
+      });
+      const [x, y, width, height] = svg.getAttribute("viewBox").split(" ");
+      const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      Object.entries({ x, y, width, height }).forEach(([name, value]) => background.setAttribute(name, value));
+      const stageColor = getComputedStyle(el.closest(".stage") || el).backgroundColor;
+      const transparent = stageColor === "transparent" || stageColor === "rgba(0, 0, 0, 0)";
+      background.setAttribute("fill", transparent ? getComputedStyle(document.body).backgroundColor : stageColor);
+      clone.prepend(background);
       const blob = new Blob([new XMLSerializer().serializeToString(clone)], {
         type: "image/svg+xml;charset=utf-8",
       });
