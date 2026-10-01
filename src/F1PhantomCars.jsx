@@ -7,6 +7,7 @@ import Dialog from "./components/ui/Dialog.jsx";
 import Icon, { IconButton } from "./components/ui/Icon.jsx";
 import { BuilderUtilities, TabActions } from "./app/ComparisonActions.jsx";
 import DeskHero from "./app/DeskHero.jsx";
+import SponsorSection from "./app/SponsorSection.jsx";
 import { Colophon, SignalBand, describeResult } from "./app/SignalBand.jsx";
 import SiteMasthead from "./app/SiteMasthead.jsx";
 import "./app/app.css";
@@ -641,6 +642,7 @@ export default function App({ embed }) {
     <div className={embed ? "app app--embed" : "app"}>
       {!embed && <SiteMasthead isDark={isDark} onToggleTheme={toggleTheme} />}
       {surface}
+      {!embed && <SponsorSection />}
       {!embed && <Colophon />}
       {dialog === "edit" && model && (
         <Dialog title="Αλλαγή σύγκρισης" variant="sheet" onClose={closeDialog}>
