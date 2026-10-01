@@ -39,13 +39,13 @@ const text = async (url) => {
 };
 const problems = [];
 
-// 1. Nav links (desktop list), Ghost Car's own entry aside.
+// 1. Canonical nav links (desktop list).
 const nav = await text(`${RAW}/partials/nav.html`);
 const desktop = nav.slice(nav.indexOf('id="nav-links"'), nav.indexOf("blog-nav-right"));
 const siteLinks = [...desktop.matchAll(/<a href="([^"]+)"[^>]*>(?:<svg[\s\S]*?<\/svg>)?\s*([^<]+)<\/a>/g)].map(
   ([, href, label]) => ({ href: href.startsWith("/") ? `${SITE}${href}` : href, label: label.trim() })
 );
-const ours = NAV_LINKS.filter((link) => !link.current).map(({ href, label }) => ({ href, label }));
+const ours = NAV_LINKS.map(({ href, label }) => ({ href, label }));
 if (JSON.stringify(siteLinks) !== JSON.stringify(ours)) {
   problems.push(
     `Nav links differ (update src/app/siteNav.js):\n    site: ${siteLinks.map((l) => `${l.label} ${l.href}`).join("\n          ")}\n    ours: ${ours.map((l) => `${l.label} ${l.href}`).join("\n          ")}`

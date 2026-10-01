@@ -7,14 +7,31 @@ test("builder loads as the only surface, without browser errors", async ({ page 
   await page.goto(APP_PATH);
 
   await expect(page).toHaveTitle(/F1 Stories Ghost Car/);
-  // The f1stories.gr shell: site nav with Ghost Car current, the display title and the signal band.
-  await expect(page.getByRole("banner").getByRole("link", { name: "Ghost Car" })).toHaveAttribute(
-    "aria-current",
-    "page"
-  );
+  // The canonical f1stories.gr nav stays intact; Ghost Car is the product title below it.
+  const desktopNav = page.getByRole("navigation", { name: "F1 Stories" }).first();
+  await expect(desktopNav.getByRole("link")).toHaveText([
+    "Αρχική",
+    "Άρθρα",
+    "YouTube",
+    "Βαθμολογία",
+    "Δεδομένα",
+    "Συντάκτες",
+    "BetCast",
+  ]);
+  await expect(desktopNav.getByRole("link", { name: "Δεδομένα" })).toHaveAttribute("aria-current", "page");
+  await expect(desktopNav.getByRole("link", { name: "Ghost Car" })).toHaveCount(0);
+  await expect(desktopNav.getByRole("link", { name: "YouTube" })).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(desktopNav.getByRole("link", { name: "BetCast" })).toHaveAttribute("target", "_blank");
+  await expect(desktopNav.getByRole("link", { name: "BetCast" })).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.getByRole("heading", { level: 1, name: "Ghost Car." })).toBeVisible();
   await expect(page.getByText("EVERY TENTH COUNTS.")).toBeVisible();
-  await expect(page.getByRole("contentinfo")).toContainText("Δεδομένα από το OpenF1");
+  const footer = page.getByRole("contentinfo");
+  await expect(footer).toContainText("Τεχνική ανάλυση, άποψη και ελληνική F1 κοινότητα.");
+  await expect(footer).toContainText("Πολιτική Απορρήτου");
+  await expect(footer).not.toContainText("Ghost Car");
+  await expect(
+    footer.getByRole("navigation", { name: "F1 Stories στα κοινωνικά δίκτυα" }).getByRole("link")
+  ).toHaveCount(5);
   await expect(page.getByLabel("Σεζόν")).toHaveValue("2025");
   // Progressive disclosure: session and driver fields appear only once they are relevant.
   await expect(page.getByLabel("Σκέλος")).toHaveCount(0);
@@ -62,6 +79,7 @@ test("embed without a comparison shows only a quiet loading state", async ({ pag
   await expect(page.locator(".app--embed")).toBeVisible();
   await expect(page.getByText("Φόρτωση σύγκρισης…")).toBeVisible();
   await expect(page.getByRole("banner")).toHaveCount(0);
+  await expect(page.locator(".sponsors")).toHaveCount(0);
 });
 
 test("secondary surfaces open from menus and close with Escape", async ({ page }) => {
@@ -125,13 +143,99 @@ test("phone masthead folds the site links into a menu", async ({ page }) => {
   const menuButton = page.getByRole("button", { name: "Μενού F1 Stories" });
   await menuButton.click();
   const menu = page.locator(".masthead__menu");
+  await expect(menu.getByRole("link")).toHaveCount(7);
   await expect(menu.getByRole("link", { name: "Βαθμολογία" })).toHaveAttribute(
     "href",
     "https://f1stories.gr/standings/"
   );
-  await expect(menu.getByRole("link", { name: "Ghost Car" })).toHaveAttribute("aria-current", "page");
+  await expect(menu.getByRole("link", { name: "Δεδομένα" })).toHaveAttribute("aria-current", "page");
+  await expect(menu.getByRole("link", { name: "Ghost Car" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
+});
+
+test("canonical masthead fits its desktop and mobile breakpoints in both themes", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route("https://api.openf1.org/v1/sessions**", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("session_name") !== "Race") return route.fallback();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        { location: "Test Grand Prix", date_start: new Date(Date.now() + 5 * 86_400_000).toISOString() },
+      ]),
+    });
+  });
+  for (const theme of ["light", "dark"]) {
+    await page.goto(`${APP_PATH}?th=${theme}`);
+    for (const width of [1440, 1280, 768, 390, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      const header = page.getByRole("banner");
+      const nav = page.locator(".masthead__nav");
+      const menuButton = page.getByRole("button", { name: "Μενού F1 Stories" });
+      if (width > 991) {
+        await expect(nav).toBeVisible();
+        await expect(menuButton).toBeHidden();
+        await expect(nav.getByRole("link", { name: "Δεδομένα" })).toHaveAttribute("aria-current", "page");
+      } else {
+        await expect(nav).toBeHidden();
+        await expect(menuButton).toBeVisible();
+        await menuButton.click();
+        await expect(page.locator(".masthead__menu").getByRole("link", { name: "Δεδομένα" })).toHaveAttribute(
+          "aria-current",
+          "page"
+        );
+        await page.keyboard.press("Escape");
+      }
+      if (width > 767) await expect(header.locator(".masthead__countdown")).toContainText("Test Grand Prix");
+      else await expect(header.locator(".masthead__countdown")).toBeHidden();
+      await expect(
+        header.getByRole("button", { name: theme === "light" ? "Σκούρο θέμα" : "Φωτεινό θέμα" })
+      ).toBeVisible();
+      const sponsorColumns = await page
+        .locator(".sponsors__logos")
+        .evaluate((list) => getComputedStyle(list).gridTemplateColumns.split(" ").length);
+      expect(sponsorColumns).toBe(width > 1199 ? 6 : 3);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, `${width}px ${theme}`).toBeLessThanOrEqual(0);
+    }
+  }
+});
+
+test("sponsors sit above the footer, load local logos, and use the site's hover treatment", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  const section = page.getByRole("region", { name: "ΜΑΖΙ ΣΤΗΝ ΕΚΚΙΝΗΣΗ" });
+  const logos = section.locator(".sponsors__logo");
+  await expect(logos).toHaveCount(6);
+  expect(
+    await page
+      .locator(".sponsors")
+      .evaluate((node) =>
+        Boolean(node.compareDocumentPosition(document.querySelector(".colophon")) & Node.DOCUMENT_POSITION_FOLLOWING)
+      )
+  ).toBe(true);
+  const footerGap = await page.locator(".sponsors").evaluate((section) => {
+    const sponsorBottom = section.getBoundingClientRect().bottom;
+    return document.querySelector(".colophon").getBoundingClientRect().top - sponsorBottom;
+  });
+  expect(footerGap).toBeLessThanOrEqual(1);
+  await section.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() =>
+      logos
+        .first()
+        .locator("img")
+        .evaluate((img) => img.naturalWidth)
+    )
+    .toBeGreaterThan(0);
+  await expect(logos.first()).toHaveAttribute("rel", "noopener noreferrer sponsored");
+  const image = logos.first().locator("img");
+  await expect(image).toHaveCSS("filter", "grayscale(1) contrast(1.05)");
+  await expect(image).toHaveCSS("opacity", "0.68");
+  await logos.first().hover();
+  await expect(image).toHaveCSS("filter", "none");
+  await expect(image).toHaveCSS("opacity", "1");
 });
 
 test("keyboard users can skip the site navigation", async ({ page }) => {

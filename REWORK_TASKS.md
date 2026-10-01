@@ -17,7 +17,7 @@ Goal: Ghost Car should look and behave like a page of f1stories.gr, not a separa
 | Featured presets | One quiet link under the builder, **"Επιλεγμένες συγκρίσεις (18) →"**. It opens the existing searchable dialog. |
 | Hosting | Stay on `georgiosbalatzis.github.io/ghostcar/`. **Copy** the tokens, nav markup and fonts into this repo. No runtime dependency on f1stories.gr. |
 | Default theme | **Paper/light**, as on f1stories. Charcoal dark is the alternative. |
-| Masthead | **Full f1stories nav**, with links, race countdown and theme toggle. Links point to f1stories.gr. "Ghost Car" is the active item. |
+| Masthead | **Canonical seven-link f1stories nav**, with links, race countdown and theme toggle. Links point to f1stories.gr. "Δεδομένα" is the active item. |
 | 3D | **2D track-dominance map is the default.** 3D stays as a toggle. Its scene colours follow the paper and charcoal palettes; the scene logic is unchanged. |
 | Playback timing | **Real time.** The clock runs from 0 to the slowest lap time. Each car is placed by its own timestamps, so the faster car visibly pulls ahead. 1× means real time. |
 | New data views | **Time-gap trace**, **track-dominance colours**, **sector ticks on the timeline**. No auto-written text. |
@@ -188,7 +188,7 @@ Tests not listed survive the rework unchanged: empty-season copy, WebGL→2D fal
 On both surfaces the page now reads: f1stories masthead → crumb + `GHOST CAR.` hero → signal band → content → dark colophon. Embeds have none of these. The layout below the band is still redesign-v2's until Phase 6.
 
 - **T2.1 ✅** `src/app/SiteMasthead.jsx` replaces `BuilderHeader` and `WorkspaceHeader`. `AppHeader.jsx` is **deleted** now rather than in T10.1, because nothing else used it.
-  - It shows the site's own `logo-nav.webp` (2.7 kB, copied to `public/`), the `F1 STORIES.` wordmark, and the site links from one `NAV_LINKS` constant (with its source file and date), with Ghost Car as `aria-current="page"`.
+  - It shows the site's own `logo-nav.webp` (2.7 kB, copied to `public/`), the `F1 STORIES.` wordmark, and the canonical site links from one `NAV_LINKS` constant, with `Δεδομένα` as `aria-current="page"`.
   - Below 992 px the links fold into a hamburger. It's a native `popover` `<nav>` of real links, not the `Menu` component, so they stay anchors.
   - Change from the plan: the theme toggle stays **visible next to the hamburger** at every size, as on f1stories mobile, instead of moving into the menu. The theme item left the `⋯` menu; `D` still toggles it.
 - **T2.2 ✅** The countdown is `useNextRace` inside `SiteMasthead.jsx`. It reads the next non-cancelled race from OpenF1 `/sessions?year=Y&session_name=Race` (then Y+1), because OpenF1 lists the full calendar. It refreshes every minute, is hidden under 768 px, and is hidden on any failure or when no race remains. Checked against the live API on 29 Sep 2026: "Kuala Lumpur 4d 21h", the same race as the site's own countdown.
@@ -201,7 +201,7 @@ On both surfaces the page now reads: f1stories masthead → crumb + `GHOST CAR.`
   - **Idle:** builder shows `Δεδομένα OpenF1 · Σεζόν 2023–2026 | 2 έως 4 οδηγοί`; loaded shows `Αναπαράσταση · NN% | Τελική διαφορά X s · ABC ταχύτερος` (`describeResult`: fastest lap for 3–4 drivers). Secondary parts are hidden on phones, and the slogan shortens to `EVERY TENTH.` under 480 px.
   - **While loading:** a live `role="status"` region with the label, `VER γύρος 7 · NOR γύρος 8`, **Ακύρωση**, and a 3 px ink progress line on the band's edge. Only that region is live, so the playback % isn't announced.
   - Change from the plan: this is the **only** load indicator. The builder's `builder__status`/progress and the stage's `stage__loading` overlay are removed; there's no second bar on the stage.
-- **T2.5 ✅** Colophon: `#17191b` in both themes, `F1 STORIES.` + `Ghost Car · Δεδομένα από το OpenF1 · Τεχνική ματιά, καθαρή άποψη`. It replaces the builder's one-line footer.
+- **T2.5 ✅** Colophon: `#17191b` in both themes, with the F1 Stories wordmark, section index, copyright and legal links. It replaces the builder's one-line footer.
 - **T2.6 ✅** (the tab-row part was completed by T6.2)
   - Workspace actions live in the loaded hero (see T2.3). The Season item stays in `⋯` until T6.1.
   - Builder page: `BuilderUtilities` is a quiet text row, `Αποθηκευμένες · Αυτόματη προβολή · Συντομεύσεις`, currently under the featured list. It moves under the presets link in T3.2.
