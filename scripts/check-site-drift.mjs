@@ -2,35 +2,15 @@
 // copies these (see REWORK_TASKS.md §1), so this is how drift gets noticed. Needs network.
 // Usage: npm run check:site   (exit code 1 when something changed)
 import { createHash } from "node:crypto";
+import { manifest, validateTokens } from "./design-tokens.mjs";
 import { readFile } from "node:fs/promises";
 import { NAV_LINKS, RACE_DESK_LINKS, SITE } from "../src/app/siteNav.js";
 
 const RAW = "https://raw.githubusercontent.com/georgiosbalatzis/f1StoriesPage/main";
 
-// The site's editorial palette as copied into src/styles/tokens.css on 29 Sep 2026. When the site changes, update
-// tokens.css (and the contrast checks behind it), then this snapshot.
-const PALETTE = {
-  dark: {
-    "--bg-base": "#1b1a19",
-    "--bg-surface": "#242321",
-    "--bg-surface-alt": "#2e2c29",
-    "--text-primary": "#eee8db",
-    "--text-secondary": "#b6bbac",
-    "--border": "#4b5146",
-    "--accent": "#ff775f",
-    "--signal": "#ed4c32",
-    "--signal-ink": "#17191b",
-  },
-  light: {
-    "--bg-base": "#f2eee4",
-    "--bg-surface": "#e9e3d6",
-    "--bg-surface-alt": "#dfd9ca",
-    "--text-primary": "#20251f",
-    "--text-secondary": "#5b6256",
-    "--border": "#c8c8b9",
-    "--accent": "#a82e1c",
-  },
-};
+// Offline local UI validation precedes the separate upstream drift check.
+validateTokens();
+const PALETTE = manifest.themes;
 
 const text = async (url) => {
   const response = await fetch(url);
@@ -88,10 +68,12 @@ for (const [theme, expected] of Object.entries(PALETTE)) {
     continue;
   }
   for (const [name, value] of Object.entries(expected)) {
-    const found = blocks[theme]
-      .match(new RegExp(`${name}:\\s*([^;]+);`))?.[1]
-      .trim()
-      .toLowerCase();
+    const declaration = (scope) =>
+      scope
+        .match(new RegExp(`${name}:\\s*([^;]+);`))?.[1]
+        .trim()
+        .toLowerCase();
+    const found = declaration(blocks[theme]) ?? (theme === "light" ? declaration(blocks.dark) : undefined);
     if (found !== value)
       problems.push(`${theme} ${name}: site ${found ?? "missing"}, copied ${value} (update src/styles/tokens.css)`);
   }

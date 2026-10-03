@@ -514,6 +514,7 @@
 }
 .lap-row:hover {
   background: var(--surface-2);
+  color: var(--text);
 }
 .lap-row[aria-pressed="true"] {
   background: var(--surface-2);

@@ -1,0 +1,171 @@
+{
+  "scene": {
+    "dark": {
+      "sceneBg": 2368289,
+      "ground": 2368289,
+      "gridMinor": 3815476,
+      "gridMajor": 4936006,
+      "road": 4144440,
+      "runoff": 3025961,
+      "skirt": 1776153,
+      "paint": 7170145,
+      "checkA": 15657179,
+      "checkB": 1776153,
+      "ink": 15657179,
+      "signal": 15551538,
+      "ramp": [2768015, 2067097, 7320474, 14207117, 15551538],
+      "shadow": 0.5
+    },
+    "light": {
+      "sceneBg": 15328214,
+      "ground": 15328214,
+      "gridMinor": 13946300,
+      "gridMajor": 13158585,
+      "road": 13222575,
+      "runoff": 14670282,
+      "skirt": 11774872,
+      "paint": 9210235,
+      "checkA": 2106655,
+      "checkB": 15920868,
+      "ink": 2106655,
+      "signal": 15551538,
+      "ramp": [1845867, 1011580, 5017464, 12098378, 12727839],
+      "shadow": 0.35
+    }
+  },
+  "technical": {
+    "light": {
+      "--viz-text-secondary": "#555c50",
+      "--viz-muted": "#585e53",
+      "--viz-rule-strong": "#8c897b",
+      "--viz-surface-raised": "#d4cdbc",
+      "--negative": "#a82e1c"
+    },
+    "dark": {
+      "--viz-text-secondary": "#b6bbac",
+      "--viz-muted": "#9a9e91",
+      "--viz-rule-strong": "#6d6861",
+      "--viz-surface-raised": "#3a3834",
+      "--negative": "#ff9a89"
+    }
+  },
+  "files": {
+    "src/constants.js": [
+      "#3671C6",
+      "#3671C6",
+      "#FF8000",
+      "#E8002D",
+      "#27F4D2",
+      "#229971",
+      "#0093CC",
+      "#64C4FF",
+      "#6692FF",
+      "#6692FF",
+      "#52E252",
+      "#52E252",
+      "#B6BABD",
+      "#B6BABD",
+      "#FFD700",
+      "#888",
+      "#888"
+    ],
+    "src/domain/drivers.js": ["#888", "#ffffff", "#000000"],
+    "src/features/replay/replayModel.js": ["#4488ff", "#ff4488", "#44cc44", "#ffaa00"],
+    "src/scene/buildCars.js": ["0x151515", "0xffffff", "0x000000", "0x9a9a9a"],
+    "src/scene/buildEnvironment.js": ["0xffffff", "0xffffff", "0x606060", "0x808080"],
+    "src/scene/materials.js": ["0xffffff", "rgba(0,0,0,0.11)"],
+    "src/hooks/useShareAndGallery.js": [
+      "#f2eee4",
+      "#20251f",
+      "#555c50",
+      "#c8c8b9",
+      "#ed4c32",
+      "#17191b",
+      "rgba(0, 0, 0, 0)"
+    ]
+  },
+  "browser": {
+    "light": {
+      "track-map__road": {
+        "property": "stroke",
+        "values": ["rgb(223, 217, 202)"]
+      },
+      "track-map__edge": {
+        "property": "stroke",
+        "values": ["rgb(200, 200, 185)"]
+      },
+      "track-map__start": {
+        "property": "stroke",
+        "values": ["rgb(237, 76, 50)"]
+      },
+      "trace__line": {
+        "property": "stroke",
+        "values": [
+          "oklab(0.354026 -0.0196341 -0.0913039)",
+          "oklab(0.468417 0.0716088 0.0949565)",
+          "oklab(0.354026 -0.0196341 -0.0913039)",
+          "oklab(0.468417 0.0716088 0.0949565)",
+          "oklab(0.468417 0.0716088 0.0949565)"
+        ]
+      },
+      "trace__base": {
+        "property": "stroke",
+        "values": ["rgb(140, 137, 123)", "rgb(140, 137, 123)", "rgb(140, 137, 123)"]
+      },
+      "trace__grid": {
+        "property": "stroke",
+        "values": ["rgb(200, 200, 185)", "rgb(200, 200, 185)"]
+      },
+      "brake-lane__label": {
+        "property": "color",
+        "values": ["rgb(85, 92, 80)", "rgb(85, 92, 80)"]
+      },
+      "traces__axis": {
+        "property": "color",
+        "values": ["rgb(88, 94, 83)"]
+      },
+      "transport__sector": {
+        "property": "color",
+        "values": ["rgb(85, 92, 80)", "rgb(85, 92, 80)", "rgb(85, 92, 80)"]
+      }
+    },
+    "dark": {
+      "track-map__road": {
+        "property": "stroke",
+        "values": ["rgb(46, 44, 41)"]
+      },
+      "track-map__edge": {
+        "property": "stroke",
+        "values": ["rgb(75, 81, 70)"]
+      },
+      "track-map__start": {
+        "property": "stroke",
+        "values": ["rgb(237, 76, 50)"]
+      },
+      "trace__line": {
+        "property": "stroke",
+        "values": ["rgb(54, 113, 198)", "rgb(255, 128, 0)", "rgb(54, 113, 198)", "rgb(255, 128, 0)", "rgb(255, 128, 0)"]
+      },
+      "trace__base": {
+        "property": "stroke",
+        "values": ["rgb(109, 104, 97)", "rgb(109, 104, 97)", "rgb(109, 104, 97)"]
+      },
+      "trace__grid": {
+        "property": "stroke",
+        "values": ["rgb(75, 81, 70)", "rgb(75, 81, 70)"]
+      },
+      "brake-lane__label": {
+        "property": "color",
+        "values": ["rgb(182, 187, 172)", "rgb(182, 187, 172)"]
+      },
+      "traces__axis": {
+        "property": "color",
+        "values": ["rgb(154, 158, 145)"]
+      },
+      "transport__sector": {
+        "property": "color",
+        "values": ["rgb(182, 187, 172)", "rgb(182, 187, 172)", "rgb(182, 187, 172)"]
+      }
+    }
+  }
+}

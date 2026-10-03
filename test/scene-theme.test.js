@@ -1,14 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readCSS, themeTokens, resolveToken } from "../scripts/design-tokens.mjs";
 import { SCENE_THEME } from "../src/scene/sceneTheme.js";
 
 // The tokens of each theme, read from the stylesheet the page uses.
 function tokens(theme) {
-  const css = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
-  const block = css.match(new RegExp(`:root\\[data-theme="${theme}"\\]\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  const t = themeTokens(readCSS(), theme);
   return Object.fromEntries(
-    [...block.matchAll(/--([a-z0-9-]+):\s*#([0-9a-f]{6})\s*;/gi)].map(([, name, hex]) => [name, parseInt(hex, 16)])
+    Object.keys(t)
+      .map((name) => [name.slice(2), resolveToken(name, t)])
+      .filter(([, value]) => /^#[0-9a-f]{6}$/i.test(value))
+      .map(([name, value]) => [name, parseInt(value.slice(1), 16)])
   );
 }
 
@@ -30,9 +32,9 @@ for (const name of ["dark", "light"]) {
     assert.equal(scene.sceneBg, t.surface);
     assert.equal(scene.ground, t.surface);
     assert.equal(scene.runoff, t["surface-2"]);
-    assert.equal(scene.gridMinor, t["surface-3"]);
+    assert.equal(scene.gridMinor, t["viz-surface-raised"]);
     assert.equal(scene.gridMajor, t.rule);
-    assert.equal(scene.paint, t["rule-strong"]);
+    assert.equal(scene.paint, t["viz-rule-strong"]);
     assert.equal(scene.ink, t.text);
     assert.equal(scene.checkA, t.text);
     assert.equal(scene.checkB, t.page);

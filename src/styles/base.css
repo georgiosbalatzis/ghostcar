@@ -155,8 +155,8 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-text);
-  outline-offset: 2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
 }
 
 ::-webkit-scrollbar {
@@ -489,6 +489,9 @@ textarea.input {
   cursor: pointer;
   transition: color var(--dur-fast) ease;
 }
+.tabs__tab:focus-visible {
+  outline-offset: -4px;
+}
 .tabs__tab:hover {
   color: var(--text);
 }
@@ -733,7 +736,9 @@ textarea.input {
 .menu__item:hover,
 .menu__item:focus-visible {
   background: var(--surface);
-  outline: none;
+}
+.menu__item:focus-visible {
+  outline-offset: -2px;
 }
 .menu__item:disabled {
   opacity: 0.45;

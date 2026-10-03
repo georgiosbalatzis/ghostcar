@@ -9,13 +9,14 @@
     "format": "prettier --write \"*.{js,json}\" \"e2e/**/*.js\" \"test/**/*.js\" \"src/main.jsx\" \"src/F1PhantomCars.jsx\" \"src/{app,components,features,hooks,styles}/**/*.{js,jsx,css}\" \"src/{domain,services,scene}/**/*.js\"",
     "format:check": "prettier --check \"*.{js,json}\" \"e2e/**/*.js\" \"test/**/*.js\" \"src/main.jsx\" \"src/F1PhantomCars.jsx\" \"src/{app,components,features,hooks,styles}/**/*.{js,jsx,css}\" \"src/{domain,services,scene}/**/*.js\"",
     "optimize:f1car": "node ./scripts/optimize-f1car.mjs",
-    "prebuild": "npm run optimize:f1car",
+    "prebuild": "npm run check:tokens && npm run optimize:f1car",
     "build": "vite build",
     "test": "node --test",
     "test:unit": "node --test",
     "test:e2e": "playwright test",
     "check:site": "node scripts/check-site-drift.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:tokens": "node scripts/design-tokens.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

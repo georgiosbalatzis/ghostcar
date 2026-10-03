@@ -425,8 +425,8 @@ main:focus {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-4) var(--space-7);
   padding: 30px var(--edge);
-  background: #17191b;
-  color: #eee8db;
+  background: var(--colophon-ink);
+  color: var(--paper);
   font-size: var(--text-control);
 }
 .colophon__identity,
@@ -444,7 +444,7 @@ main:focus {
   align-items: baseline;
   gap: var(--space-2) var(--space-5);
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid rgb(233 227 214 / 18%);
+  border-bottom: 1px solid var(--border-inverse);
 }
 .colophon__brand {
   display: inline-flex;
@@ -516,7 +516,7 @@ main:focus {
     opacity 350ms cubic-bezier(0.22, 0.68, 0, 1.02);
 }
 .sponsors__logo span {
-  color: #5b6256;
+  color: var(--text-secondary);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.6;
@@ -556,7 +556,7 @@ main:focus {
 
 .colophon__identity p {
   margin: 0;
-  color: #c0bfb2;
+  color: var(--text-inverse-secondary);
 }
 .colophon__index,
 .colophon__social,
@@ -583,13 +583,13 @@ main:focus {
 }
 .colophon__copyright {
   margin: 0;
-  color: #c0bfb2;
+  color: var(--text-inverse-secondary);
   font-size: var(--text-small);
 }
 .colophon__legal {
   padding-top: var(--space-3);
-  border-top: 1px solid rgb(233 227 214 / 18%);
-  color: #c0bfb2;
+  border-top: 1px solid var(--border-inverse);
+  color: var(--text-inverse-secondary);
   font-size: var(--text-small);
 }
 .colophon__social {
@@ -599,12 +599,12 @@ main:focus {
 }
 .colophon__social a {
   padding-inline: var(--space-2);
-  color: #c0bfb2;
+  color: var(--text-inverse-secondary);
   font-size: var(--text-small);
 }
 .colophon a:hover,
 .colophon a:focus-visible {
-  color: #fff;
+  color: var(--paper);
 }
 @media (max-width: 767px) {
   .colophon {
@@ -665,4 +665,23 @@ main:focus {
     z-index: 3;
     background: var(--page);
   }
+}
+
+/* Surface-aware focus; the footer is fixed ink in both editions. */
+:root[data-theme="light"] .masthead :focus-visible {
+  outline-color: var(--colophon-ink);
+}
+:root[data-theme="light"] .colophon :focus-visible {
+  outline-color: var(--paper);
+}
+.race-desk-nav a:focus-visible {
+  outline-offset: 2px;
+}
+.masthead__menu-link:focus-visible {
+  outline-offset: -4px;
+}
+
+/* Signal-band actions require signal ink rather than the theme accent on red. */
+.signal-band :focus-visible {
+  outline-color: var(--signal-ink);
 }

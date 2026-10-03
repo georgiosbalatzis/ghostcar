@@ -1,50 +1,43 @@
-/* Ghost Car design tokens. React sets data-theme on <html>; everything else is CSS.
- *
- * Copied from f1stories.gr on 29 Sep 2026 so Ghost Car reads as part of the site. Re-check when the site changes:
- *   f1StoriesPage/styles/editorial.css  body.editorial-page (dark) and [data-theme="light"] body.editorial-page
- *   page #f2eee4 / #1b1a19   surface #e9e3d6 / #242321   surface-2 #dfd9ca / #2e2c29
- *   text #20251f / #eee8db   text-2 #5b6256 / #b6bbac    rule #c8c8b9 / #4b5146
- *   accent #a82e1c / #ff775f  signal #ed4c32, signal-ink #17191b
- * surface-3, muted and rule-strong are Ghost Car's own steps between those values. Light text-2 is a shade darker than
- * the site's #5b6256 so it clears 4.5:1 on surface-2; light rule-strong clears 3:1 as a control border. */
+/* Canonical generic UI: f1StoriesPage/styles/editorial.css, Priority 4A revision 2523a16a.
+ * See docs/design-tokens.md. Technical/data inks retain their exact independent values. */
 
 :root,
 :root[data-theme="light"] {
   color-scheme: light;
-  --page: #f2eee4;
-  --surface: #e9e3d6;
-  --surface-2: #dfd9ca;
-  --surface-3: #d4cdbc;
-  --text: #20251f;
-  --text-2: #555c50;
-  --muted: #585e53;
-  --rule: #c8c8b9;
-  --rule-strong: #8c897b;
+  --bg-base: #f2eee4;
+  --bg-surface: #e9e3d6;
+  --bg-surface-alt: #dfd9ca;
+  --text-primary: #20251f;
+  --text-secondary: #5b6256;
+  --border: #c8c8b9;
   --accent: #a82e1c;
-  --accent-text: #a82e1c;
   --signal: #ed4c32;
   --signal-ink: #17191b;
+  --viz-text-secondary: #555c50;
+  --viz-muted: #585e53;
+  --viz-rule-strong: #8c897b;
+  --viz-surface-raised: #d4cdbc;
   --negative: #a82e1c;
   --scrim: rgb(32 37 31 / 0.36);
   --shadow-float: 0 18px 48px rgb(32 37 31 / 0.16), 0 2px 6px rgb(32 37 31 / 0.1);
-  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23555c50' stroke-width='1.5'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%235b6256' stroke-width='1.5'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E");
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #1b1a19;
-  --surface: #242321;
-  --surface-2: #2e2c29;
-  --surface-3: #3a3834;
-  --text: #eee8db;
-  --text-2: #b6bbac;
-  --muted: #9a9e91;
-  --rule: #4b5146;
-  --rule-strong: #6d6861;
+  --bg-base: #1b1a19;
+  --bg-surface: #242321;
+  --bg-surface-alt: #2e2c29;
+  --text-primary: #eee8db;
+  --text-secondary: #b6bbac;
+  --border: #4b5146;
   --accent: #ff775f;
-  --accent-text: #ff775f;
   --signal: #ed4c32;
   --signal-ink: #17191b;
+  --viz-text-secondary: #b6bbac;
+  --viz-muted: #9a9e91;
+  --viz-rule-strong: #6d6861;
+  --viz-surface-raised: #3a3834;
   --negative: #ff9a89;
   --scrim: rgb(10 9 8 / 0.62);
   --shadow-float: 0 18px 48px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.4);
@@ -52,6 +45,21 @@
 }
 
 :root {
+  --page: var(--bg-base);
+  --surface: var(--bg-surface);
+  --surface-2: var(--bg-surface-alt);
+  --surface-3: var(--bg-surface-alt);
+  --text: var(--text-primary);
+  --text-2: var(--text-secondary);
+  --muted: var(--text-secondary);
+  --rule: var(--border);
+  --rule-strong: var(--text-secondary);
+  --accent-text: var(--accent);
+  --paper: #e9e3d6;
+  --colophon-ink: #20251f;
+  --text-inverse-secondary: #c0bfb2;
+  --border-inverse: rgb(233 227 214 / 18%);
+
   /* The fallback face is metric-matched to Plex (base.css), so Greek headlines don't re-wrap when Plex arrives. */
   --font-ui: "IBM Plex Sans", "IBM Plex Sans Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
   /* Barlow Condensed has no Greek glyphs: Latin display text only (wordmark, slogans, acronyms, numerals). */
@@ -105,4 +113,30 @@
 }
 :root[data-theme="light"] [style*="--c"] {
   --ink: color-mix(in oklab, var(--c) 64%, #000);
+}
+
+/* Technical annotations and graphics keep their pre-migration inks independently of ordinary UI. */
+:is(
+  .legend,
+  .stage__canvas,
+  .stage__caption,
+  .transport__sector,
+  .transport__time,
+  .timeline,
+  .brief__drivers,
+  .brief__sectors,
+  .brief__caption,
+  .diverging,
+  .data-table,
+  .trace,
+  .traces__axis,
+  .lap-row__gap,
+  .lap-row__state,
+  .saved__delta,
+  .season__delta
+) {
+  --text-2: var(--viz-text-secondary);
+  --muted: var(--viz-muted);
+  --rule-strong: var(--viz-rule-strong);
+  --surface-3: var(--viz-surface-raised);
 }
