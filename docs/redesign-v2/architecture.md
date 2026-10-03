@@ -95,7 +95,7 @@ Deleted: `src/components/*` (20 files), `src/modals/*` (11), `src/ui/styles.js`,
 - `styles/tokens.css`: colour per theme (`:root[data-theme]`), type scale (11–32 px), spacing (4–64), radius, motion, layout. Driver colour arrives as `--c`; `--ink` is derived (darkened in light theme for contrast).
 - `styles/base.css`: fonts, reset, browser surfaces (selection, focus, scrollbars), and the primitives `.btn`, `.icon-btn`, `.select`, `.input`, `.tabs`, `.segmented`, `.dialog`, `.menu`, `.toast`, `.notice`, `.progress`, `.spinner`.
 - Feature CSS sits beside each feature. No CSS framework, no CSS-in-JS.
-- `index.html` sets `data-theme` before first paint (URL `th` wins over the stored preference), so there is no theme flash.
+- `index.html` sets `data-theme` before first paint (URL `th` wins over the stored preference), so there is no theme flash. Storage contract: `docs/theme.md`.
 - Inline styles went from 273 `style={{…}}` blocks plus helper-generated objects to 23, all runtime data (driver colour, marker positions, progress, bar widths).
 - Type: IBM Plex Sans for everything, Greek included. Barlow Condensed only for the small "F1 STORIES" publisher mark.
 

@@ -39,7 +39,7 @@ async function capture3d() {
         const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
         await context.addInitScript((th) => {
           localStorage.setItem("f1s-track-view", "3d");
-          localStorage.setItem("f1s-theme", th);
+          localStorage.setItem("f1stories-theme", th);
         }, theme);
         const page = await context.newPage();
         await routeOpenF1(page, { circuit: "suzuka" });
@@ -111,7 +111,7 @@ try {
         await context.addInitScript(
           ([view, th]) => {
             localStorage.setItem("f1s-track-view", view);
-            localStorage.setItem("f1s-theme", th);
+            localStorage.setItem("f1stories-theme", th);
           },
           [state.view, theme]
         );

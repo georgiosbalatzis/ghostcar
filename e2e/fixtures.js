@@ -165,7 +165,7 @@ export async function setPreferences(page, { trackView = "2d", theme } = {}) {
   await page.addInitScript(
     ([view, th]) => {
       localStorage.setItem("f1s-track-view", view);
-      if (th) localStorage.setItem("f1s-theme", th);
+      if (th) localStorage.setItem("f1stories-theme", th);
     },
     [trackView, theme]
   );

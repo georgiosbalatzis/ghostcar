@@ -106,7 +106,7 @@ export default function useShareAndGallery({
 
   const clearGallery = useCallback(() => updateGallery(() => []), [updateGallery]);
 
-  // A 1200×630 card in the Data Desk style: paper, crumb, GHOST CAR., the event, ruled driver rows, signal band.
+  // A 1200×630 card in the page style: paper, Race Desk crumb, GHOST CAR., the event, ruled driver rows, signal band.
   const generateSocialCard = useCallback(async () => {
     if (!comparison?.drivers?.length) return;
     const plex = (weight, size) => `${weight} ${size}px "IBM Plex Sans", system-ui, sans-serif`;
@@ -134,7 +134,7 @@ export default function useShareAndGallery({
     ctx.fillRect(64, 56, 1072, 2);
     ctx.font = plex(600, 18);
     ctx.letterSpacing = "2.5px";
-    ctx.fillText("F1 STORIES / DATA DESK", 64, 92);
+    ctx.fillText("F1 STORIES / RACE DESK", 64, 92);
     ctx.textAlign = "right";
     ctx.fillText("ΣΥΓΚΡΙΣΗ ΓΥΡΩΝ · OPENF1", 1136, 92);
     ctx.textAlign = "left";

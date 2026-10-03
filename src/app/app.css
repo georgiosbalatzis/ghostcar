@@ -184,8 +184,48 @@ main:focus {
   align-items: end;
   padding-top: 30px;
 }
+/* Race Desk product switcher, as on f1stories.gr/standings/ and Telemetry: it hangs off the crumb rule, and the current
+   product gets a signal bar *above* it (the workspace tabs underline below). Below 768px it takes its own sub-rule.
+   The 0.4px restores the text crumb's fraction (12px × 1.2 line height): the crumb grows by exactly 16px, so the page
+   below moves by whole pixels and keeps its rasterisation. */
+.race-desk-nav {
+  display: flex;
+  gap: var(--space-5);
+  margin: -14px 0 0.4px;
+}
+.race-desk-nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--text-2);
+  font: 700 15px/1 var(--font-brand);
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.race-desk-nav a:hover,
+.race-desk-nav a[aria-current="page"] {
+  color: var(--text);
+}
+.race-desk-nav a[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--signal);
+}
 .hero h1 {
   font-size: clamp(72px, 10.4vw, 150px);
+}
+/* The crumb's old right-hand label, now under the title. A whole-pixel line height, so the page below moves by whole
+   pixels. */
+.hero__descriptor {
+  display: block;
+  margin-top: 14px;
+  color: var(--text-2);
+  font: 600 var(--text-small) / 16px var(--font-ui);
+  letter-spacing: 0.14em;
 }
 .hero__sub {
   margin-top: 18px;
@@ -255,8 +295,14 @@ main:focus {
     gap: var(--space-5);
     padding-top: 22px;
   }
-  .hero .crumb span:last-child {
-    display: none;
+  .hero .crumb {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .race-desk-nav {
+    flex: 1 0 100%;
+    margin: 0;
+    border-top: 1px solid var(--rule);
   }
   .hero__aside {
     padding: var(--space-4) 0 0;
@@ -269,6 +315,7 @@ main:focus {
     padding-block: var(--space-3);
   }
   .hero--loaded .crumb,
+  .hero--loaded .hero__descriptor,
   .hero--loaded .hero__drivers {
     display: none;
   }

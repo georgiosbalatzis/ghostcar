@@ -115,24 +115,88 @@ test("secondary surfaces open from menus and close with Escape", async ({ page }
   await expect(page.locator("body")).toBeVisible();
 });
 
+// Records every value <html data-theme> takes during a load, from before the page's first script. One value: no flash.
+async function watchTheme(page) {
+  await page.addInitScript(() => {
+    window.__themeHistory = [];
+    new MutationObserver((records) => {
+      for (const record of records) if (record.oldValue !== null) window.__themeHistory.push(record.oldValue);
+    }).observe(document, { attributeFilter: ["data-theme"], attributeOldValue: true, subtree: true });
+  });
+}
+const themesSeen = (page) =>
+  page.evaluate(() => [...new Set([...window.__themeHistory, document.documentElement.dataset.theme])]);
+const storedThemes = (page) =>
+  page.evaluate(() => ({ shared: localStorage.getItem("f1stories-theme"), old: localStorage.getItem("f1s-theme") }));
+const themeButton = (page) => page.getByRole("banner").getByRole("button", { name: /θέμα$/ });
+
 test("theme is a quiet preference that persists", async ({ page }) => {
+  await watchTheme(page);
   await routeOpenF1(page);
   await page.goto(APP_PATH);
   const html = page.locator("html");
-  // Paper by default, as on f1stories.gr.
+  // Paper by default, as on f1stories.gr, and nothing is stored until the reader chooses.
   await expect(html).toHaveAttribute("data-theme", "light");
   const lightBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(lightBackground).toBe("rgb(242, 238, 228)");
+  await expect(themeButton(page)).toHaveAccessibleName("Σκούρο θέμα");
+  expect(await storedThemes(page)).toEqual({ shared: null, old: null });
 
-  await page.getByRole("banner").getByRole("button", { name: "Σκούρο θέμα" }).click();
+  await themeButton(page).click();
   await expect(html).toHaveAttribute("data-theme", "dark");
   const darkBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(darkBackground).not.toEqual(lightBackground);
+  expect(await storedThemes(page)).toEqual({ shared: "dark", old: null });
 
-  await page.reload();
+  // A reload opens straight on the stored choice: no other theme is ever set on <html>.
+  for (const theme of ["dark", "light"]) {
+    await page.reload();
+    await expect(themeButton(page)).toHaveAccessibleName(theme === "dark" ? "Φωτεινό θέμα" : "Σκούρο θέμα");
+    expect(await themesSeen(page)).toEqual([theme]);
+    if (theme === "dark") await themeButton(page).click();
+  }
+  expect(await storedThemes(page)).toEqual({ shared: "light", old: null });
+
+  // URL theme wins for that view and is not stored.
+  await page.goto(`${APP_PATH}?th=dark`);
   await expect(html).toHaveAttribute("data-theme", "dark");
-  // URL theme wins over the stored preference.
-  await page.goto(`${APP_PATH}?th=light`);
+  expect(await storedThemes(page)).toEqual({ shared: "light", old: null });
+});
+
+test("an old Ghost Car theme moves to the shared key without a flash", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  await page.evaluate(() => localStorage.setItem("f1s-theme", "dark"));
+  await watchTheme(page);
+  await page.reload();
+  await expect(themeButton(page)).toHaveAccessibleName("Φωτεινό θέμα");
+  expect(await themesSeen(page)).toEqual(["dark"]);
+  expect(await storedThemes(page)).toEqual({ shared: "dark", old: null });
+});
+
+test("a shared 'auto' follows the OS until the reader chooses", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await routeOpenF1(page);
+  await page.goto(APP_PATH);
+  await page.evaluate(() => localStorage.setItem("f1stories-theme", "auto"));
+  const html = page.locator("html");
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.reload();
+    await expect(html).toHaveAttribute("data-theme", scheme);
+    await expect(themeButton(page)).toBeVisible();
+    expect(await storedThemes(page)).toEqual({ shared: "auto", old: null });
+  }
+
+  // The phone masthead toggle, by keyboard: an explicit choice replaces 'auto'.
+  await themeButton(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await expect(themeButton(page)).toHaveAccessibleName("Σκούρο θέμα");
+  await expect(themeButton(page)).toBeFocused();
+  expect(await storedThemes(page)).toEqual({ shared: "light", old: null });
+  // The OS is still dark; the reader's choice wins.
+  await page.reload();
   await expect(html).toHaveAttribute("data-theme", "light");
 });
 

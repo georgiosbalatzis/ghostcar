@@ -453,7 +453,7 @@ Ship in reviewable PRs. Each one should leave the app working:
 - **Drift from the site.** ✅ Now detectable: hosting stays separate and the markup is copied, but `npm run check:site` compares the copies with the live f1StoriesPage source and fails on any change.
 - **Barlow has no Greek.** ✅ Respected: Barlow is used only for `GHOST CAR.`, `EVERY TENTH COUNTS.`, `F1 STORIES.` and driver acronyms (2D, 3D, share card). Greek headings use Plex 600.
 - **Team colours on paper.** ✅ Measured in Phase 1: `--ink` is only used for marks, and every team colour is ≥ 3:1 in both themes. Names and acronyms stay in text colour.
-- **Theme key.** `f1s-theme` is per-origin, so it can't sync with f1stories.gr while hosting stays separate. This is accepted per the hosting decision.
+- **Theme key.** Now the shared `f1stories-theme` (old `f1s-theme` migrates on load, see `docs/theme.md`). Still per-origin, so it can't sync with f1stories.gr while hosting stays separate. This is accepted per the hosting decision.
 - **Tabs replace the rail** (my call in §1). ✅ Built in Phase 6. The Δελτίο sits beside the stage; if you'd rather have a switchable rail, only `Workspace.jsx` and `RaceBrief.jsx` change.
 
 ---

@@ -3,7 +3,7 @@
 // Usage: npm run check:site   (exit code 1 when something changed)
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { NAV_LINKS, SITE } from "../src/app/siteNav.js";
+import { NAV_LINKS, RACE_DESK_LINKS, SITE } from "../src/app/siteNav.js";
 
 const RAW = "https://raw.githubusercontent.com/georgiosbalatzis/f1StoriesPage/main";
 
@@ -52,7 +52,27 @@ if (JSON.stringify(siteLinks) !== JSON.stringify(ours)) {
   );
 }
 
-// 2. Editorial palette: the dark block, then the light override.
+// 2. Race Desk switcher (THE GRID is the reference). Same labels in the same order; links to the other products match.
+const standings = await text(`${RAW}/standings/index.html`);
+const switcher = standings.slice(
+  standings.indexOf('class="race-desk-nav"'),
+  standings.indexOf("</nav>", standings.indexOf('class="race-desk-nav"'))
+);
+const siteDesk = [...switcher.matchAll(/<a href="([^"]+)"([^>]*)>([^<]+)<\/a>/g)].map(([, href, attrs, label]) => ({
+  href: href.startsWith("/") ? `${SITE}${href}` : href,
+  current: attrs.includes("aria-current"),
+  label: label.trim(),
+}));
+const deskDiffers =
+  siteDesk.map((l) => l.label).join() !== RACE_DESK_LINKS.map((l) => l.label).join() ||
+  RACE_DESK_LINKS.some((ours, i) => !ours.current && !siteDesk[i]?.current && ours.href !== siteDesk[i]?.href);
+if (deskDiffers) {
+  problems.push(
+    `Race Desk switcher differs (update RACE_DESK_LINKS in src/app/siteNav.js):\n    site: ${siteDesk.map((l) => `${l.label} ${l.href}`).join("\n          ")}`
+  );
+}
+
+// 3. Editorial palette: the dark block, then the light override.
 const css = await text(`${RAW}/styles/editorial.css`);
 const block = (selector) => {
   const start = css.indexOf(selector);
@@ -77,7 +97,7 @@ for (const [theme, expected] of Object.entries(PALETTE)) {
   }
 }
 
-// 3. The nav logo.
+// 4. The nav logo.
 const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
 const liveLogo = Buffer.from(await (await fetch(`${SITE}/images/logo-nav.webp`)).arrayBuffer());
 const ourLogo = await readFile(new URL("../public/logo-nav.webp", import.meta.url));
@@ -89,5 +109,5 @@ if (problems.length) {
   process.exit(1);
 }
 console.log(
-  `In step with f1stories.gr: ${ours.length} nav links, ${Object.keys(PALETTE.dark).length + Object.keys(PALETTE.light).length} palette values, nav logo.`
+  `In step with f1stories.gr: ${ours.length} nav links, ${RACE_DESK_LINKS.length} Race Desk products, ${Object.keys(PALETTE.dark).length + Object.keys(PALETTE.light).length} palette values, nav logo.`
 );

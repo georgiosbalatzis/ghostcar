@@ -1,20 +1,32 @@
 import { memo } from "react";
 import { fmt } from "../helpers.js";
 import Icon from "../components/ui/Icon.jsx";
+import { RACE_DESK_LINKS } from "./siteNav.js";
 
-// Page opening, as on f1stories.gr /standings/: crumb, "GHOST CAR." display title, and an aside.
+// Page opening, as on f1stories.gr /standings/: the Race Desk crumb and product switcher, the "GHOST CAR." display
+// title with its descriptor, and an aside.
 // Builder: tagline and a short explanation. Loaded: the event, the drivers and laps, and "change comparison".
 function DeskHero({ model, onEdit, tools }) {
   return (
     <section className={model ? "hero hero--loaded" : "hero"} aria-labelledby="hero-title">
       <div className="crumb">
-        <span>F1 Stories / Data desk</span>
-        <span>Σύγκριση γύρων · OpenF1</span>
+        <span>F1 Stories / Race Desk</span>
+        <nav className="race-desk-nav" aria-label="Race Desk" lang="en">
+          {RACE_DESK_LINKS.map((link) => (
+            <a
+              key={link.label}
+              href={link.href ?? import.meta.env.BASE_URL}
+              aria-current={link.current ? "page" : undefined}
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
       </div>
       <div className="hero__grid">
         <div className="hero__title">
           <h1 id="hero-title" className="display">
-            Ghost Car<span className="dot">.</span>
+            Ghost Car<span className="dot">.</span> <span className="hero__descriptor">Σύγκριση γύρων · OpenF1</span>
           </h1>
           <p className="hero__sub">
             {model

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-const THEME_STORAGE_KEY = "f1s-theme";
+// The shared F1 Stories key. index.html reads it before first paint and migrates the old "f1s-theme" (docs/theme.md).
+// Written only when the reader toggles the theme, so a sibling app's "auto" is never replaced on load.
+export const THEME_STORAGE_KEY = "f1stories-theme";
 
 export function normalizeThemeMode(value) {
   if (value === "dark") return true;

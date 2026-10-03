@@ -10,7 +10,7 @@
 - embed χρήση σε άρθρα ή landing pages
 - αξιοπρεπή εμπειρία σε desktop, mobile και low-power συσκευές
 
-Το Ghost Car είναι μια σελίδα του **f1stories.gr** σε ύφος «Data Desk», όπως οι Βαθμολογίες: η μπάρα πλοήγησης του site, τίτλος `GHOST CAR.`, κόκκινη λωρίδα, χαρτί ως προεπιλογή (και σκούρο θέμα), IBM Plex Sans και Barlow Condensed. Το σχέδιο και η πορεία της αναδιάταξης βρίσκονται στο [REWORK_TASKS.md](REWORK_TASKS.md).
+Το Ghost Car είναι ένα από τα τρία προϊόντα του **F1 Stories / Race Desk** (THE GRID, TELEMETRY, GHOST CAR· βλ. [docs/race-desk.md](docs/race-desk.md)), στο ύφος των Βαθμολογιών: η μπάρα πλοήγησης του site, η εναλλαγή προϊόντων του Race Desk, τίτλος `GHOST CAR.`, κόκκινη λωρίδα, χαρτί ως προεπιλογή (και σκούρο θέμα), IBM Plex Sans και Barlow Condensed. Το σχέδιο και η πορεία της αναδιάταξης βρίσκονται στο [REWORK_TASKS.md](REWORK_TASKS.md).
 
 ## Τι προσφέρει
 
@@ -158,7 +158,7 @@ Hooks δεδομένων και ροής:
 
 - [src/styles/](src/styles): tokens από το f1stories.gr (`data-theme`, χαρτί / σκούρο) και τα βασικά primitives (kicker, crumb, band, facts, κουμπιά, πεδία)
 - [src/components/ui/](src/components/ui): Dialog (native `<dialog>`), Menu (Popover API), Tabs (με `aside` για ενέργειες), Icon
-- [src/app/](src/app): μπάρα του site (`SiteMasthead`), τίτλος (`DeskHero`), κόκκινη λωρίδα και υποσέλιδο (`SignalBand`), ενέργειες σύγκρισης, keyboard shortcuts, showreel, metadata
+- [src/app/](src/app): μπάρα του site (`SiteMasthead`), τίτλος και εναλλαγή Race Desk (`DeskHero`), κόκκινη λωρίδα και υποσέλιδο (`SignalBand`), ενέργειες σύγκρισης, keyboard shortcuts, showreel, metadata
 - [src/features/comparison/](src/features/comparison): η φόρμα σύγκρισης και ο διάλογος επιλεγμένων συγκρίσεων
 - [src/features/replay/](src/features/replay): stage (2D `TrackMap` με κυριαρχία, lazy 3D), transport, legend του embed, replay model και key facts
 - [src/features/analysis/](src/features/analysis): οι καρτέλες (`Workspace`), Αγωνιστικό δελτίο, τηλεμετρία, τομείς, γύροι
@@ -320,7 +320,7 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 Η εφαρμογή χρησιμοποιεί `localStorage` για μικρές προτιμήσεις και convenience state:
 
-- `f1s-theme`: επιλογή χαρτί/σκούρο (προεπιλογή: χαρτί)
+- `f1stories-theme`: επιλογή χαρτί/σκούρο, κοινό κλειδί του F1 Stories (προεπιλογή: χαρτί· το παλιό `f1s-theme` μεταφέρεται αυτόματα, βλ. [docs/theme.md](docs/theme.md))
 - `f1s-track-view`: τελευταία επιλογή 2D/3D (προεπιλογή: 2D)
 - `f1s-3d-relief`, `f1s-3d-lines`: ανάγλυφο ×3 και γραμμές οδηγών στο 3D
 - `f1s-gallery`: αποθηκευμένες συγκρίσεις
