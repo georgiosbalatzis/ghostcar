@@ -92,7 +92,7 @@ for (const theme of ["light", "dark"])
       await canonical(page, theme);
       await preservedInks(page, theme);
       await ring(page, page.locator(".tabs__tab").first(), -4);
-      await ring(page, page.locator(".stage__tools button").first(), 5);
+      await ring(page, page.locator(".stage__tools button").first(), -3);
       await ring(page, page.getByRole("slider", { name: "Πρόοδος γύρου" }), 5);
       await ring(page, page.locator(".transport__play"), 5);
       if (width < 768) {

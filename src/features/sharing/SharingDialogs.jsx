@@ -7,7 +7,7 @@ import "./sharing.css";
 function CopyField({ value, multiline, onCopy, label }) {
   const [state, setState] = useState("");
   const copy = async (event) => {
-    const field = event.currentTarget.parentElement.querySelector(".input");
+    const field = event.currentTarget.closest(".copy-field").querySelector(".input");
     try {
       await onCopy(value);
       setState("Αντιγράφηκε");

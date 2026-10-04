@@ -338,6 +338,12 @@
   gap: var(--space-1);
   flex: none;
 }
+@media (min-width: 768px) and (max-width: 1099px), (min-width: 768px) and (any-pointer: coarse) {
+  /* 36px icon boxes gain 4px on each side; reserve space between their hit areas. */
+  .stage__tools {
+    gap: var(--space-2);
+  }
+}
 
 /* ─── Legend: result + drivers ─── */
 .legend {
@@ -596,6 +602,19 @@
   background: var(--text);
 }
 
+@media (max-width: 1099px), (any-pointer: coarse) {
+  /* Keep the track/thumb centre and transport height; grow the transparent input box only. */
+  .timeline {
+    height: var(--touch-target);
+    padding-top: 16px;
+    margin-top: -16px;
+  }
+  .transport__speed {
+    min-height: var(--touch-target);
+    margin-block: -4px;
+  }
+}
+
 /* ─── Embed ─── */
 .embed {
   display: flex;
@@ -710,7 +729,12 @@
     flex-basis: 100%;
   }
   .transport .timeline {
-    height: 32px;
+    height: var(--touch-target);
+    padding-top: 12px;
+    margin-top: -12px;
+  }
+  .transport__speed {
+    margin-block: 0;
   }
   .transport__loop {
     width: var(--touch-target);

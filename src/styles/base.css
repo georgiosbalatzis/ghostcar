@@ -572,6 +572,7 @@ textarea.input {
   background: var(--surface);
 }
 .segmented button {
+  position: relative;
   min-width: 40px;
   min-height: 28px;
   padding: 0 var(--space-2);
@@ -586,6 +587,58 @@ textarea.input {
 .segmented button[aria-pressed="true"] {
   background: var(--surface-3);
   color: var(--text);
+}
+.segmented button:focus-visible {
+  /* Keep the ring on this segment instead of painting across its adjacent control. */
+  outline-offset: -3px;
+}
+
+@media (max-width: 1099px), (any-pointer: coarse) {
+  .btn--link,
+  .segmented button,
+  .icon-btn,
+  .masthead__link,
+  .transport__loop,
+  .tab-actions .btn,
+  .dialog .btn:not(.btn--link),
+  .desk__pending .btn {
+    position: relative;
+  }
+  .btn--link::after,
+  .segmented button::after,
+  .icon-btn::after,
+  .masthead__link::after,
+  .transport__loop::after,
+  .tab-actions .btn::after,
+  .dialog .btn:not(.btn--link)::after,
+  .desk__pending .btn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, var(--touch-target));
+    height: max(100%, var(--touch-target));
+    transform: translate(-50%, -50%);
+  }
+  /* The two 40px view segments meet in the middle; grow only their outer edges. */
+  .segmented button::after {
+    left: 0;
+    transform: translateY(-50%);
+  }
+  .segmented button:first-child::after {
+    left: auto;
+    right: 0;
+  }
+  /* Add sits just above Submit: expand upwards, never over that next action. */
+  .builder__add::after {
+    top: auto;
+    bottom: 0;
+    transform: translateX(-50%);
+  }
+  /* Search and copy fields in tablet dialogs are ordinary touch inputs, not dense replay chrome. */
+  .dialog .input {
+    min-height: var(--touch-target);
+  }
 }
 
 /* ─── Dialog / sheet: a paper panel under an ink rule, as the site's panels ─── */
@@ -707,6 +760,8 @@ textarea.input {
   background: var(--page);
   color: var(--text);
   box-shadow: var(--shadow-float);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
 }
 .menu:popover-open {
   display: grid;
@@ -749,7 +804,7 @@ textarea.input {
   font-size: var(--text-small);
   color: var(--muted);
 }
-@media (max-width: 767px) {
+@media (max-width: 1099px), (any-pointer: coarse) {
   .menu__item {
     min-height: var(--touch-target);
   }
