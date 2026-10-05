@@ -1,12 +1,12 @@
 # Race Desk in Ghost Car
 
-Ghost Car is one of three Race Desk products. The canonical architecture lives in the main site: [`f1StoriesPage/docs/race-desk-architecture.md`](https://github.com/georgiosbalatzis/f1StoriesPage/blob/main/docs/race-desk-architecture.md). This page only records how Ghost Car applies it.
+Ghost Car is one of four Race Desk products. The canonical architecture lives in the main site: [`f1StoriesPage/docs/race-desk-architecture.md`](https://github.com/georgiosbalatzis/f1StoriesPage/blob/main/docs/race-desk-architecture.md). This page only records how Ghost Car applies it.
 
 | Level | In Ghost Car | Where |
 |---|---|---|
 | Global section | `Δεδομένα` is current (`aria-current="page"`) | Masthead, `NAV_LINKS` in `src/app/siteNav.js`. Unchanged; Race Desk and its products never go here. |
 | Umbrella | `F1 STORIES / RACE DESK` | Kicker on the hero's crumb rule (`DeskHero`). Not a heading. |
-| Products | `THE GRID` · `TELEMETRY` · `GHOST CAR`, GHOST CAR current | `<nav aria-label="Race Desk" lang="en">` on the same rule, `RACE_DESK_LINKS` in `src/app/siteNav.js` |
+| Products | `THE GRID` · `TELEMETRY` · `GHOST CAR` · `TYRES`, GHOST CAR current | `<nav aria-label="Race Desk" lang="en">` on the same rule, `RACE_DESK_LINKS` in `src/app/siteNav.js` |
 | Product | `GHOST CAR.` with `Σύγκριση γύρων · OpenF1` | The page's only H1; the descriptor is a block line inside it, as in Telemetry |
 | Product controls | Builder, Αναπαράσταση / Τομείς / Γύροι / Σεζόν tabs, 2D/3D, transport | Below the signal band. Not Race Desk products. |
 
@@ -19,6 +19,7 @@ Two current items at once is intended: `Δεδομένα` in the global nav and 
 | THE GRID | `https://f1stories.gr/standings/` (absolute, never the main site's redirect stub) |
 | TELEMETRY | `https://georgiosbalatzis.github.io/f1-telemetry-dashboard/` |
 | GHOST CAR | `import.meta.env.BASE_URL` (`/ghostcar/`), i.e. `https://georgiosbalatzis.github.io/ghostcar/` in production; dev and preview stay local |
+| TYRES | `https://georgiosbalatzis.github.io/Tyres/` (not the main site's `/tyres/` stub) |
 
 The GitHub Pages hosts are deployment boundaries, not separate brands: product branding does not depend on where a product is hosted. Links open in the same tab, carry no ↗, and pass no comparison state. BetCast is a sibling F1 Stories product and is not in the switcher. `npm run check:site` fails if the main site's switcher changes its labels, order or product links.
 

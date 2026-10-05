@@ -216,6 +216,16 @@ main:focus {
   height: 3px;
   background: var(--signal);
 }
+/* Four products must fit 320px without wrapping or clipping. */
+@media (max-width: 400px) {
+  .race-desk-nav {
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .race-desk-nav a {
+    letter-spacing: 0.03em;
+  }
+}
 .hero h1 {
   font-size: clamp(72px, 10.4vw, 150px);
 }
