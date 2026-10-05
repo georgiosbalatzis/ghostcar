@@ -25,11 +25,12 @@ test("Race Desk sits between the global nav and the GHOST CAR. title", async ({ 
 
   const nav = raceDesk(page);
   const links = nav.getByRole("link");
-  await expect(links).toHaveText(["THE GRID", "TELEMETRY", "GHOST CAR"]);
+  await expect(links).toHaveText(["THE GRID", "TELEMETRY", "GHOST CAR", "TYRES"]);
   await expect(links.nth(0)).toHaveAttribute("href", "https://f1stories.gr/standings/");
   await expect(links.nth(1)).toHaveAttribute("href", "https://georgiosbalatzis.github.io/f1-telemetry-dashboard/");
   // The app's own base, so dev and preview builds stay local.
   await expect(links.nth(2)).toHaveAttribute("href", APP_PATH);
+  await expect(links.nth(3)).toHaveAttribute("href", "https://georgiosbalatzis.github.io/Tyres/");
   await expect(nav.locator("[aria-current]")).toHaveText(["GHOST CAR"]);
   await expect(links.nth(2)).toHaveAttribute("aria-current", "page");
   // Same-tab product navigation: no new tab, no BetCast (a sibling product, not Race Desk), not a tablist.
@@ -41,7 +42,7 @@ test("Race Desk sits between the global nav and the GHOST CAR. title", async ({ 
   // Two current items at two levels: Δεδομένα globally, GHOST CAR in Race Desk. The masthead never lists the products.
   const global = page.getByRole("navigation", { name: "F1 Stories" }).first();
   await expect(global.locator("[aria-current]")).toHaveText(["Δεδομένα"]);
-  for (const product of ["THE GRID", "TELEMETRY", "GHOST CAR", "Race Desk"])
+  for (const product of ["THE GRID", "TELEMETRY", "GHOST CAR", "TYRES", "Race Desk"])
     await expect(page.getByRole("banner").getByText(product, { exact: true })).toHaveCount(0);
 
   // The umbrella is a kicker, not a heading; GHOST CAR. is the only H1 and carries the descriptor.

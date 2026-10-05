@@ -18,4 +18,5 @@ export const RACE_DESK_LINKS = [
   { label: "THE GRID", href: `${SITE}/standings/` },
   { label: "TELEMETRY", href: "https://georgiosbalatzis.github.io/f1-telemetry-dashboard/" },
   { label: "GHOST CAR", current: true },
+  { label: "TYRES", href: "https://georgiosbalatzis.github.io/Tyres/" },
 ];
