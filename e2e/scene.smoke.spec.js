@@ -233,10 +233,11 @@ test("mobile embed keeps replay, scrub and play inside its frame", async ({ page
   await expect(page.getByRole("button", { name: "Αναπαραγωγή" })).toBeInViewport();
   await timeline(page).fill("0.6");
   await expect(timeline(page)).toHaveValue("0.6");
-  await expect(page.getByRole("link", { name: /Άνοιγμα στο F1 Stories Ghost Car/ })).toHaveAttribute(
-    "href",
-    /d1=1&d2=4/
-  );
+  const openLink = page.getByRole("link", { name: /F1 STORIES\. Άνοιγμα στο Ghost Car/ });
+  await expect(openLink).toHaveAttribute("href", /d1=1&d2=4/);
+  await expect(openLink).not.toHaveAttribute("href", /embed=1/);
+  await expect(openLink).toBeInViewport();
+  await expect(page.locator(".embed__footer")).toContainText("Πηγή: OpenF1");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await expect(page.getByRole("banner")).toHaveCount(0);
   await expect(page.getByRole("tab")).toHaveCount(0);

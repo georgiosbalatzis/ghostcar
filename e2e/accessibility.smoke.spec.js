@@ -70,6 +70,65 @@ async function keyboardRing(page, locator, offset = 5) {
   expect(ring).toEqual({ visible: true, width: "2px", style: "solid", offset: `${offset}px`, clips: [] });
 }
 
+// Compare actual painted ring pixels with the same frame without its outline.
+async function paintedRing(page, locator) {
+  await keyboardRing(page, locator, -3);
+  const r = await locator.boundingBox();
+  const clip = {
+    x: Math.floor(r.x - 8),
+    y: Math.floor(r.y - 8),
+    width: Math.ceil(r.width + 16),
+    height: Math.ceil(r.height + 16),
+  };
+  const before = (await page.screenshot({ clip })).toString("base64");
+  const hide = await page.addStyleTag({ content: ".hero__edit:focus-visible { outline: none !important; }" });
+  const after = (await page.screenshot({ clip })).toString("base64");
+  await hide.evaluate((el) => el.remove());
+  const edges = await page.evaluate(
+    async ({ before, after, r, clip }) => {
+      const pixels = async (data) => {
+        const image = new Image();
+        image.src = "data:image/png;base64," + data;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0);
+        return { data: ctx.getImageData(0, 0, canvas.width, canvas.height).data, width: canvas.width };
+      };
+      const a = await pixels(before),
+        b = await pixels(after);
+      const changed = (x, y) => {
+        const i = (Math.round(y - clip.y) * a.width + Math.round(x - clip.x)) * 4;
+        return [0, 1, 2].reduce((sum, c) => sum + Math.abs(a.data[i + c] - b.data[i + c]), 0) > 50;
+      };
+      const coverage = (from, to, near, vertical) => {
+        let total = 0,
+          hits = 0;
+        for (let t = Math.ceil(from); t <= Math.floor(to); t++) {
+          total++;
+          for (let n = Math.floor(near - 6); n <= Math.ceil(near + 6); n++) {
+            if (vertical ? changed(n, t) : changed(t, n)) {
+              hits++;
+              break;
+            }
+          }
+        }
+        return hits / total;
+      };
+      return [
+        coverage(r.y + 8, r.y + r.height - 8, r.x, true),
+        coverage(r.y + 8, r.y + r.height - 8, r.x + r.width, true),
+        coverage(r.x + 8, r.x + r.width - 8, r.y, false),
+        coverage(r.x + 8, r.x + r.width - 8, r.y + r.height, false),
+      ];
+    },
+    { before, after, r, clip }
+  );
+  for (const edge of edges) expect(edge).toBeGreaterThanOrEqual(0.9);
+}
+
 for (const theme of ["light", "dark"])
   for (const width of [1440, 1280, 1024, 768, 390, 375, 320]) {
     test(`interaction targets, keyboard rings and modal isolation: ${width} ${theme}`, async ({ page }) => {
@@ -101,6 +160,31 @@ for (const theme of ["light", "dark"])
         await keyboardRing(page, page.locator(".masthead__menu-link").first(), -4);
         await page.keyboard.press("Escape");
         await expect(trigger).toBeFocused();
+        await trigger.click();
+        const lastLink = page.locator(".masthead__menu-link").last();
+        await lastLink.focus();
+        await page.keyboard.press("Tab");
+        await expect(page.locator(".masthead__menu")).not.toBeVisible();
+        const next = page.getByRole("navigation", { name: "Race Desk" }).getByRole("link").first();
+        await expect(next).toBeFocused();
+        expect(
+          await next.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+          })
+        ).toBe(true);
+        await trigger.click();
+        await page.locator(".masthead__menu-link").first().focus();
+        await trigger.click();
+        await expect(page.locator(".masthead__menu")).not.toBeVisible();
+        await trigger.click();
+        await page.locator(".masthead__menu-link").first().focus();
+        for (let step = 0; step < 4; step++) await page.keyboard.press("Shift+Tab");
+        await expect(page.locator(".skip-link")).toBeFocused();
+        await page.keyboard.press("Enter");
+        await expect(page.locator(".masthead__menu")).not.toBeVisible();
+        await page.keyboard.press("Tab");
+        await expect(page.locator(".builder .select:enabled").first()).toBeFocused();
       } else {
         if (width < 1100) for (const link of await page.locator(".masthead__link").all()) await touchTarget(link);
         await keyboardRing(page, page.locator(".masthead__link").first());
@@ -108,6 +192,7 @@ for (const theme of ["light", "dark"])
 
       await page.goto(comparisonUrl);
       await timeline(page).waitFor();
+      await paintedRing(page, page.locator(".hero__edit"));
       if (width < 768) {
         await expect(page.locator(".race-desk-nav")).toBeHidden();
         await expect(page.locator(".hero__descriptor")).toBeHidden();

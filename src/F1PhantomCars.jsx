@@ -18,6 +18,7 @@ import { normalizePageTab } from "./features/analysis/pageTabs.js";
 import Workspace from "./features/analysis/Workspace.jsx";
 import ComparisonBuilder from "./features/comparison/ComparisonBuilder.jsx";
 import { FeaturedDialog, getPlayablePresets } from "./features/comparison/FeaturedComparisons.jsx";
+import EmbedFooter from "./features/replay/EmbedFooter.jsx";
 import PlaybackBar from "./features/replay/PlaybackBar.jsx";
 import ReplayStage from "./features/replay/ReplayStage.jsx";
 import { buildReplayModel } from "./features/replay/replayModel.js";
@@ -565,13 +566,8 @@ export default function App({ embed }) {
     surface = model ? (
       <div className="embed">
         {stage}
-        <div className="embed__bar">
-          {transport}
-          <a className="embed__open" href={openUrl} target="_blank" rel="noopener noreferrer">
-            <span>Άνοιγμα στο F1 Stories Ghost Car</span>
-            <Icon name="external" size={16} />
-          </a>
-        </div>
+        <div className="embed__bar">{transport}</div>
+        <EmbedFooter openUrl={openUrl} />
       </div>
     ) : (
       <div className="embed embed--empty" role="status">

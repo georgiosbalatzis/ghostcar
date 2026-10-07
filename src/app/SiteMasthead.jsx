@@ -66,7 +66,13 @@ function SiteMasthead({ isDark, onToggleTheme }) {
   const menuId = useId();
   const themeLabel = isDark ? "Φωτεινό θέμα" : "Σκούρο θέμα";
   return (
-    <header className="masthead">
+    <header
+      className="masthead"
+      onBlur={(event) => {
+        if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget))
+          document.getElementById(menuId)?.hidePopover();
+      }}
+    >
       <a className="skip-link" href="#content">
         Μετάβαση στο περιεχόμενο
       </a>

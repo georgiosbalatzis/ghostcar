@@ -41,6 +41,8 @@ test("?debug3d=1 logs what a frame costs every 5 s, and nothing logs without it"
 });
 
 test("switching between 2D and 3D ten times leaves nothing behind", async ({ page }) => {
+  // Ten fresh software-rendered WebGL scenes can exceed the ordinary one-scene test budget.
+  test.setTimeout(120_000);
   const errors = collectPageErrors(page);
   // Every WebGL context the page makes, and every one that is given up.
   await page.addInitScript(() => {

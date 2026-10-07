@@ -286,6 +286,11 @@ main:focus {
   min-height: 46px;
   padding: 0 var(--space-4) 0 var(--space-5);
 }
+/* Keep the ring inside the compact edit button, clear of the adjacent share action. */
+.hero__edit:focus-visible {
+  outline-color: var(--page);
+  outline-offset: -3px;
+}
 /* Desktop reads "Αλλαγή σύγκρισης →"; the one-line phone opening shows the edit icon only. */
 .hero__edit .icon:first-child {
   display: none;

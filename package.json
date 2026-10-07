@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "check:site": "node scripts/check-site-drift.mjs",
     "preview": "vite preview",
-    "check:tokens": "node scripts/design-tokens.mjs"
+    "check:tokens": "node scripts/design-tokens.mjs",
+    "build:f1stories": "node scripts/build-f1stories.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
