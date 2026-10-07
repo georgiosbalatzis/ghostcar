@@ -92,6 +92,15 @@ export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
   const { isDark, setThemeMode, toggleTheme } = useThemePreference();
+  // An iframe cannot read f1stories.gr's localStorage, so the host page sets the frame's #light / #dark hash
+  // (as it does for Tyres) whenever its theme changes. Applied here without storing it.
+  useEffect(() => {
+    if (!embed) return undefined;
+    const onHash = () => setThemeMode(window.location.hash.slice(1));
+    onHash();
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [embed, setThemeMode]);
   // Embeds have no view toggle and sit inside scrolling articles, so they are always the light 2D map.
   const { trackView, setTrackViewMode, setTrackViewFromValue, is2DView } = useTrackViewPreference(
     embed ? "2d" : initialURL.trackView

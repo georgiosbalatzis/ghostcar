@@ -1,0 +1,107 @@
+[     301ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[     301ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[     547ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[     547ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    1056ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    1056ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    1898ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    1898ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    3498ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    3498ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[    7307ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[    7307ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[    7412ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/meetings?year=2026:0
+[    8132ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[    8245ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[    8377ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/sessions?year=2026:0
+[    8378ms] [ERROR] Tyre pace error: Error: HTTP 429
+    at https://f1stories.gr/standings/chunks/chunk-ZQWBTM33.min.js:1:6724 @ https://f1stories.gr/standings/tabs/tyre-pace.min.js:0
+[    8466ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[    8936ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=30:0
+[    8937ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=30:0
+[    9003ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=14:0
+[    9004ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=14:0
+[    9058ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[    9162ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[    9296ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[    9515ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   10215ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/meetings?year=2026:0
+[   10629ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[   10933ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[   10963ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   11267ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[   11385ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=30:0
+[   11385ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=30:0
+[   14494ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=30:0
+[   14494ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=30:0
+[   14494ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[   14495ms] [WARNING] [OpenF1] result:11730: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   14608ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=14&session_key=11730&date%3C=2026-10-03T08:18:54.777000+00:00&date%3E=2026-10-03T08:17:17.085000+00:00:0
+[   16171ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=14&session_key=11730&date%3C=2026-10-03T08:18:54.777000+00:00&date%3E=2026-10-03T08:17:17.085000+00:00:0
+[   28237ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[   28237ms] [WARNING] Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://georgiosbalatzis.github.io') does not match the recipient window's origin ('https://f1stories.gr'). @ https://f1stories.gr/blog-module/blog/article-script.min.js?v=946b214c:0
+[   28675ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=14:0
+[   28675ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=30:0
+[   28747ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=14:0
+[   28752ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=30:0
+[   28755ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/sessions?circuit_short_name=Kuala%20Lumpur&year=2026:0
+[   28997ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[   29047ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[   29352ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[   29419ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[   30111ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[   30251ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=14:0
+[   30260ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=30:0
+[   30368ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=14:0
+[   30368ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=30:0
+[   30441ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   30494ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   31104ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/sessions?circuit_short_name=Kuala%20Lumpur&year=2026:0
+[   31450ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[   31500ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[   31854ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[   32147ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   32155ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[   32507ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   33304ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=14:0
+[   33311ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/stints?session_key=11730&driver_number=30:0
+[   33425ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=14:0
+[   33425ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?session_key=11730&driver_number=30:0
+[   34164ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/sessions?circuit_short_name=Kuala%20Lumpur&year=2026:0
+[   34165ms] [WARNING] [OpenF1] sessions:2026:Kuala Lumpur: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   34504ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[   34505ms] [WARNING] [OpenF1] drivers:11730: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   34556ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/drivers?session_key=11730:0
+[   34556ms] [WARNING] [OpenF1] drivers:11730: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   34907ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/session_result?session_key=11730:0
+[   34907ms] [WARNING] [OpenF1] result:11730: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   35206ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   35206ms] [WARNING] [OpenF1] telem:11730:55:2026-10-03T08:17:33.977000+00:00: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   35273ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/laps?driver_number=14&session_key=11730:0
+[   35273ms] [WARNING] [OpenF1] laps:11730:14: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1
+[   35626ms] [ERROR] Failed to load resource: the server responded with a status of 429 (Too Many Requests) @ https://api.openf1.org/v1/car_data?driver_number=55&session_key=11730&date%3C=2026-10-03T08:19:11.605000+00:00&date%3E=2026-10-03T08:17:33.977000+00:00:0
+[   35626ms] [WARNING] [OpenF1] telem:11730:55:2026-10-03T08:17:33.977000+00:00: Error: OpenF1 API 429 Too Many Requests
+    at oe (https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:21888)
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:23568
+    at async https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:2:24356 @ https://georgiosbalatzis.github.io/f1-telemetry-dashboard/assets/index-DDBYAsNR.js:1

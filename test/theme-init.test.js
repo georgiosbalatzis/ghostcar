@@ -11,7 +11,7 @@ const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
   .find((s) => s.includes("f1stories-theme"));
 
 // storageThrows: every access fails (blocked storage). writeThrows: only setItem fails (quota).
-function run({ stored = {}, search = "", osDark = false, storageThrows = false, writeThrows = false } = {}) {
+function run({ stored = {}, search = "", hash = "", osDark = false, storageThrows = false, writeThrows = false } = {}) {
   const items = new Map(Object.entries(stored));
   const fail = () => {
     throw new Error("SecurityError");
@@ -23,12 +23,17 @@ function run({ stored = {}, search = "", osDark = false, storageThrows = false, 
   };
   const documentElement = { dataset: {} };
   const window = {
-    location: { search },
+    location: { search, hash },
     matchMedia: (query) => ({ matches: query === "(prefers-color-scheme: dark)" && osDark }),
   };
   vm.runInNewContext(script, { window, document: { documentElement }, localStorage, URLSearchParams });
   return { theme: documentElement.dataset.theme, storage: Object.fromEntries(items) };
 }
+
+test("the host page's #light / #dark hash beats ?th= and storage", () => {
+  assert.equal(run({ stored: { "f1stories-theme": "light" }, search: "?th=light", hash: "#dark" }).theme, "dark");
+  assert.equal(run({ search: "?th=dark", hash: "#banana" }).theme, "dark");
+});
 
 test("the pre-paint script and React share one storage key", () => {
   assert.ok(script, "index.html has the theme script");

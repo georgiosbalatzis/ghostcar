@@ -1,0 +1,340 @@
+- generic [active] [ref=e1]:
+  - link "Μετάβαση στο περιεχόμενο" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - link "Αρχική σελίδα F1 Stories" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - img "Λογότυπο F1 Stories" [ref=e6]
+          - generic [ref=e7]: F1 STORIES.
+        - generic [ref=e8]:
+          - link "Αρχική" [ref=e9] [cursor=pointer]:
+            - /url: /
+          - link "Άρθρα" [ref=e10] [cursor=pointer]:
+            - /url: /blog-module/blog/index.html
+          - link "YouTube" [ref=e11] [cursor=pointer]:
+            - /url: https://www.youtube.com/@f1_stories_original
+          - link "Βαθμολογία" [ref=e12] [cursor=pointer]:
+            - /url: /standings/
+          - link "Δεδομένα" [ref=e13] [cursor=pointer]:
+            - /url: /standings/?tab=tyre-pace
+          - link "Συντάκτες" [ref=e14] [cursor=pointer]:
+            - /url: /authors/
+          - link "BetCast" [ref=e15] [cursor=pointer]:
+            - /url: https://georgiosbalatzis.github.io/BetCastVisualisation/
+        - generic [ref=e16]:
+          - button "Αναπαραγωγή BetCast, ON AIR" [ref=e18] [cursor=pointer]:
+            - generic [ref=e19]: ON AIR.
+            - generic [ref=e24]: ON AIR.
+          - generic [ref=e25]:
+            - generic [ref=e26]: 🇸🇬
+            - generic [ref=e27]:
+              - generic [ref=e28]: Singapore GP
+              - generic [ref=e29]: 3d 15h 56m
+          - button "Φωτεινό θέμα" [pressed] [ref=e30] [cursor=pointer]
+  - main [ref=e33]:
+    - generic [ref=e34]:
+      - article [ref=e35]:
+        - generic [ref=e36]:
+          - button "Open article image" [ref=e37] [cursor=pointer]:
+            - img "Η πίστα άλλαξε, όχι η AMR26" [ref=e38]
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: F1 STORIES / Η ΕΚΔΟΣΗ
+              - generic [ref=e42]: ΟΜΑΔΑ ΣΤΟ GRID
+            - generic [ref=e43]:
+              - link "Στο αρχείο" [ref=e44] [cursor=pointer]:
+                - /url: /blog-module/blog/index.html
+              - link "Ομάδες" [ref=e47] [cursor=pointer]:
+                - /url: /blog-module/blog/index.html?category=Teams
+            - heading "Η πίστα άλλαξε, όχι η AMR26" [level=1] [ref=e48]
+            - paragraph [ref=e49]:
+              - generic [ref=e50]: Γράφει
+              - link "Γιώργος Μπαλατζής" [ref=e51] [cursor=pointer]:
+                - /url: /authors/?author=georgios-balatzis
+            - generic [ref=e52]:
+              - generic [ref=e53]: 7 Οκτωβρίου 2026
+              - generic [ref=e54]:
+                - text: ·
+                - generic [ref=e55]: 9 λεπτά ανάγνωσης
+        - generic [ref=e56]:
+          - complementary "Πληροφορίες άρθρου" [ref=e57]:
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - generic [ref=e60]: Κοινοποίηση
+                - generic [ref=e64]:
+                  - link "Κοινοποίηση στο Facebook" [ref=e65] [cursor=pointer]:
+                    - /url: https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Ff1stories.gr%2Fblog-module%2Fblog-entries%2F20261007G%2Farticle.html
+                  - link "Κοινοποίηση στο WhatsApp" [ref=e68] [cursor=pointer]:
+                    - /url: https://api.whatsapp.com/send?text=%CE%97%20%CF%80%CE%AF%CF%83%CF%84%CE%B1%20%CE%AC%CE%BB%CE%BB%CE%B1%CE%BE%CE%B5%2C%20%CF%8C%CF%87%CE%B9%20%CE%B7%20AMR26%20https%3A%2F%2Ff1stories.gr%2Fblog-module%2Fblog-entries%2F20261007G%2Farticle.html
+                  - button "Κοινοποίηση άρθρου" [ref=e71] [cursor=pointer]
+                  - button "Αντιγραφή συνδέσμου" [ref=e74] [cursor=pointer]
+              - generic [ref=e77]:
+                - generic [ref=e78]: ΣΧΕΤΙΚΕΣ ΙΣΤΟΡΙΕΣ
+                - generic [ref=e79]:
+                  - 'link "Aston Martin: ποινές, βλάβες και διπλό DNF στο Baku" [ref=e80] [cursor=pointer]':
+                    - /url: /blog-module/blog-entries/20260929F/article.html
+                  - link "Το SC τιμώρησε αυτούς που το ερμήνευσαν σωστά" [ref=e81] [cursor=pointer]:
+                    - /url: /blog-module/blog-entries/20261006G/article.html
+                  - link "Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή" [ref=e82] [cursor=pointer]:
+                    - /url: /blog-module/blog-entries/20261007F/article.html
+          - generic [ref=e83]:
+            - group "Συντακτική ταυτότητα, τεκμηρίωση και διορθώσεις" [ref=e84]:
+              - generic "Συντακτική ταυτότητα & πηγές" [ref=e85] [cursor=pointer]
+            - navigation [ref=e86]:
+              - button "Toggle table of contents" [ref=e87] [cursor=pointer]:
+                - generic [ref=e89]: Περιεχόμενα
+              - generic:
+                - link "Παρασκευή" [ref=e91] [cursor=pointer]:
+                  - /url: "#section-1"
+                - link "Σάββατο" [ref=e92] [cursor=pointer]:
+                  - /url: "#section-2"
+                - link "Κυριακή" [ref=e93] [cursor=pointer]:
+                  - /url: "#section-3"
+                - link "Και τώρα;" [ref=e94] [cursor=pointer]:
+                  - /url: "#section-4"
+            - generic [ref=e95]:
+              - paragraph [ref=e96]:
+                - text: Μία εβδομάδα πριν από το Sepang, στο Baku, η Aston Martin δεν είχε πολλά να θυμάται με χαρά. Ο Fernando Alonso και ο Lance Stroll ήταν
+                - link "19ος και 21ος" [ref=e97] [cursor=pointer]:
+                  - /url: https://www.formula1.com/en/results/2026/races/1295/azerbaijan/qualifying
+                - text: "στις κατατακτήριες, και την επόμενη μέρα κανένας από τους δύο δεν είδε την καρό σημαία. Επτά μέρες μετά, στη Μαλαισία, πέρασαν και οι δύο στο Q2, πήραν τις καλύτερες θέσεις εκκίνησης της ομάδας φέτος, και την Κυριακή ο Alonso τερμάτισε όγδοος. Η πρώτη σκέψη είναι ότι κάτι βρήκαν επιτέλους στο αυτοκίνητο. Ο ίδιος ο Alonso, όμως, σου τη χαλάει: η AMR26, είπε, ήταν στην ουσία η ίδια."
+              - paragraph [ref=e98]: Όταν ένα αυτοκίνητο πηγαίνει μέσα σε επτά μέρες από το τέλος του grid στη μέση του midfield, χωρίς καμία αναβάθμιση που να το δικαιολογεί, μάλλον δεν άλλαξε τόσο το ίδιο. Άλλαξε η ερώτηση που του έκανε η πίστα. Και το Baku με το Sepang κάνουν δύο πολύ διαφορετικές ερωτήσεις.
+              - paragraph [ref=e99]: "Στο Baku η ερώτηση είναι μία και επαναλαμβάνεται σε όλο τον γύρο: πόσο καλά επιταχύνεις και πόση ταχύτητα κρατάς σε μια ευθεία που δεν λέει να τελειώσει; Η AMR26 απάντησε λάθος. Ο Alonso έγραψε 1:46.593 στο Q1, σχεδόν τρία δευτερόλεπτα πιο αργά από το 1:43.615 του George Russell, και ο Stroll ήταν ακόμα πιο πίσω, με 1:47.337. Αποκλεισμός και για τους δύο, με την πρώτη."
+              - paragraph [ref=e100]:
+                - text: "Το Sepang, μην παρεξηγηθούμε, έχει κι αυτό τις ευθείες του: δύο πολύ μεγάλες, δυνατά φρεναρίσματα και τέσσερις ζώνες Straight Mode. Έχει όμως και κάτι που στο Baku υπάρχει σε πολύ μικρότερη δόση, μεγάλες σειρές στροφών όπου η ισορροπία του σασί, η αλλαγή κατεύθυνσης και η ταχύτητα που κρατάς μέσα στη στροφή μετράνε πραγματικά στον χρόνο του γύρου."
+                - link "Οι στροφές 5 και 6" [ref=e101] [cursor=pointer]:
+                  - /url: https://www.formula1.com/en/latest/article/need-to-know-the-most-important-facts-stats-and-trivia-ahead-of-the-2026-bahrain-grand-prix-in-malaysia.7q5fTKLLQ5TrEcsNerl406
+                - text: είναι από τα πιο γρήγορα σημεία αλλαγής κατεύθυνσης της πίστας, και ο μεσαίος τομέας ζητάει από ένα αυτοκίνητο πολύ περισσότερα από ωμή επιτάχυνση. Κάπου εκεί αρχίζει να εξηγείται το παράδοξο.
+              - paragraph [ref=e102]:
+                - text: Αν δεις και τι ζητάει η πίστα από τα ελαστικά, η εικόνα ολοκληρώνεται. Το Tyre Intelligence, που βασίζεται στο επίσημο υλικό της Pirelli, δίνει στο Sepang 4/5 σε πλευρικά φορτία, φρενάρισμα, καταπόνηση ελαστικών και τραχύτητα ασφάλτου, αλλά μόλις 2/5 στην πρόσφυση της ασφάλτου. Η Pirelli είχε επίσης
+                - link "προειδοποιήσει" [ref=e103] [cursor=pointer]:
+                  - /url: https://www.formula1.com/en/latest/article/what-tyres-will-the-teams-and-drivers-have-for-the-2026-bahrain-grand-prix-in-malaysia.4vcrMxYY9DWg7PwyiNMrEV
+                - text: "ότι την Παρασκευή το grip θα ήταν χαμηλό και θα ανέβαινε αισθητά όσο η επιφάνεια μάζευε λάστιχο. Χαμηλό αρχικό grip, μαζί με μεγάλες απαιτήσεις σε πλευρικά φορτία, φρενάρισμα και καταπόνηση ελαστικών: το Sepang δεν είναι πίστα ενός μόνο χαρακτηριστικού."
+              - iframe [ref=e105]:
+                - article [ref=f1e3]:
+                  - generic [ref=f1e4]:
+                    - paragraph [ref=f1e5]: Απαιτήσεις πίστας
+                    - paragraph [ref=f1e6]: Αγώνας 16 · 2026 · Bahrain Grand Prix
+                  - generic [ref=f1e7]:
+                    - paragraph [ref=f1e8]: Βαθμολογία Pirelli, 1–5
+                    - list [ref=f1e9]:
+                      - listitem [ref=f1e10]:
+                        - generic [ref=f1e11]: Πρόσφυση
+                        - generic [ref=f1e13]: 3/5
+                      - listitem [ref=f1e14]:
+                        - generic [ref=f1e15]: Φρενάρισμα
+                        - generic [ref=f1e17]: 4/5
+                      - listitem [ref=f1e18]:
+                        - generic [ref=f1e19]: Καταπόνηση ελαστικών
+                        - generic [ref=f1e21]: 4/5
+                      - listitem [ref=f1e22]:
+                        - generic [ref=f1e23]: Τραχύτητα ασφάλτου
+                        - generic [ref=f1e25]: 4/5
+                      - listitem [ref=f1e26]:
+                        - generic [ref=f1e27]: Κράτημα ασφάλτου
+                        - generic [ref=f1e29]: 2/5
+                      - listitem [ref=f1e30]:
+                        - generic [ref=f1e31]: Πλευρικά φορτία
+                        - generic [ref=f1e33]: 4/5
+                      - listitem [ref=f1e34]:
+                        - generic [ref=f1e35]: Εξέλιξη πίστας
+                        - generic [ref=f1e37]: 4/5
+                  - generic [ref=f1e38]:
+                    - paragraph [ref=f1e39]:
+                      - text: "Πηγή:"
+                      - link "Pirelli" [ref=f1e40] [cursor=pointer]:
+                        - /url: https://press.pirelli.com/sepang-reopens-its-doors-to-formula-1-after-nine-years/
+                      - text: · 29 Σεπ 2026 · Μεταγραφή, προς έλεγχο
+                    - paragraph [ref=f1e41]:
+                      - link "F1 STORIES. Άνοιγμα στο TYRES ↗" [ref=f1e42] [cursor=pointer]:
+                        - /url: https://georgiosbalatzis.github.io/Tyres/2026/sepang/
+                        - generic [ref=f1e43]: F1 STORIES.
+                        - text: Άνοιγμα στο TYRES ↗
+              - paragraph [ref=e106]:
+                - text: Για την Aston Martin, όλο αυτό αποδείχτηκε μάλλον ευνοϊκό, και
+                - link "ο Stroll το είπε" [ref=e107] [cursor=pointer]:
+                  - /url: https://www.formula1.com/en/latest/article/what-the-teams-said-race-day-in-bahrain-2026.4kwHL7ygJLqVlSMHhAj6ce
+                - text: "μετά τον αγώνα χωρίς πολλές τεχνικές διπλωματίες: η ομάδα περίμενε ότι η Μαλαισία θα της ταιριάξει καλύτερα, γιατί εκεί ο χρόνος του γύρου εξαρτάται λιγότερο από την ισχύ και το grip. Η AMR26 δεν μεταμορφώθηκε ξαφνικά σε αυτοκίνητο με τεράστιο downforce. Δύο αδυναμίες που την είχαν τιμωρήσει βαριά σε άλλα Grand Prix απλώς έπαψαν να μετράνε τόσο πολύ. Με περισσότερες στροφές ανάμεσα στις μεγάλες ευθείες, η έλλειψη ισχύος δεν εξαφανίστηκε, έπαψε όμως να κρίνει τόσο μεγάλο κομμάτι του γύρου. Για να φανεί καλύτερα, ας μην ξεκινήσουμε από το P8 της Κυριακής αλλά από την αρχή του Σαββατοκύριακου."
+              - heading "Παρασκευή" [level=3] [ref=e108]
+              - paragraph [ref=e109]: Το FP2 δεν έδειχνε καμία ανάσταση νεκρών. Ο Alonso ήταν 15ος με 1:39.478 και ο Stroll 18ος με 1:40.150. Στο Friday Debrief του F1 Stories, ο ιδανικός γύρος της Aston Martin, δηλαδή οι καλύτεροι τομείς της ενωμένοι σε έναν γύρο, έβγαινε 1:39.332, περίπου 1,879 δευτερόλεπτα πίσω από τον καλύτερο συνδυαστικό χρόνο της Ferrari. Το μοντέλο ρυθμού αγώνα την έβαζε μάλιστα μόλις δέκατη, με εκτίμηση 1:46.805. Πουθενά δεν υπήρχε κάποιο νούμερο που να φωνάζει ότι η Aston ετοιμαζόταν να γίνει η έκπληξη του midfield.
+              - iframe [ref=e111]:
+                - generic [ref=f2e1]:
+                  - link "Μετάβαση στο περιεχόμενο" [ref=f2e2] [cursor=pointer]:
+                    - /url: "#main"
+                  - main [ref=f2e3]:
+                    - generic [ref=f2e4]:
+                      - tabpanel "Debrief" [ref=f2e5]:
+                        - generic [ref=f2e7]:
+                          - generic [ref=f2e8]:
+                            - text: Ελεύθερες δοκιμές Παρασκευής ·
+                            - generic [ref=f2e9]: "2026"
+                          - heading "Debrief Παρασκευής" [level=2] [ref=f2e10]
+                          - paragraph [ref=f2e11]: "Ανάλυση δεδομένων FP1/FP2: ταχύτητα σε έναν γύρο, ρυθμός σε μεγάλα stint και φθορά ελαστικών ανά Grand Prix, με βάση το FIA Friday Debrief."
+                      - generic [ref=f2e12]:
+                        - generic [ref=f2e13]: F1 Stories · Σεζόν 2026
+                        - link "Άνοιγμα στο F1 Stories →" [ref=f2e14] [cursor=pointer]:
+                          - /url: https://f1stories.gr/standings/?tab=debrief&focus=panel-debrief&debriefRound=16&debriefView=team-ideal
+              - paragraph [ref=e112]: Γιατί ιδανικός γύρος και όχι απλώς ο πίνακας του FP2; Γιατί αν κοιτάξεις μόνο το 15ος και 18ος, εύκολα συμπεραίνεις ότι η Aston ήταν πάλι εκεί που ήταν πάντα. Ο ιδανικός γύρος αφαιρεί μέρος του θορύβου από έναν γύρο που δεν βγήκε τέλειος και δείχνει τι υπήρχε διαθέσιμο, αν ενώσεις τους καλύτερους τομείς. Ούτε αυτός ήταν εντυπωσιακός. Ήταν όμως αρκετά καλύτερος από ό,τι θα περίμενες από μια ομάδα καταδικασμένη στο Q1.
+              - heading "Σάββατο" [level=3] [ref=e113]
+              - paragraph [ref=e114]:
+                - text: Το Σάββατο αυτή η δυνατότητα έγινε αποτέλεσμα. Ο Alonso έγραψε
+                - link "1:37.220 στο Q2" [ref=e115] [cursor=pointer]:
+                  - /url: https://www.formula1.com/en/results/2026/races/1308/bahrain/qualifying
+                - text: ", ο Stroll 1:37.566, και για πρώτη φορά φέτος η Aston Martin πέρασε και τα δύο αυτοκίνητα από το Q1. Ο Alonso έμεινε περίπου 1,5 δευτερόλεπτο από τον καλύτερο χρόνο του Q2, και ο ίδιος σημείωσε ότι ήταν η μικρότερη απόσταση που είχε δει η ομάδα όλη τη χρονιά. Για μια ομάδα που επτά μέρες νωρίτερα ήταν 19η και 21η, δεν είναι μικρή αλλαγή."
+              - paragraph [ref=e116]: Η ίδια κατατακτήρια, πάντως, έδειχνε ότι τα βασικά προβλήματα ήταν όλα στη θέση τους. Η Aston Martin έπιανε γύρω στα 305 km/h στις προσπάθειες και των δύο οδηγών, και ο Stroll υπολόγιζε ότι το αυτοκίνητο έχανε ακόμα πάνω από ένα δευτερόλεπτο στις ευθείες. Το πρόβλημα στην τελική ταχύτητα δεν είχε λυθεί. Ό,τι κέρδισε η ομάδα, το κέρδισε στα υπόλοιπα σημεία του γύρου, εκεί όπου η AMR26 μπορούσε να πάρει πίσω ένα μέρος από αυτό το δευτερόλεπτο.
+              - paragraph [ref=e117]: "Με ποιον, όμως, να συγκρίνεις τον Alonso για να δεις πού βρέθηκε αυτός ο χρόνος; Με τον Verstappen όχι, γιατί μια διαφορά γύρω στα δύο δευτερόλεπτα θα μας έλεγε κυρίως ότι η Red Bull είναι πιο γρήγορη. Ο Liam Lawson είναι πολύ πιο χρήσιμο μέτρο: έγραψε 1:37.023 στο Q2, μόλις 0,197 μπροστά από τον Alonso, με αυτοκίνητο που βρίσκεται ακριβώς στη ζώνη όπου η Aston θέλει να παλέψει. Στο Ghost Car παρακάτω φαίνεται αν αυτή η μικρή διαφορά χτίστηκε σε ένα συγκεκριμένο κομμάτι της πίστας ή μοιράστηκε σε όλο τον γύρο."
+              - iframe [ref=e119]
+              - paragraph [ref=e120]: Εδώ αποκτά νόημα ο όρος track sensitivity. Δεν σημαίνει απλώς ότι ένα αυτοκίνητο «είναι καλό στις στροφές και κακό στις ευθείες». Σημαίνει ότι οι δυνάμεις και οι αδυναμίες του είναι τόσο άνισα μοιρασμένες, που η θέση του απέναντι στους αντιπάλους μπορεί να αλλάξει απότομα, ανάλογα με το τι ζητάει περισσότερο η κάθε πίστα.
+              - paragraph [ref=e121]: Ένα αυτοκίνητο με μεγάλη έλλειψη ισχύος ή με πολύ drag θα πληρώσει δυσανάλογα σε Monza και Baku. Αν όμως το ίδιο αυτοκίνητο έχει αξιοπρεπή μηχανική ισορροπία, φέρεται σχετικά ήπια στα ελαστικά και κρατάει ταχύτητα σε διαδοχικές στροφές, μια πίστα σαν το Sepang αλλάζει το πόσο μετράει κάθε κομμάτι της εξίσωσης. Το αυτοκίνητο δεν φτιάχνεται. Απλώς ανεβαίνει η αξία όσων κάνει καλά και μικραίνει η ζημιά από όσα κάνει άσχημα. Γι' αυτό, για ένα τέτοιο αυτοκίνητο, το «είναι καλό ή κακό;» είναι λάθος ερώτηση. Η σωστή είναι «καλό πού;».
+              - paragraph [ref=e122]: "Η σύγκριση με τον Carlos Sainz δείχνει το ίδιο από άλλη οπτική γωνία. Στο Q2 ο Alonso ήταν 0,307 πιο γρήγορος από τον οδηγό της Williams, παρότι η Aston συνέχιζε να υποφέρει στις ευθείες. Η τηλεμετρία δεν μπορεί να μας πει πόσο downforce έχει η Aston, μπορεί όμως να δείξει το αντάλλαγμα: πού χάνει η πράσινη γραμμή σε επιτάχυνση και τελική ταχύτητα, και πού τα παίρνει πίσω, στην ελάχιστη ταχύτητα ή στην έξοδο των στροφών."
+              - iframe [ref=e124]
+              - iframe [ref=e126]
+              - paragraph [ref=e127]: Η σύγκριση με τη Williams έχει αξία και για έναν ακόμα λόγο, γιατί κόβει μια εύκολη δικαιολογία. Αν η Aston είχε απλώς ωφεληθεί από περίεργες συνθήκες, θα περίμενε κανείς ένα κάπως τυχαίο αποτέλεσμα. Στο Q2, όμως, ο Alonso βρέθηκε μπροστά από τον Sainz σε κανονική μονομαχία ενός γύρου. Η πίστα δεν έκανε την AMR26 γρήγορη παντού, της έδωσε όμως αρκετά σημεία για να μαζέψει χρόνο με τον δικό της τρόπο.
+              - heading "Κυριακή" [level=3] [ref=e128]
+              - paragraph [ref=e129]:
+                - text: Η Κυριακή, αντί να ξεκαθαρίσει την εικόνα, τη μπέρδεψε παραπάνω. Η Aston Martin ξεκίνησε με
+                - link "κατλα την άποψη μου λάθος απόφαση" [ref=e130] [cursor=pointer]:
+                  - /url: https://www.astonmartinf1.com/en-GB/races/2026-bahrain-gp
+                - text: ", βάζοντας και τους δύο οδηγούς σε Medium σε μια πίστα που ήταν ακόμα πολύ βρεγμένη. Ο Stroll αντέδρασε και πέρασε σε Intermediate, ενώ ο Alonso επέμεινε στα slicks. Το Safety Car του ένατου γύρου ξαναμοίρασε ουσιαστικά την τράπουλα, και από εκεί και πέρα τα δύο AMR26 πήγαν σε Hard. Ο Alonso έκανε δύο συνεχόμενα stint με αυτή τη γόμα, πέρασε τον Ocon και αργότερα τον Lindblad, έβαλε Soft για το τελευταίο κομμάτι και κράτησε πίσω του τον Norris μέχρι τη σημαία, για την όγδοη θέση."
+              - iframe [ref=e132]
+              - paragraph [ref=e133]: Κάποιος θα το έλεγε «τυχερό P8», και δεν θα είχε εντελώς άδικο. Ναι, ο Alonso κέρδισε θέσεις όταν ο Russell και ο Norris είχαν τα προβλήματά τους, και ναι, το Safety Car τον βοήθησε στρατηγικά. Χρειάστηκε όμως και αρκετή πραγματική ταχύτητα για να περάσει αυτοκίνητα μέσα στην πίστα και, στο τέλος, να μην αφήσει τον Norris να τον προσπεράσει. Για την Aston Martin, το P8 ήταν το καλύτερο αποτέλεσμα της χρονιάς και μόλις η δεύτερη φορά που μπήκε στους βαθμούς το 2026.
+              - heading "Και τώρα;" [level=3] [ref=e134]
+              - paragraph [ref=e135]:
+                - text: Ότι η Aston γύρισε σελίδα, δεν το λένε ούτε οι ίδιοι οι οδηγοί της. Αντίθετα, ήταν οι πρώτοι που έριξαν νερό στο κρασί. Ο Alonso, όπως είπαμε,
+                - link "το ξεκαθάρισε" [ref=e136] [cursor=pointer]:
+                  - /url: https://www.formula1.com/en/latest/article/how-a-miracle-helped-alonso-and-aston-martin-to-earn-p12-on-the-grid-for-the-bahrain-grand-prix-in-malaysia.gtjGUTcnU67mvSadBmN9J
+                - text: "ήδη μετά τις κατατακτήριες: το αυτοκίνητο ήταν το ίδιο με τους προηγούμενους αγώνες. Ο Stroll πήγε ακόμα πιο μακριά. Πιστεύει ότι υπάρχουν κάποιες πίστες, όπως η Μαλαισία και ίσως η Σιγκαπούρη, όπου η AMR26 μπορεί να περάσει το Q1 ακριβώς επειδή η μορφή της πίστας κρύβει τις αδυναμίες της. Μόλις επιστρέψουν οι μεγάλες απαιτήσεις στις ευθείες, περιμένει ξανά δυσκολίες."
+              - paragraph [ref=e137]: Δεν είναι και το πιο κολακευτικό συμπέρασμα για ένα project που μπήκε στη νέα εποχή με τον Newey, τη Honda και πολύ μεγαλύτερες προσδοκίες. Τεχνικά, όμως, λέει πολύ περισσότερα από ένα απλό «η Aston βελτιώθηκε». Η AMR26 μοιάζει να έχει ένα πολύ στενό φάσμα πιστών όπου μπορεί να δείχνει αξιοπρεπής. Έξω από αυτό, οι αδυναμίες της γίνονται τόσο μεγάλες που τρώνε οτιδήποτε άλλο κάνει σωστά.
+              - paragraph [ref=e138]: Αυτό αλλάζει και τον τρόπο που πρέπει να διαβάζουμε ό,τι ακολουθεί. Αν η Aston Martin περάσει ξανά στο Q2 ή πάρει βαθμούς στη Σιγκαπούρη, δεν σημαίνει αυτόματα ότι ξεκίνησε η ανάκαμψη. Αν γυρίσει στις τελευταίες θέσεις σε μια πίστα όπου μετράει περισσότερο η ισχύς, δεν σημαίνει απαραίτητα ότι «χάθηκε» η πρόοδος. Μπορεί απλώς να βλέπουμε το ίδιο ακριβώς αυτοκίνητο κάτω από άλλο φως.
+              - paragraph [ref=e139]: Το Sepang δεν έκανε την AMR26 καλό αυτοκίνητο. Εδώ και αρκετούς αγώνες, όμως, αν ρωτούσες «καλή πού;», η τίμια απάντηση ήταν «πουθενά». Αυτή τη φορά ήταν διαφορετική. Δεν είναι και πολύ, για τη φετινή Aston Martin όμως είναι κάτι.
+            - region [ref=e140]:
+              - paragraph [ref=e141]: ΓΡΑΦΕΙ
+              - generic [ref=e143]:
+                - paragraph [ref=e144]:
+                  - link "Γιώργος Μπαλατζής" [ref=e145] [cursor=pointer]:
+                    - /url: /authors/?author=georgios-balatzis
+                - paragraph [ref=e146]: Τεχνική ανάλυση και αγωνιστικός ρυθμός
+              - paragraph [ref=e147]: "Μετράει όσα δεν φαίνονται στον πίνακα αποτελεσμάτων: upgrades, ελαστικά, ρυθμό και τις αποφάσεις που κρίνουν έναν αγώνα."
+              - paragraph [ref=e148]:
+                - link "Όλα τα άρθρα του Γιώργου" [ref=e149] [cursor=pointer]:
+                  - /url: /blog-module/blog/index.html?author=georgios-balatzis
+                  - text: Όλα τα άρθρα του Γιώργου
+                  - generic [aria-hidden] [ref=e150]: →
+                - link "Instagram" [ref=e151] [cursor=pointer]:
+                  - /url: https://www.instagram.com/borgos_gialatzis/
+                  - text: Instagram
+                  - generic [aria-hidden] [ref=e152]: ↗
+            - generic [ref=e153]:
+              - generic [ref=e154]: Υποστηρίζουν το F1 Stories
+              - generic [ref=e155]:
+                - link "Μπαλατζής Χωματουργικά" [ref=e156] [cursor=pointer]:
+                  - /url: https://balatzis.gr/
+                  - img "Μπαλατζής Χωματουργικά" [ref=e157]
+                - link "Πουρτσίδης Γεννήτριες" [ref=e158] [cursor=pointer]:
+                  - /url: https://pourtsidisgenerators.gr/
+                  - img "Πουρτσίδης Γεννήτριες" [ref=e159]
+                - link "Μπαλατζής Δομικά" [ref=e160] [cursor=pointer]:
+                  - /url: https://balatzis.gr/
+                  - img "Μπαλατζής Δομικά" [ref=e161]
+                - link "Αμβροσιάδης" [ref=e162] [cursor=pointer]:
+                  - /url: https://ambrosiadis.gr/
+                  - img "Αμβροσιάδης" [ref=e163]
+                - link "Bed and Home" [ref=e164] [cursor=pointer]:
+                  - /url: https://www.bedandhome.gr/
+                  - img "Bed and Home" [ref=e165]
+                - link "Grand Realm" [ref=e166] [cursor=pointer]:
+                  - /url: https://www.grandrealm.gr/
+                  - img "Grand Realm" [ref=e167]
+      - generic [ref=e168]:
+        - heading "Σχόλια" [level=2] [ref=e169]
+        - button "Δες τα σχόλια (Disqus)" [ref=e170] [cursor=pointer]
+      - generic [ref=e171]:
+        - 'link "Προηγούμενο Χάμιλτον: Ένα βάθρο που άξιζε περισσότερο απ’ όσο δείχνει" [ref=e172] [cursor=pointer]':
+          - /url: /blog-module/blog-entries/20261007W/article.html
+          - generic [ref=e173]: Προηγούμενο
+          - generic [ref=e176]: "Χάμιλτον: Ένα βάθρο που άξιζε περισσότερο απ’ όσο δείχνει"
+        - link "Επόμενο Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή" [ref=e177] [cursor=pointer]:
+          - /url: /blog-module/blog-entries/20261007F/article.html
+          - generic [ref=e178]: Επόμενο
+          - generic [ref=e181]: Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή
+      - generic [ref=e182]:
+        - generic [ref=e183]:
+          - generic [ref=e184]: Επόμενη ανάγνωση
+          - heading "Σχετικά άρθρα" [level=2] [ref=e185]
+        - 'link "Aston Martin: ποινές, βλάβες και διπλό DNF στο Baku 4 λεπτά 29 Σεπ 2026 Aston Martin: ποινές, βλάβες και διπλό DNF στο Baku Διάβασε F1 Stories" [ref=e187] [cursor=pointer]':
+          - /url: /blog-module/blog-entries/20260929F/article.html
+          - generic [ref=e188]:
+            - generic [ref=e189]:
+              - 'img "Aston Martin: ποινές, βλάβες και διπλό DNF στο Baku" [ref=e190]'
+              - generic: 4 λεπτά
+            - generic [ref=e191]:
+              - generic [ref=e192]: 29 Σεπ 2026
+              - 'heading "Aston Martin: ποινές, βλάβες και διπλό DNF στο Baku" [level=3] [ref=e193]'
+              - generic [ref=e194]:
+                - generic [ref=e195]: Διάβασε
+                - generic [ref=e198]: F1 Stories
+        - link "Το SC τιμώρησε αυτούς που το ερμήνευσαν σωστά 9 λεπτά 6 Οκτ 2026 Το SC τιμώρησε αυτούς που το ερμήνευσαν σωστά Διάβασε Γιώργος Μπαλατζής" [ref=e200] [cursor=pointer]:
+          - /url: /blog-module/blog-entries/20261006G/article.html
+          - generic [ref=e201]:
+            - generic [ref=e202]:
+              - img "Το SC τιμώρησε αυτούς που το ερμήνευσαν σωστά" [ref=e203]
+              - generic: 9 λεπτά
+            - generic [ref=e204]:
+              - generic [ref=e205]: 6 Οκτ 2026
+              - heading "Το SC τιμώρησε αυτούς που το ερμήνευσαν σωστά" [level=3] [ref=e206]
+              - generic [ref=e207]:
+                - generic [ref=e208]: Διάβασε
+                - generic [ref=e211]: Γιώργος Μπαλατζής
+        - link "Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή 11 λεπτά 7 Οκτ 2026 Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή Διάβασε F1 Stories" [ref=e213] [cursor=pointer]:
+          - /url: /blog-module/blog-entries/20261007F/article.html
+          - generic [ref=e214]:
+            - generic [ref=e215]:
+              - img "Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή" [ref=e216]
+              - generic: 11 λεπτά
+            - generic [ref=e217]:
+              - generic [ref=e218]: 7 Οκτ 2026
+              - heading "Το πρώτο test της Formula 1 του 2026 έγινε στη βροχή" [level=3] [ref=e219]
+              - generic [ref=e220]:
+                - generic [ref=e221]: Διάβασε
+                - generic [ref=e224]: F1 Stories
+  - contentinfo [ref=e225]:
+    - generic [ref=e227]:
+      - generic [ref=e228]:
+        - link "F1 Stories, αρχική σελίδα" [ref=e229] [cursor=pointer]:
+          - /url: /
+          - text: F1 STORIES
+          - generic [ref=e230]: .
+        - paragraph [ref=e231]: Τεχνική ανάλυση, άποψη και ελληνική F1 κοινότητα.
+      - navigation "Ενότητες" [ref=e232]:
+        - link "Άρθρα" [ref=e233] [cursor=pointer]:
+          - /url: /blog-module/blog/index.html
+        - link "Βαθμολογία" [ref=e234] [cursor=pointer]:
+          - /url: /standings/
+        - link "Συντάκτες" [ref=e235] [cursor=pointer]:
+          - /url: /authors/
+        - link "YouTube ↗" [ref=e236] [cursor=pointer]:
+          - /url: https://www.youtube.com/@f1_stories_original
+        - link "BetCast ↗" [ref=e237] [cursor=pointer]:
+          - /url: https://georgiosbalatzis.github.io/BetCastVisualisation/
+      - paragraph [ref=e238]: © 2026 F1 Stories. Με επιφύλαξη παντός δικαιώματος.
+      - generic [ref=e239]:
+        - link "F1 Stories στο YouTube" [ref=e240] [cursor=pointer]:
+          - /url: https://www.youtube.com/@f1_stories_original
+        - link "F1 Stories στο Facebook" [ref=e243] [cursor=pointer]:
+          - /url: https://www.facebook.com/f1storiess
+        - link "F1 Stories στο Instagram" [ref=e246] [cursor=pointer]:
+          - /url: https://www.instagram.com/myf1stories/
+        - link "F1 Stories στο TikTok" [ref=e249] [cursor=pointer]:
+          - /url: https://www.tiktok.com/@f1stories6
+        - link "Email στο F1 Stories" [ref=e252] [cursor=pointer]:
+          - /url: mailto:myf1stories@gmail.com
+      - generic [ref=e255]:
+        - link "Πολιτική Απορρήτου" [ref=e256] [cursor=pointer]:
+          - /url: /privacy/privacy.html
+        - generic [ref=e257]: "|"
+        - link "Όροι Χρήσης" [ref=e258] [cursor=pointer]:
+          - /url: /privacy/terms.html
+        - generic [ref=e259]: "|"
+        - button "Ρυθμίσεις cookies" [ref=e260] [cursor=pointer]

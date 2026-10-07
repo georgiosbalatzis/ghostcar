@@ -58,6 +58,8 @@
         var KEY = "f1stories-theme";
         var LEGACY_KEY = "f1s-theme";
         var theme = new URLSearchParams(window.location.search).get("th");
+        var hash = window.location.hash.slice(1); // host page's #light / #dark, embeds only (docs/theme.md)
+        if (hash === "light" || hash === "dark") theme = hash;
         var stored = null;
         try {
           stored = localStorage.getItem(KEY);

@@ -48,4 +48,6 @@ Storage failures (blocked storage, `SecurityError`, quota) are swallowed. The pa
 
 `localStorage` is per origin. Ghost Car is served from `https://georgiosbalatzis.github.io/ghostcar/` and the main site from `https://f1stories.gr`. **A theme chosen on f1stories.gr is not visible to Ghost Car today**, even with the same key. Apps on `georgiosbalatzis.github.io` (Ghost Car, Telemetry, BetCast) share one origin, so they share the key once each app uses it.
 
+**Embeds** (`?embed=1`) are the one exception: the hosting page on f1stories.gr sets the iframe's URL hash to `#light` / `#dark` (the same convention as the Tyres embed), on load and on every theme toggle. Ghost Car applies it, before first paint and on `hashchange`, without storing it. The hash wins over `?th=`, so the article can drop `th=` from the embed URL.
+
 Once the apps are served under `f1stories.gr/...`, the shared preference works with no code change. There is deliberately no cross-origin workaround: no iframes, cookies, query propagation or remote storage.
