@@ -214,6 +214,7 @@ export function buildGapTrace(model, { points = 400 } = {}) {
     ? first.pathTimes.map((seconds) => seconds - offsets[first.slot])
     : first.pathTimes;
   const trace = {
+    lengthMeters: (ref.finish - ref.start) / 10,
     reliable: !tooFar && !failed,
     reason: tooFar
       ? `${tooFar.label}: τα δεδομένα θέσης δεν ευθυγραμμίζονται με τον χρονισμό.`

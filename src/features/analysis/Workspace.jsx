@@ -9,6 +9,7 @@ import SectorAnalysis from "./SectorAnalysis.jsx";
 import TelemetryTraces from "./TelemetryTraces.jsx";
 import { PAGE_TABS } from "./pageTabs.js";
 import "./analysis.css";
+import AnalysisFigures from "./AnalysisFigures.jsx";
 
 function KeyFacts({ facts }) {
   return (
@@ -42,6 +43,9 @@ function Workspace({
   actions,
   showreel,
   compact,
+  figureOptions,
+  onFigureChange,
+  onFigureEmbed,
 }) {
   const facts = useMemo(() => buildKeyFacts(model), [model]);
   const activeSlots = selection.slots.slice(0, selection.numDrivers);
@@ -95,7 +99,12 @@ function Workspace({
           </section>
         </div>
       )}
-      {tab === "sectors" && <SectorAnalysis model={model} dominance={analysis.dominance} />}
+      {tab === "sectors" && (
+        <>
+          <SectorAnalysis model={model} dominance={analysis.dominance} />
+          <AnalysisFigures model={model} options={figureOptions} onChange={onFigureChange} onEmbed={onFigureEmbed} />
+        </>
+      )}
       {tab === "laps" && (
         <LapTimes
           slots={activeSlots}

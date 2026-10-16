@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { camFor, nextCam, normalizeCam, parseCam } from "./scene/cameraModes.js";
 import { applyClockOffsets, buildGapTrace, dominanceSegments, sectorTicks } from "./domain/gap.js";
 import { findLapByNumber } from "./domain/laps.js";
+import { normalizeFigureOptions } from "./domain/figureAnalysis.js";
+import AnalysisFigures from "./features/analysis/AnalysisFigures.jsx";
 import { decodeURL, encodeURL, useIsMobile } from "./helpers.js";
 import Dialog from "./components/ui/Dialog.jsx";
 import Icon, { IconButton } from "./components/ui/Icon.jsx";
@@ -91,6 +93,7 @@ function Notice({ message, onClose }) {
 export default function App({ embed }) {
   const mob = useIsMobile();
   const initialURL = useMemo(() => decodeURL(), []);
+  const [figureOptions, setFigureOptions] = useState(() => normalizeFigureOptions(initialURL));
   const { isDark, setThemeMode, toggleTheme } = useThemePreference();
   // An iframe cannot read f1stories.gr's localStorage, so the host page sets the frame's #light / #dark hash
   // (as it does for Tyres) whenever its theme changes. Applied here without storing it.
@@ -344,6 +347,7 @@ export default function App({ embed }) {
       speed: spd,
       loop,
       tab: pageTab === "replay" ? null : pageTab,
+      ...normalizeFigureOptions(figureOptions),
     };
   }, [
     activeSlots,
@@ -358,6 +362,7 @@ export default function App({ embed }) {
     spd,
     trackView,
     vizMode,
+    figureOptions,
   ]);
   const shareUrl = shareURLState.mk && shareURLState.sk ? encodeURL(shareURLState) : "";
   useDocumentMeta(model, shareUrl);
@@ -422,6 +427,7 @@ export default function App({ embed }) {
       setSpeedFromValue(next.speed);
       if (next.loop != null) setLoopFromValue(next.loop);
       setPageTab(normalizePageTab(next.tab));
+      setFigureOptions(normalizeFigureOptions(next));
       restoreStateRef.current = next;
       restoreFlagsRef.current = createRestoreFlags();
       urlLoaded.current = true;
@@ -444,6 +450,10 @@ export default function App({ embed }) {
   );
 
   // ─── Header actions and keyboard ───
+  const embedFigure = useCallback((figure) => {
+    setFigureOptions((current) => ({ ...current, figure }));
+    setDialog("embed");
+  }, []);
   const actions = useMemo(
     () => ({
       openDialog: setDialog,
@@ -574,8 +584,14 @@ export default function App({ embed }) {
     const openUrl = shareUrl.replace(/[?&]embed=1/, "");
     surface = model ? (
       <div className="embed">
-        {stage}
-        <div className="embed__bar">{transport}</div>
+        {figureOptions.figure ? (
+          <AnalysisFigures model={model} options={figureOptions} onChange={setFigureOptions} embedded />
+        ) : (
+          <>
+            {stage}
+            <div className="embed__bar">{transport}</div>
+          </>
+        )}
         <EmbedFooter openUrl={openUrl} />
       </div>
     ) : (
@@ -619,6 +635,9 @@ export default function App({ embed }) {
             actions={actions}
             showreel={showreel.active}
             compact={mob}
+            figureOptions={figureOptions}
+            onFigureChange={setFigureOptions}
+            onFigureEmbed={embedFigure}
           />
         </main>
       </div>
@@ -670,7 +689,9 @@ export default function App({ embed }) {
           onClose={closeDialog}
         />
       )}
-      {dialog === "embed" && <EmbedDialog shareState={shareURLState} onCopy={copyText} onClose={closeDialog} />}
+      {dialog === "embed" && (
+        <EmbedDialog shareState={shareURLState} model={model} onCopy={copyText} onClose={closeDialog} />
+      )}
       {dialog === "link" && <LinkDialog url={linkUrl} onCopy={copyText} onClose={closeDialog} />}
       {dialog === "shortcuts" && <ShortcutsDialog onClose={closeDialog} />}
       <div className="toast-region" role="status" aria-live="polite">

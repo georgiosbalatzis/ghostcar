@@ -17,6 +17,14 @@ desktop.ini
 /coverage/
 /playwright-report/
 /test-results/
+/.playwright-mcp/
+
+# Reproducible article exports (keep scripts, reports and captured inputs)
+/docs/analysis/russell-baku-2026/analysis.json
+/docs/analysis/russell-baku-2026/diagnostics.json
+/docs/analysis/russell-baku-2026/segments.csv
+/docs/analysis/russell-baku-2026/straight-telemetry.csv
+/docs/analysis/russell-baku-2026/figures/
 
 # Local npm logs and model optimizer temporary output
 npm-debug.log*

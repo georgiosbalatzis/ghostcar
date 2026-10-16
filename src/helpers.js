@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { normalizeFigureOptions } from "./domain/figureAnalysis.js";
 
 export { bestLap } from "./domain/laps.js";
 
@@ -158,6 +159,13 @@ export function encodeURL(s, options = {}) {
   if (s.loop) p.set("lp", "1");
   if (s.tab && s.tab !== "3d") p.set("tab", s.tab);
   if (s.embed) p.set("embed", "1");
+  const figure = normalizeFigureOptions(s);
+  if (figure.figure) {
+    p.set("fig", figure.figure);
+    if (figure.from != null) p.set("from", figure.from);
+    if (figure.to != null) p.set("to", figure.to);
+    if (figure.fixed) p.set("fixed", "1");
+  }
   if ([...p.keys()].length) p.set("v", "2");
   return url.toString();
 }
@@ -186,5 +194,6 @@ export function decodeURL(input) {
     loop: p.get("lp"),
     tab: p.get("tab"),
     embed: p.get("embed"),
+    ...normalizeFigureOptions({ figure: p.get("fig"), from: p.get("from"), to: p.get("to"), fixed: p.get("fixed") }),
   };
 }
