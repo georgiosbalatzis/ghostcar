@@ -13,7 +13,7 @@
 
 ## Resolution
 
-The inline script in `index.html` runs in `<head>` before first paint and sets `<html data-theme="light|dark">`. React (`src/hooks/useThemePreference.js`) starts from that attribute, so it never repaints a different theme.
+`public/theme-init.js`, loaded blocking from `index.html`, runs in `<head>` before first paint and sets `<html data-theme="light|dark">`. React (`src/hooks/useThemePreference.js`) starts from that attribute, so it never repaints a different theme.
 
 1. `?th=light|dark`: this view only, never stored (share and embed links).
 2. `f1stories-theme` = `light` / `dark`.
@@ -41,7 +41,7 @@ Storage failures (blocked storage, `SecurityError`, quota) are swallowed. The pa
 
 ## Tests
 
-- `test/theme-init.test.js` runs the real `index.html` script against a stub page. It covers canonical and legacy values, precedence, invalid values, `auto` with either OS setting, `?th=`, and blocked storage.
+- `test/theme-init.test.js` runs the real `public/theme-init.js` against a stub page. It covers canonical and legacy values, precedence, invalid values, `auto` with either OS setting, `?th=`, and blocked storage.
 - `e2e/app.smoke.spec.js` covers, in Chromium: the toggle writes only `f1stories-theme`; a reload never sets another theme on `<html>` (no flash); a legacy `dark` migrates; `auto` follows the emulated OS and is not rewritten until the reader toggles (390 px, keyboard).
 
 ## Origins: same contract, not yet shared state

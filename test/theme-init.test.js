@@ -4,11 +4,9 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { THEME_STORAGE_KEY } from "../src/hooks/useThemePreference.js";
 
-// The real pre-paint script from index.html, run against a stub page.
+// The real pre-paint script (public/theme-init.js, loaded blocking by index.html), run against a stub page.
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
-  .map((m) => m[1])
-  .find((s) => s.includes("f1stories-theme"));
+const script = readFileSync(new URL("../public/theme-init.js", import.meta.url), "utf8");
 
 // storageThrows: every access fails (blocked storage). writeThrows: only setItem fails (quota).
 function run({ stored = {}, search = "", hash = "", osDark = false, storageThrows = false, writeThrows = false } = {}) {
@@ -36,7 +34,11 @@ test("the host page's #light / #dark hash beats ?th= and storage", () => {
 });
 
 test("the pre-paint script and React share one storage key", () => {
-  assert.ok(script, "index.html has the theme script");
+  assert.ok(script.includes("f1stories-theme"), "public/theme-init.js has the theme script");
+  // Blocking in <head>, before first paint; no executable inline script (strict CSP needs no 'unsafe-inline').
+  const head = html.slice(0, html.indexOf("</head>"));
+  assert.match(head, /<script src="\/theme-init\.js"><\/script>/);
+  assert.equal([...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].length, 0);
   assert.equal(THEME_STORAGE_KEY, "f1stories-theme");
 });
 
