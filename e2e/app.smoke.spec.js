@@ -31,7 +31,7 @@ test("builder loads as the only surface, without browser errors", async ({ page 
   await expect(footer).not.toContainText("Ghost Car");
   await expect(
     footer.getByRole("navigation", { name: "F1 Stories στα κοινωνικά δίκτυα" }).getByRole("link")
-  ).toHaveCount(5);
+  ).toHaveCount(4);
   await expect(page.getByLabel("Σεζόν")).toHaveValue("2025");
   // Progressive disclosure: session and driver fields appear only once they are relevant.
   await expect(page.getByLabel("Σκέλος")).toHaveCount(0);
@@ -210,7 +210,7 @@ test("phone masthead folds the site links into a menu", async ({ page }) => {
   await expect(menu.getByRole("link")).toHaveCount(7);
   await expect(menu.getByRole("link", { name: "Βαθμολογία" })).toHaveAttribute(
     "href",
-    "https://f1stories.gr/standings/"
+    "https://f1-stories.gr/standings/"
   );
   await expect(menu.getByRole("link", { name: "Δεδομένα" })).toHaveAttribute("aria-current", "page");
   await expect(menu.getByRole("link", { name: "Ghost Car" })).toHaveCount(0);

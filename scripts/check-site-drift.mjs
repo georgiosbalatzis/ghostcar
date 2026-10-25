@@ -1,4 +1,4 @@
-// Has f1stories.gr changed since Ghost Car copied its nav, palette and logo? Ghost Car is hosted separately and
+// Has f1-stories.gr changed since Ghost Car copied its nav, palette and logo? Ghost Car is hosted separately and
 // copies these (see REWORK_TASKS.md §1), so this is how drift gets noticed. Needs network.
 // Usage: npm run check:site   (exit code 1 when something changed)
 import { createHash } from "node:crypto";
@@ -84,12 +84,12 @@ const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
 const liveLogo = Buffer.from(await (await fetch(`${SITE}/images/logo-nav.webp`)).arrayBuffer());
 const ourLogo = await readFile(new URL("../public/logo-nav.webp", import.meta.url));
 if (hash(liveLogo) !== hash(ourLogo))
-  problems.push("The nav logo changed: copy f1stories.gr/images/logo-nav.webp to public/.");
+  problems.push("The nav logo changed: copy f1-stories.gr/images/logo-nav.webp to public/.");
 
 if (problems.length) {
-  console.error(`f1stories.gr has changed since Ghost Car copied it:\n- ${problems.join("\n- ")}`);
+  console.error(`f1-stories.gr has changed since Ghost Car copied it:\n- ${problems.join("\n- ")}`);
   process.exit(1);
 }
 console.log(
-  `In step with f1stories.gr: ${ours.length} nav links, ${RACE_DESK_LINKS.length} Race Desk products, ${Object.keys(PALETTE.dark).length + Object.keys(PALETTE.light).length} palette values, nav logo.`
+  `In step with f1-stories.gr: ${ours.length} nav links, ${RACE_DESK_LINKS.length} Race Desk products, ${Object.keys(PALETTE.dark).length + Object.keys(PALETTE.light).length} palette values, nav logo.`
 );

@@ -3,7 +3,7 @@ import { normalizeFigureOptions } from "./domain/figureAnalysis.js";
 
 export { bestLap } from "./domain/laps.js";
 
-const DEFAULT_URL_BASE = "https://f1stories.gr/ghostcar/";
+const DEFAULT_URL_BASE = "https://f1-stories.gr/ghostcar/";
 
 // ─── Smooth cubic Catmull-Rom interpolation (replaces linear lerp) ───
 export function lerp(pts, t) {

@@ -21,7 +21,7 @@ export default function useDocumentMeta(model, shareUrl) {
     setMeta('meta[name="description"]', description);
     setMeta('meta[property="og:title"]', title);
     setMeta('meta[property="og:description"]', description);
-    setMeta('meta[property="og:url"]', shareUrl || "https://f1stories.gr/ghostcar/");
+    setMeta('meta[property="og:url"]', shareUrl || document.querySelector('link[rel="canonical"]')?.href);
     setMeta('meta[name="twitter:title"]', title);
     setMeta('meta[name="twitter:description"]', description);
   }, [model, shareUrl]);
