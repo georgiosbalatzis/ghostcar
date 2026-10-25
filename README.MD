@@ -274,7 +274,24 @@ main → npm ci → npm run build → dist/ → GitHub Pages artifact
 
 Το workflow χρησιμοποιεί `actions/configure-pages`, `actions/upload-pages-artifact` και `actions/deploy-pages`. Το Vite base παραμένει `/ghostcar/`. Τα `node_modules/` και `dist/` παράγονται τοπικά/στο CI και δεν ανήκουν στο source control.
 
-Η branch `gh-pages` είναι ιστορική και δεν οδηγεί το τρέχον production deployment. Το παλιό `npm run deploy` έχει αφαιρεθεί. Η branch διατηρείται για ξεχωριστή απόφαση του maintainer.
+Προσοχή: στις ρυθμίσεις του repository το GitHub Pages εξακολουθεί να σερβίρει τη branch `gh-pages` (Settings → Pages → Source), η οποία ενημερώνεται και χειροκίνητα· ό,τι δημοσιευτεί τελευταίο (push στη `gh-pages` ή το workflow) είναι αυτό που φαίνεται. Το παλιό `npm run deploy` έχει αφαιρεθεί.
+
+### Μεταφέρθηκε στο f1-stories.gr
+
+Η εφαρμογή δημοσιεύεται στο `https://f1-stories.gr/ghostcar/`. Το [`pages-mode.json`](pages-mode.json) ορίζει τι δημοσιεύει το `deploy.yml` στο `georgiosbalatzis.github.io/ghostcar/`:
+
+- `"app"` (τρέχον): η εφαρμογή, όπως πριν.
+- `"legacy-redirects"`: το `npm run build:legacy-redirects` χτίζει την έκδοση του f1-stories.gr και το [`scripts/legacy-redirects.mjs`](scripts/legacy-redirects.mjs) αντικαθιστά τη σελίδα της με μία που στέλνει τον αναγνώστη στο ίδιο σημείο του f1-stories.gr, κρατώντας query string και hash (π.χ. τα deep links `?y=…&mk=…&sk=…&d1=…`), με canonical προς αυτό. Τα υπόλοιπα αρχεία μένουν στις παλιές τους διευθύνσεις. Κάθε άλλη παλιά διαδρομή καλύπτεται από το `404.html` (σελίδα προορισμού: η αρχική).
+
+Το GitHub Pages δεν στέλνει HTTP 301· πρόκειται για ανακατεύθυνση από τον browser. Χωρίς JavaScript, ένα meta refresh πηγαίνει στην ίδια σελίδα χωρίς query και hash, και η σελίδα δείχνει τον σύνδεσμο.
+
+Δημοσίευση (κάτοχος του repository):
+
+1. **Settings → Pages → Source: GitHub Actions** και τέλος στις δημοσιεύσεις στη `gh-pages`· αλλιώς ένα επόμενο push εκεί αντικαθιστά τις σελίδες ανακατεύθυνσης.
+2. Έλεγχος ότι το `https://f1-stories.gr/ghostcar/` είναι live και η προγραμματισμένη ανανέωση λειτουργεί (f1StoriesPage).
+3. `"mode": "legacy-redirects"` σε PR με review· το merge τρέχει το `deploy.yml`.
+
+Rollback: `"mode": "app"` και merge· το επόμενο deploy δημοσιεύει ξανά την εφαρμογή. Το rollback εδώ γίνεται **πριν** από rollback του f1-stories.gr σε release χωρίς τα εργαλεία: εκεί η `/ghostcar/` δείχνει στο github.io και, με τις ανακατευθύνσεις ενεργές εδώ, ο αναγνώστης θα πήγαινε πέρα-δώθε.
 
 Πριν από release, ακολούθησε το [deployment checklist](docs/deployment-checklist.md). Για σύντομο developer onboarding δες το [AGENTS.md](AGENTS.md).
 

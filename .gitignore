@@ -1,6 +1,7 @@
 # Dependencies and Vite output
 node_modules/
 /dist/
+/dist-legacy/
 
 # Local editor and agent settings
 .idea/
