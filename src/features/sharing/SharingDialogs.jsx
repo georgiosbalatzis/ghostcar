@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import Dialog from "../../components/ui/Dialog.jsx";
 import { IconButton } from "../../components/ui/Icon.jsx";
 import { encodeURL } from "../../helpers.js";
+import { AGGREGATED } from "../../app/siteNav.js";
 import { buildFigureAnalysis, FIGURE_VIEWS, projectLandmarks } from "../../domain/figureAnalysis.js";
 import baku from "../../domain/bakuLandmarks.json";
 import FigureRangeControls from "../analysis/FigureRangeControls.jsx";
@@ -52,10 +53,10 @@ export function LinkDialog({ url, onCopy, onClose }) {
   );
 }
 
-// Embeds live on other sites, so a local dev URL would be a dead frame there. The app host is used
-// directly: the f1stories.gr/ghostcar/ stub redirects without the query string.
+// Embeds live on other sites, so a local dev URL would be a dead frame there: standalone dev builds use the
+// public app host. The f1-stories.gr build always embeds from the origin serving it, local previews included.
 const PUBLIC_APP_URL = "https://georgiosbalatzis.github.io/ghostcar/";
-const isLocalHost = () => /^(localhost|127\.|\[::1\]$)/.test(window.location.hostname);
+const isLocalHost = () => !AGGREGATED && /^(localhost|127\.|\[::1\]$)/.test(window.location.hostname);
 
 export function EmbedDialog({ shareState, model, onCopy, onClose }) {
   const [view, setView] = useState(shareState.figure || "replay");

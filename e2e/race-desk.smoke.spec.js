@@ -26,7 +26,7 @@ test("Race Desk sits between the global nav and the GHOST CAR. title", async ({ 
   const nav = raceDesk(page);
   const links = nav.getByRole("link");
   await expect(links).toHaveText(["THE GRID", "TELEMETRY", "GHOST CAR", "TYRES"]);
-  await expect(links.nth(0)).toHaveAttribute("href", "https://f1stories.gr/standings/");
+  await expect(links.nth(0)).toHaveAttribute("href", "https://f1-stories.gr/standings/");
   await expect(links.nth(1)).toHaveAttribute("href", "https://georgiosbalatzis.github.io/f1-telemetry-dashboard/");
   // The app's own base, so dev and preview builds stay local.
   await expect(links.nth(2)).toHaveAttribute("href", APP_PATH);

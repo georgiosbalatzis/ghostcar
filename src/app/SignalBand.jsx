@@ -1,4 +1,4 @@
-import { SITE } from "./siteNav.js";
+import { AGGREGATED, BETCAST_URL, SITE } from "./siteNav.js";
 
 // The f1stories signal band under the page opening. It carries the page status: load progress with a cancel
 // action while a replay loads, otherwise what is on screen. Only the load status is a live region, so the
@@ -62,7 +62,7 @@ export function Colophon() {
         <a href="https://www.youtube.com/@f1_stories_original" target="_blank" rel="noopener noreferrer">
           YouTube ↗
         </a>
-        <a href="https://georgiosbalatzis.github.io/BetCastVisualisation/" target="_blank" rel="noopener noreferrer">
+        <a href={BETCAST_URL} {...(AGGREGATED ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
           BetCast ↗
         </a>
       </nav>
@@ -76,9 +76,6 @@ export function Colophon() {
         </a>
         <a href="https://www.instagram.com/myf1stories/" target="_blank" rel="noopener noreferrer">
           Instagram
-        </a>
-        <a href="https://www.tiktok.com/@f1stories6" target="_blank" rel="noopener noreferrer">
-          TikTok
         </a>
         <a href="mailto:myf1stories@gmail.com">Email</a>
       </nav>
