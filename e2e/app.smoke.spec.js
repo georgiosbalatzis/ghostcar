@@ -104,6 +104,30 @@ test("a successful lap load clears the previous failure for that slot", async ({
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
+test("recovering one of two failed lap loads keeps the other notice", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route(`${OPENF1}/laps**`, (route) =>
+    ["1", "4"].includes(new URL(route.request().url()).searchParams.get("driver_number"))
+      ? route.fulfill({ status: 429, body: "{}" })
+      : route.fallback()
+  );
+  await page.goto(APP_PATH);
+  await page.getByLabel("Γκραν Πρι").selectOption({ index: 1 });
+  await page.getByLabel("Σκέλος").selectOption({ index: 1 });
+  const first = page.getByLabel("Οδηγός 1", { exact: true });
+  const second = page.getByLabel("Οδηγός 2", { exact: true });
+  await first.selectOption("1");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+  await second.selectOption("4");
+  await expect(page.getByLabel("Γύρος οδηγού 2")).toContainText("Χωρίς γύρους", AFTER_RETRIES);
+  await second.selectOption("16");
+  await expect(page.getByLabel("Γύρος οδηγού 2")).toContainText("Γ9");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING);
+  await first.selectOption("63");
+  await expect(page.getByLabel("Γύρος οδηγού 1")).toContainText("Γ6");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
 test("rate-limited laps show their notice inside the edit dialog", async ({ page }) => {
   await routeOpenF1(page);
   await page.goto(comparisonUrl);
