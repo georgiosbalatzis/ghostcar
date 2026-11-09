@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { APP_PATH, collectPageErrors, routeOpenF1 } from "./fixtures.js";
+import { APP_PATH, collectPageErrors, comparisonUrl, MEETING_KEY, routeOpenF1 } from "./fixtures.js";
 
 test("builder loads as the only surface, without browser errors", async ({ page }) => {
   const errors = collectPageErrors(page);
@@ -58,6 +58,110 @@ test("OpenF1 failure is reported in plain language", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("Το OpenF1 δεν απαντά", { timeout: 10_000 });
   await page.getByRole("button", { name: "Απόκρυψη μηνύματος" }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+const OPENF1 = "https://api.openf1.org/v1";
+const NOT_RESPONDING = "Το OpenF1 δεν απαντά";
+// Three attempts with 1.5 s + 3 s of real backoff in the page, so these outlast the default expect timeout.
+const AFTER_RETRIES = { timeout: 20_000 };
+
+test("exhausted OpenF1 rate limiting ends loading with a plain-language notice", async ({ page }) => {
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await routeOpenF1(page, { status: 429 });
+  await page.goto(APP_PATH);
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+  await expect(page.locator("form.builder")).toHaveAttribute("aria-busy", "false");
+  expect(pageErrors).toEqual([]);
+});
+
+test("rate-limited laps raise the notice instead of a silent empty list", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route(`${OPENF1}/laps**`, (route) => route.fulfill({ status: 429, body: "{}" }));
+  await page.goto(APP_PATH);
+  await page.getByLabel("Γκραν Πρι").selectOption({ index: 1 });
+  await page.getByLabel("Σκέλος").selectOption({ index: 1 });
+  await page.getByLabel("Οδηγός 1", { exact: true }).selectOption("1");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+  await expect(page.getByLabel("Γύρος οδηγού 1")).toContainText("Χωρίς γύρους");
+});
+
+test("a successful lap load clears the previous failure for that slot", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route(`${OPENF1}/laps**`, (route) =>
+    new URL(route.request().url()).searchParams.get("driver_number") === "1"
+      ? route.fulfill({ status: 429, body: "{}" })
+      : route.fallback()
+  );
+  await page.goto(APP_PATH);
+  await page.getByLabel("Γκραν Πρι").selectOption({ index: 1 });
+  await page.getByLabel("Σκέλος").selectOption({ index: 1 });
+  const driver = page.getByLabel("Οδηγός 1", { exact: true });
+  await driver.selectOption("1");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+  await driver.selectOption("16");
+  await expect(page.getByLabel("Γύρος οδηγού 1")).toContainText("Γ9");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("recovering one of two failed lap loads keeps the other notice", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route(`${OPENF1}/laps**`, (route) =>
+    ["1", "4"].includes(new URL(route.request().url()).searchParams.get("driver_number"))
+      ? route.fulfill({ status: 429, body: "{}" })
+      : route.fallback()
+  );
+  await page.goto(APP_PATH);
+  await page.getByLabel("Γκραν Πρι").selectOption({ index: 1 });
+  await page.getByLabel("Σκέλος").selectOption({ index: 1 });
+  const first = page.getByLabel("Οδηγός 1", { exact: true });
+  const second = page.getByLabel("Οδηγός 2", { exact: true });
+  await first.selectOption("1");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+  await second.selectOption("4");
+  await expect(page.getByLabel("Γύρος οδηγού 2")).toContainText("Χωρίς γύρους", AFTER_RETRIES);
+  await second.selectOption("16");
+  await expect(page.getByLabel("Γύρος οδηγού 2")).toContainText("Γ9");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING);
+  await first.selectOption("63");
+  await expect(page.getByLabel("Γύρος οδηγού 1")).toContainText("Γ6");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("rate-limited laps show their notice inside the edit dialog", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await page.getByRole("button", { name: "Αλλαγή σύγκρισης", exact: true }).click();
+  await page.route(`${OPENF1}/laps**`, (route) => route.fulfill({ status: 429, body: "{}" }));
+  const dialog = page.getByRole("dialog", { name: "Αλλαγή σύγκρισης" });
+  await dialog.getByLabel("Οδηγός 1", { exact: true }).selectOption("16");
+  await expect(dialog.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+});
+
+test("an embed reports exhausted rate limiting in plain language", async ({ page }) => {
+  await routeOpenF1(page, { status: 429 });
+  await page.goto(`${APP_PATH}?embed=1`);
+  await expect(page.locator(".embed__error")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+});
+
+test("a season scan hit by rate limiting says it is incomplete and keeps what it found", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route(`${OPENF1}/meetings**`, (route) =>
+    route.fulfill({
+      json: [
+        { meeting_key: MEETING_KEY, meeting_name: "Monza Grand Prix", circuit_short_name: "Monza", year: 2025 },
+        { meeting_key: 9002, meeting_name: "Imola Grand Prix", circuit_short_name: "Imola", year: 2025 },
+      ],
+    })
+  );
+  await page.route(`${OPENF1}/sessions**`, (route) =>
+    new URL(route.request().url()).searchParams.get("meeting_key") === "9002"
+      ? route.fulfill({ status: 429, body: "{}" })
+      : route.fallback()
+  );
+  await page.goto(`${comparisonUrl}&tab=season`);
+  await expect(page.getByText("Το OpenF1 δεν απάντησε για όλα τα Γκραν Πρι")).toBeVisible(AFTER_RETRIES);
+  await expect(page.getByRole("rowheader", { name: "Monza GP" })).toBeVisible();
 });
 
 for (const width of [320, 390]) {

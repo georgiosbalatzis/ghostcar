@@ -6,7 +6,7 @@ import "./insights.css";
 // is cached per pair, and is cancelled when the tab closes.
 export default function SeasonPanel({ year, drivers, season }) {
   const [a, b] = drivers;
-  const { rows, progress, load, cancel } = season;
+  const { rows, progress, incomplete, load, cancel } = season;
 
   useEffect(() => {
     load();
@@ -35,6 +35,11 @@ export default function SeasonPanel({ year, drivers, season }) {
               : "Φόρτωση ημερολογίου…"}
           </span>
         </div>
+      )}
+      {incomplete && (
+        <p className="empty-note" role="alert">
+          Το OpenF1 δεν απάντησε για όλα τα Γκραν Πρι. Δοκίμασε ξανά σε λίγο.
+        </p>
       )}
       {rows && rows.length > 0 && (
         <>
@@ -97,7 +102,7 @@ export default function SeasonPanel({ year, drivers, season }) {
           </table>
         </>
       )}
-      {rows && rows.length === 0 && !progress && (
+      {rows && rows.length === 0 && !progress && !incomplete && (
         <p className="empty-note">Δεν βρέθηκαν κατατακτήριες με γύρους και για τους δύο οδηγούς στο {year}.</p>
       )}
     </section>

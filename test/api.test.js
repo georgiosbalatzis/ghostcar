@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fetchJSON, REQUEST_TELEMETRY_KEY } from "../src/api.js";
+import { loadDriverLapsAndStints, loadReplayStreams } from "../src/services/openf1.js";
 
 function mockResponse(status, body) {
   return {
@@ -115,6 +116,176 @@ test("fetchJSON records aborted development requests without calling fetch", asy
         aborted: true,
       }
     );
+  });
+});
+
+// Retry backoff runs at once and is recorded, so these tests never wait 1.5 s or more on a real timer.
+function recordSleeps(t) {
+  const realSetTimeout = globalThis.setTimeout;
+  const delays = [];
+  t.mock.method(globalThis, "setTimeout", (callback, ms) => {
+    delays.push(ms);
+    return realSetTimeout(callback, 0);
+  });
+  return delays;
+}
+
+function respondWith(...responses) {
+  const mock = { calls: 0 };
+  globalThis.fetch = async () => {
+    const response = responses[Math.min(mock.calls, responses.length - 1)];
+    mock.calls += 1;
+    if (response instanceof Error) throw response;
+    return mockResponse(...response);
+  };
+  return mock;
+}
+
+const lastTelemetry = () => globalThis[REQUEST_TELEMETRY_KEY].at(-1);
+
+test("fetchJSON returns an immediate success after one request and no backoff", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    const delays = recordSleeps(t);
+    const mock = respondWith([200, [{ lap_number: 1 }]]);
+
+    assert.deepEqual(await fetchJSON("/laps", { session_key: 1001 }), [{ lap_number: 1 }]);
+    assert.equal(mock.calls, 1);
+    assert.deepEqual(delays, []);
+  });
+});
+
+test("fetchJSON retries after HTTP 429 and returns the later success", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    const delays = recordSleeps(t);
+    const mock = respondWith([429], [200, [{ lap_number: 2 }]]);
+
+    assert.deepEqual(await fetchJSON("/laps", { session_key: 1002 }), [{ lap_number: 2 }]);
+    assert.equal(mock.calls, 2);
+    assert.deepEqual(delays, [1500]);
+    assert.equal(lastTelemetry().status, 200);
+    assert.equal(lastTelemetry().retryCount, 1);
+  });
+});
+
+test("fetchJSON rejects with API 429 when retries are exhausted, after a bounded number of requests", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    const delays = recordSleeps(t);
+    const mock = respondWith([429]);
+
+    await assert.rejects(() => fetchJSON("/laps", { session_key: 1003 }), { message: "API 429" });
+
+    assert.equal(mock.calls, 3);
+    assert.deepEqual(delays, [1500, 3000], "no backoff after the final attempt");
+    assert.equal(lastTelemetry().status, 429);
+    assert.equal(lastTelemetry().retryCount, 2);
+    assert.equal(lastTelemetry().aborted, false);
+  });
+});
+
+test("fetchJSON with retries: 0 rejects on the first HTTP 429 without sleeping", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    const delays = recordSleeps(t);
+    const mock = respondWith([429]);
+
+    await assert.rejects(() => fetchJSON("/laps", { session_key: 1004 }, { retries: 0 }), { message: "API 429" });
+
+    assert.equal(mock.calls, 1);
+    assert.deepEqual(delays, []);
+  });
+});
+
+test("fetchJSON does not cache an exhausted 429, so the next call asks OpenF1 again", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    recordSleeps(t);
+    const mock = respondWith([429], [429], [429], [200, [{ lap_number: 3 }]]);
+
+    await assert.rejects(() => fetchJSON("/laps", { session_key: 1005 }), { message: "API 429" });
+    assert.deepEqual(await fetchJSON("/laps", { session_key: 1005 }), [{ lap_number: 3 }]);
+    assert.equal(mock.calls, 4);
+    assert.equal(lastTelemetry().cacheHit, false);
+  });
+});
+
+test("fetchJSON retries a network failure and rejects with the original error", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    const delays = recordSleeps(t);
+    const failure = new TypeError("Failed to fetch");
+    const mock = respondWith(failure);
+
+    await assert.rejects(
+      () => fetchJSON("/laps", { session_key: 1006 }),
+      (error) => error === failure
+    );
+
+    assert.equal(mock.calls, 3);
+    assert.deepEqual(delays, [800, 1600]);
+    assert.equal(lastTelemetry().status, null);
+  });
+});
+
+test("fetchJSON does not retry a request aborted in flight", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    const delays = recordSleeps(t);
+    const abort = new Error("Aborted");
+    abort.name = "AbortError";
+    const mock = respondWith(abort);
+
+    await assert.rejects(() => fetchJSON("/laps", { session_key: 1007 }), { name: "AbortError" });
+
+    assert.equal(mock.calls, 1);
+    assert.deepEqual(delays, []);
+    assert.equal(lastTelemetry().aborted, true);
+  });
+});
+
+test("fetchJSON stops retrying when aborted during a 429", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    recordSleeps(t);
+    const controller = new AbortController();
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      controller.abort();
+      return mockResponse(429);
+    };
+
+    await assert.rejects(() => fetchJSON("/laps", { session_key: 1008 }, { signal: controller.signal }), {
+      name: "AbortError",
+    });
+
+    assert.equal(calls, 1);
+    assert.equal(lastTelemetry().aborted, true);
+  });
+});
+
+test("a replay load rejects on exhausted 429s instead of reporting missing location data", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    recordSleeps(t);
+    respondWith([429]);
+    const lap = { date_start: "2025-09-06T14:00:00.000Z", lap_duration: 80 };
+
+    await assert.rejects(
+      () =>
+        loadReplayStreams({
+          sessionKey: 1009,
+          drivers: [
+            { slot: 1, driverNumber: 1, lap },
+            { slot: 2, driverNumber: 4, lap },
+          ],
+        }),
+      { message: "API 429" }
+    );
+  });
+});
+
+test("optional stints degrade to an empty list on exhausted 429s while laps still load", async (t) => {
+  await withMockedApiEnvironment(async () => {
+    recordSleeps(t);
+    const laps = [{ lap_number: 4 }];
+    globalThis.fetch = async (url) =>
+      new URL(url).pathname.endsWith("/stints") ? mockResponse(429) : mockResponse(200, laps);
+
+    assert.deepEqual(await loadDriverLapsAndStints(1010, 1), { laps, stints: [] });
   });
 });
 

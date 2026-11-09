@@ -91,6 +91,7 @@ export async function fetchJSON(ep, params = {}, options = {}) {
         const r = await fetch(url, { signal });
         status = r.status;
         if (r.status === 429) {
+          if (a === retries) throw new Error("API 429");
           await sleep(1500 * (a + 1), signal);
           continue;
         }

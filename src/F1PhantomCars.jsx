@@ -73,6 +73,7 @@ function useToast() {
 
 // Raw transport errors ("API 500", "Failed to fetch") become a sentence a reader can act on.
 function describeError(message) {
+  message = message?.message ?? message;
   if (/^API \d+|fetch|network/i.test(message)) {
     return "Το OpenF1 δεν απαντά αυτή τη στιγμή. Οι επιλογές σου παραμένουν· δοκίμασε ξανά σε λίγο.";
   }
@@ -596,7 +597,7 @@ export default function App({ embed }) {
       </div>
     ) : (
       <div className="embed embed--empty" role="status">
-        {err ? <p className="embed__error">{err}</p> : <p>{loading || "Φόρτωση σύγκρισης…"}</p>}
+        {err ? <p className="embed__error">{describeError(err)}</p> : <p>{loading || "Φόρτωση σύγκρισης…"}</p>}
       </div>
     );
   } else if (model) {
@@ -670,6 +671,7 @@ export default function App({ embed }) {
       {!embed && <Colophon />}
       {dialog === "edit" && model && (
         <Dialog title="Αλλαγή σύγκρισης" variant="sheet" onClose={closeDialog}>
+          {notice}
           <ComparisonBuilder
             idPrefix="edit"
             onCompare={compareFromSheet}
