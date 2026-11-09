@@ -255,7 +255,7 @@ function selectorSlotsReducer(slots, action) {
 
 // Loads laps and stints for one slot whenever its driver or the session changes.
 // Request ids guard against stale responses; the abort signal cancels superseded requests.
-function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatchSlots, clearReplaySlot }) {
+function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatchSlots, clearReplaySlot, setErr }) {
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -279,8 +279,9 @@ function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatch
         dispatchSlots({ type: "setLap", slot, value: null });
       })
       .catch((error) => {
-        if (isAbortError(error) || !isCurrent()) return;
+        if (isAbortError(error) || controller.signal.aborted || !isCurrent()) return;
         dispatchSlots({ type: "setLaps", slot, value: [], loading: false, loaded: true });
+        setErr?.(error.message);
       });
     fetchStints(sessionKey, driverNumber, { signal: controller.signal })
       .then((stints) => {
@@ -292,7 +293,7 @@ function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatch
         dispatchSlots({ type: "setStints", slot, value: [] });
       });
     return () => controller.abort();
-  }, [clearReplaySlot, dispatchSlots, driverNumber, presetActiveRef, sessionKey, slot]);
+  }, [clearReplaySlot, dispatchSlots, driverNumber, presetActiveRef, sessionKey, setErr, slot]);
 }
 
 export default function useComparisonSelectors({
@@ -588,7 +589,7 @@ export default function useComparisonSelectors({
     setSelSe(session);
   }, [presetActiveRef, restoreFlagsRef, restoreStateRef, restoreTick, sess, sessionsLoaded, setErr]);
 
-  const slotArgs = { sessionKey, presetActiveRef, dispatchSlots, clearReplaySlot };
+  const slotArgs = { sessionKey, presetActiveRef, dispatchSlots, clearReplaySlot, setErr };
   useSlotLaps({ ...slotArgs, slot: 1, driverNumber: slots[0].driverNumber });
   useSlotLaps({ ...slotArgs, slot: 2, driverNumber: slots[1].driverNumber });
   useSlotLaps({ ...slotArgs, slot: 3, driverNumber: slots[2].driverNumber });

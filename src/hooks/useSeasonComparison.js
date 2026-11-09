@@ -36,6 +36,7 @@ function abortableSleep(ms, signal) {
 export default function useSeasonComparison({ year, driver1Number, driver2Number }) {
   const [rows, setRows] = useState(null);
   const [progress, setProgress] = useState(null);
+  const [incomplete, setIncomplete] = useState(false);
   const abortRef = useRef(null);
   const cacheRef = useRef(new Map());
 
@@ -52,6 +53,7 @@ export default function useSeasonComparison({ year, driver1Number, driver2Number
     const cacheKey = `${year}:${driver1Number}:${driver2Number}`;
     const cached = cacheRef.current.get(cacheKey);
     abortRef.current?.abort();
+    setIncomplete(false);
     if (cached) {
       setRows(cached);
       setProgress(null);
@@ -63,6 +65,7 @@ export default function useSeasonComparison({ year, driver1Number, driver2Number
     setRows(null);
     setProgress({ checked: 0, total: 0, current: "" });
     const results = [];
+    let failed = false;
     try {
       const meetings = (await fetchMeetings(year, options)).filter((meeting) => meeting.meeting_name);
       for (let index = 0; index < meetings.length; index++) {
@@ -92,13 +95,19 @@ export default function useSeasonComparison({ year, driver1Number, driver2Number
           }
         } catch (error) {
           if (isAbortError(error)) throw error;
+          if (controller.signal.aborted) throw createAbortError();
+          failed = true;
           if (String(error).includes("429")) await abortableSleep(3000, controller.signal);
         }
       }
-      cacheRef.current.set(cacheKey, [...results]);
+      if (!failed) cacheRef.current.set(cacheKey, [...results]);
       setRows([...results]);
+      setIncomplete(failed);
     } catch (error) {
-      if (!isAbortError(error)) setRows([...results]);
+      if (!isAbortError(error) && !controller.signal.aborted) {
+        setRows([...results]);
+        setIncomplete(true);
+      }
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -107,5 +116,5 @@ export default function useSeasonComparison({ year, driver1Number, driver2Number
     }
   }, [driver1Number, driver2Number, year]);
 
-  return useMemo(() => ({ rows, progress, load, cancel }), [cancel, load, progress, rows]);
+  return useMemo(() => ({ rows, progress, incomplete, load, cancel }), [cancel, incomplete, load, progress, rows]);
 }

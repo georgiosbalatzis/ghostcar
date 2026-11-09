@@ -596,7 +596,7 @@ export default function App({ embed }) {
       </div>
     ) : (
       <div className="embed embed--empty" role="status">
-        {err ? <p className="embed__error">{err}</p> : <p>{loading || "Φόρτωση σύγκρισης…"}</p>}
+        {err ? <p className="embed__error">{describeError(err)}</p> : <p>{loading || "Φόρτωση σύγκρισης…"}</p>}
       </div>
     );
   } else if (model) {
