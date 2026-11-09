@@ -257,9 +257,17 @@ function selectorSlotsReducer(slots, action) {
 // Request ids guard against stale responses; the abort signal cancels superseded requests.
 function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatchSlots, clearReplaySlot, setErr }) {
   const requestIdRef = useRef(0);
+  const lapErrorRef = useRef(null);
 
   useEffect(() => {
     if (presetActiveRef?.current) return;
+    const clearLapError = () => {
+      const lapError = lapErrorRef.current;
+      if (!lapError) return;
+      lapErrorRef.current = null;
+      setErr?.((current) => (current === lapError ? "" : current));
+    };
+    clearLapError();
     if (!sessionKey || !driverNumber) {
       dispatchSlots({ type: "setLaps", slot, value: [], loading: false, loaded: false });
       dispatchSlots({ type: "setLap", slot, value: null });
@@ -275,13 +283,16 @@ function useSlotLaps({ slot, sessionKey, driverNumber, presetActiveRef, dispatch
     fetchLaps(sessionKey, driverNumber, { signal: controller.signal })
       .then((laps) => {
         if (controller.signal.aborted || !isCurrent()) return;
+        clearLapError();
         dispatchSlots({ type: "setLaps", slot, value: laps, loading: false, loaded: true });
         dispatchSlots({ type: "setLap", slot, value: null });
       })
       .catch((error) => {
         if (isAbortError(error) || controller.signal.aborted || !isCurrent()) return;
         dispatchSlots({ type: "setLaps", slot, value: [], loading: false, loaded: true });
-        setErr?.(error.message);
+        const lapError = { message: error.message };
+        lapErrorRef.current = lapError;
+        setErr?.(lapError);
       });
     fetchStints(sessionKey, driverNumber, { signal: controller.signal })
       .then((stints) => {

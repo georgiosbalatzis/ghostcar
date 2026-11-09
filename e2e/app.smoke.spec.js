@@ -86,6 +86,34 @@ test("rate-limited laps raise the notice instead of a silent empty list", async 
   await expect(page.getByLabel("Γύρος οδηγού 1")).toContainText("Χωρίς γύρους");
 });
 
+test("a successful lap load clears the previous failure for that slot", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.route(`${OPENF1}/laps**`, (route) =>
+    new URL(route.request().url()).searchParams.get("driver_number") === "1"
+      ? route.fulfill({ status: 429, body: "{}" })
+      : route.fallback()
+  );
+  await page.goto(APP_PATH);
+  await page.getByLabel("Γκραν Πρι").selectOption({ index: 1 });
+  await page.getByLabel("Σκέλος").selectOption({ index: 1 });
+  const driver = page.getByLabel("Οδηγός 1", { exact: true });
+  await driver.selectOption("1");
+  await expect(page.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+  await driver.selectOption("16");
+  await expect(page.getByLabel("Γύρος οδηγού 1")).toContainText("Γ9");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("rate-limited laps show their notice inside the edit dialog", async ({ page }) => {
+  await routeOpenF1(page);
+  await page.goto(comparisonUrl);
+  await page.getByRole("button", { name: "Αλλαγή σύγκρισης", exact: true }).click();
+  await page.route(`${OPENF1}/laps**`, (route) => route.fulfill({ status: 429, body: "{}" }));
+  const dialog = page.getByRole("dialog", { name: "Αλλαγή σύγκρισης" });
+  await dialog.getByLabel("Οδηγός 1", { exact: true }).selectOption("16");
+  await expect(dialog.getByRole("alert")).toContainText(NOT_RESPONDING, AFTER_RETRIES);
+});
+
 test("an embed reports exhausted rate limiting in plain language", async ({ page }) => {
   await routeOpenF1(page, { status: 429 });
   await page.goto(`${APP_PATH}?embed=1`);
