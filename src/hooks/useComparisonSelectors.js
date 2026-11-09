@@ -268,7 +268,6 @@ function useSlotLaps({
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (presetActiveRef?.current) return;
     const clearLapError = () => {
       const lapError = lapErrorsRef.current.get(slot);
       if (!lapError) return;
@@ -276,6 +275,7 @@ function useSlotLaps({
       setErr?.((current) => (current === lapError ? lapErrorsRef.current.values().next().value || "" : current));
     };
     clearLapError();
+    if (presetActiveRef?.current) return;
     if (!sessionKey || !driverNumber) {
       dispatchSlots({ type: "setLaps", slot, value: [], loading: false, loaded: false });
       dispatchSlots({ type: "setLap", slot, value: null });
