@@ -79,17 +79,19 @@ function SiteMasthead({ isDark, onToggleTheme }) {
       <a className="masthead__brand" href={`${SITE}/`} aria-label="Αρχική σελίδα F1 Stories">
         <img
           className="brand-light"
-          src={`${import.meta.env.BASE_URL}brand/f1s-header-light.svg`}
+          src={`${import.meta.env.BASE_URL}brand/f1s-header-light.webp`}
+          srcSet={`${import.meta.env.BASE_URL}brand/f1s-header-light@2x.webp 2x`}
           alt=""
-          width="1400"
-          height="236"
+          width="182"
+          height="36"
         />
         <img
           className="brand-dark"
-          src={`${import.meta.env.BASE_URL}brand/f1s-header-dark.svg`}
+          src={`${import.meta.env.BASE_URL}brand/f1s-header-dark.webp`}
+          srcSet={`${import.meta.env.BASE_URL}brand/f1s-header-dark@2x.webp 2x`}
           alt=""
-          width="1400"
-          height="236"
+          width="173"
+          height="36"
         />
       </a>
       <nav className="masthead__nav" aria-label="F1 Stories">

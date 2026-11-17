@@ -25,5 +25,5 @@
   if (theme !== "light" && theme !== "dark") theme = stored === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = theme;
   var icon = document.querySelector("[data-brand-icon]");
-  if (icon) icon.href = icon.href.replace(/f1s-micro-(light|dark)\.svg/, "f1s-micro-" + theme + ".svg");
+  if (icon) icon.href = icon.href.replace(/favicon-(light|dark)-32\.png/, "favicon-" + theme + "-32.png");
 })();

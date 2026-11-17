@@ -373,7 +373,7 @@ Rollback: `"mode": "app"` και merge· το επόμενο deploy δημοσι
 ### Public assets
 
 - [public/f1car.glb](public/f1car.glb): 3D μοντέλο μονοθεσίου
-- [public/brand/](public/brand/): wordmarks, εικονίδια και κάρτα social από το brand kit του F1 Stories
+- [public/brand/](public/brand/): αυθεντικά raster wordmarks, εικονίδια και κάρτα social από το brand kit του F1 Stories
 
 ### SEO / metadata
 
