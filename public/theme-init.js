@@ -24,4 +24,6 @@
   if (stored === "auto") stored = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   if (theme !== "light" && theme !== "dark") theme = stored === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = theme;
+  var icon = document.querySelector("[data-brand-icon]");
+  if (icon) icon.href = icon.href.replace(/favicon-(light|dark)-32\.png/, "favicon-" + theme + "-32.png");
 })();

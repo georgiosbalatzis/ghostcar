@@ -43,6 +43,8 @@ export default function useThemePreference() {
   useEffect(() => {
     const theme = isDark ? "dark" : "light";
     document.documentElement.dataset.theme = theme;
+    const icon = document.querySelector("[data-brand-icon]");
+    if (icon) icon.href = icon.href.replace(/favicon-(light|dark)-32\.png/, `favicon-${theme}-32.png`);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark ? "#1b1a19" : "#f2eee4");
   }, [isDark]);
 

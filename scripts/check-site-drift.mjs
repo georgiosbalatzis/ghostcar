@@ -81,10 +81,15 @@ for (const [theme, expected] of Object.entries(PALETTE)) {
 
 // 4. The nav logo.
 const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
-const liveLogo = Buffer.from(await (await fetch(`${SITE}/images/logo-nav.webp`)).arrayBuffer());
-const ourLogo = await readFile(new URL("../public/logo-nav.webp", import.meta.url));
-if (hash(liveLogo) !== hash(ourLogo))
-  problems.push("The nav logo changed: copy f1-stories.gr/images/logo-nav.webp to public/.");
+for (const theme of ["light", "dark"]) {
+  const name = `f1s-header-${theme}.webp`;
+  const response = await fetch(`${SITE}/images/brand/${name}`);
+  if (!response.ok) throw new Error(`Failed to fetch ${name}: ${response.status}`);
+  const liveLogo = Buffer.from(await response.arrayBuffer());
+  const ourLogo = await readFile(new URL(`../public/brand/${name}`, import.meta.url));
+  if (hash(liveLogo) !== hash(ourLogo))
+    problems.push(`The nav logo changed: copy f1-stories.gr/images/brand/${name} to public/brand/.`);
+}
 
 if (problems.length) {
   console.error(`f1-stories.gr has changed since Ghost Car copied it:\n- ${problems.join("\n- ")}`);

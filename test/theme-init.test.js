@@ -20,13 +20,26 @@ function run({ stored = {}, search = "", hash = "", osDark = false, storageThrow
     removeItem: storageThrows ? fail : (key) => items.delete(key),
   };
   const documentElement = { dataset: {} };
+  const icon = { href: "/ghostcar/brand/favicon-light-32.png" };
   const window = {
     location: { search, hash },
     matchMedia: (query) => ({ matches: query === "(prefers-color-scheme: dark)" && osDark }),
   };
-  vm.runInNewContext(script, { window, document: { documentElement }, localStorage, URLSearchParams });
-  return { theme: documentElement.dataset.theme, storage: Object.fromEntries(items) };
+  vm.runInNewContext(script, {
+    window,
+    document: { documentElement, querySelector: () => icon },
+    localStorage,
+    URLSearchParams,
+  });
+  const result = { theme: documentElement.dataset.theme, storage: Object.fromEntries(items) };
+  Object.defineProperty(result, "icon", { value: icon.href });
+  return result;
 }
+
+test("the favicon follows the resolved theme", () => {
+  assert.match(run({ stored: { "f1stories-theme": "dark" } }).icon, /favicon-dark-32\.png$/);
+  assert.match(run({ search: "?th=light", stored: { "f1stories-theme": "dark" } }).icon, /favicon-light-32\.png$/);
+});
 
 test("the host page's #light / #dark hash beats ?th= and storage", () => {
   assert.equal(run({ stored: { "f1stories-theme": "light" }, search: "?th=light", hash: "#dark" }).theme, "dark");

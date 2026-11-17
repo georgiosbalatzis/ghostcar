@@ -51,7 +51,13 @@ export function Colophon() {
     <footer className="colophon">
       <div className="colophon__identity">
         <a className="colophon__brand" href={`${SITE}/`} aria-label="F1 Stories, αρχική σελίδα">
-          F1 STORIES<span className="dot">.</span>
+          <img
+            src={`${import.meta.env.BASE_URL}brand/f1s-header-dark.webp`}
+            srcSet={`${import.meta.env.BASE_URL}brand/f1s-header-dark@2x.webp 2x`}
+            alt=""
+            width="173"
+            height="36"
+          />
         </a>
         <p>Τεχνική ανάλυση, άποψη και ελληνική F1 κοινότητα.</p>
       </div>
