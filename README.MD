@@ -373,10 +373,7 @@ Rollback: `"mode": "app"` και merge· το επόμενο deploy δημοσι
 ### Public assets
 
 - [public/f1car.glb](public/f1car.glb): 3D μοντέλο μονοθεσίου
-- [public/logo.png](public/logo.png): εικόνα για social metadata (`og:image`) μόνο· η σελίδα δεν τη φορτώνει
-- [public/favicon-64.png](public/favicon-64.png), [public/apple-touch-icon.png](public/apple-touch-icon.png): μικρά εικονίδια που παράγονται από το logo
-- [public/logo-nav.webp](public/logo-nav.webp): το λογότυπο της μπάρας του f1stories.gr (2,7 kB)
-- [public/f1-stories-logo.svg](public/f1-stories-logo.svg): local logo asset
+- [public/brand/](public/brand/): wordmarks, εικονίδια και κάρτα social από το brand kit του F1 Stories
 
 ### SEO / metadata
 

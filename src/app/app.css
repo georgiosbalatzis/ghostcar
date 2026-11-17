@@ -39,7 +39,8 @@ main:focus {
   align-items: center;
   min-height: var(--touch-target);
   gap: 12px;
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--text);
   font-family: var(--font-brand);
   font-size: 30px;
@@ -50,8 +51,20 @@ main:focus {
   white-space: nowrap;
 }
 .masthead__brand img {
-  width: 36px;
-  height: 36px;
+  width: 100%;
+  max-width: 213.56px;
+  height: auto;
+}
+.brand-dark,
+:root[data-theme="dark"] .brand-light {
+  display: none;
+}
+:root[data-theme="dark"] .brand-dark {
+  display: block;
+}
+.colophon__brand img {
+  width: auto;
+  height: 30px;
 }
 .masthead__nav {
   display: flex;
@@ -74,6 +87,7 @@ main:focus {
 }
 .masthead__end {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-4);
   margin-left: auto;
@@ -162,8 +176,7 @@ main:focus {
     font-size: 25px;
   }
   .masthead__brand img {
-    width: 30px;
-    height: 30px;
+    max-width: 177.97px;
   }
   .masthead__countdown {
     display: none;
